@@ -16,7 +16,20 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
       rel="stylesheet"
     />
+    <!-- Leaflet primero: así style.css gana los empates de especificidad
+         y los estilos propios mandan sobre los de la librería. -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
     <link rel="stylesheet" href="style.css" />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
   </head>
   <body>
     <!-- ============ SPRITE DE ÍCONOS ============ -->
@@ -86,6 +99,18 @@
         <symbol id="ic-pin" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M536.5-503.5Q560-527 560-560t-23.5-56.5Q513-640 480-640t-56.5 23.5Q400-593 400-560t23.5 56.5Q447-480 480-480t56.5-23.5ZM480-80Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z"
+          />
+        </symbol>
+        <symbol id="ic-house" viewBox="0 -960 960 960" fill="currentColor">
+          <path
+            d="M200-160v-366L88-440l-48-64 440-336 160 122v-82h120v174l160 122-48 64-112-86v366H560v-240H400v240H200Zm200-399h160q0-32-24-52.5T480-632q-32 0-56 20.5T400-559Z"
+          />
+        </symbol>
+
+        <!-- zoom_in.svg -->
+        <symbol id="ic-zoom" viewBox="0 -960 960 960" fill="currentColor">
+          <path
+            d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Zm-40-60v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"
           />
         </symbol>
         <!-- calendar.svg -->
@@ -324,16 +349,14 @@
             </div>
           </div>
           <div class="map-frame">
-            <iframe
-              src="https://www.google.com/maps?q=San+Juan+2530,+San+Bernardo+del+Tuyu,+Buenos+Aires&output=embed"
-              width="100%"
-              height="100%"
-              style="border: 0"
-              allowfullscreen=""
-              loading="lazy"
-              referrerpolicy="no-referrer-when-downgrade"
-              title="Mapa de ubicación del departamento"
-            ></iframe>
+            <div id="map" class="map-container"></div>
+            <div class="map-overlay" id="mapOverlay" aria-hidden="true">
+              <div class="map-overlay-content">
+                <p id="mapOverlayText">
+                  Usá <kbd>Ctrl</kbd> + <kbd>Scroll</kbd> para hacer zoom
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -418,10 +441,20 @@
 
             <div class="field">
               <label for="mensaje">Mensaje (opcional)</label>
-              <textarea id="mensaje" name="mensaje" rows="4"></textarea>
+              <textarea
+                id="mensaje"
+                name="mensaje"
+                rows="4"
+                maxlength="500"
+              ></textarea>
+              <p>
+                Palabras: <span id="contador">0</span>/100 | Caracteres:
+                <span id="caracteres">0</span>/500
+              </p>
             </div>
 
             <div class="alert-box alert-box-inline">
+              Caracteres: <span id="caracteres">0</span>/500
               <svg class="ic-md"><use href="#ic-alert" /></svg>
               <p>
                 Recordá que <strong>NO SE PERMITEN MASCOTAS</strong> bajo
