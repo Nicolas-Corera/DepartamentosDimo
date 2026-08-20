@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Depto San Juan 2530 · San Bernardo del Tuyú | DepartamentosDimo
+    </title>
+    <meta
+      name="description"
+      content="Alquiler temporario en San Bernardo del Tuyú. 2 ambientes, terraza con vista al mar, a 2 cuadras de la playa. Consultá tu reserva."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- ============ SPRITE DE ÍCONOS ============ -->
+    <svg class="icon-sprite" aria-hidden="true">
+      <defs>
+        <symbol
+          id="ic-umbrella"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 12v8a2 2 0 0 0 4 0" />
+          <path
+            d="M12 12a9 9 0 0 1 9-9 9 9 0 0 1 9 9Z"
+            transform="translate(-9,0)"
+          />
+          <path d="M12 3v2" />
+        </symbol>
+        <symbol id="ic-whatsapp" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M17.47 14.38c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.48-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.6-.91-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35Z"
+          />
+          <path
+            d="M12 2a10 10 0 0 0-8.6 15.1L2 22l4.99-1.31A10 10 0 1 0 12 2Zm0 18.2a8.19 8.19 0 0 1-4.18-1.14l-.3-.18-3.11.82.83-3.03-.2-.31A8.2 8.2 0 1 1 12 20.2Z"
+          />
+        </symbol>
+        <symbol
+          id="ic-wifi"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M5 12.5a11 11 0 0 1 14 0" />
+          <path d="M8.2 16a6.5 6.5 0 0 1 7.6 0" />
+          <path d="M11.5 19.4a1 1 0 1 0 1 0" />
+        </symbol>
+        <symbol
+          id="ic-tv"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+          <path d="M8 21.5h8M12 18.5v3" />
+        </symbol>
+        <symbol
+          id="ic-kitchen"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 3v6a3 3 0 0 0 3 3v9M4 3v9M7 3v9" />
+          <path d="M17 3c-1.5 2-1.5 6 0 8v10" />
+        </symbol>
+        <symbol
+          id="ic-fan"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+          <path
+            d="M12 12c0-3 1.5-7 4.5-7 2 0 3 1.6 3 3.2C19.5 11 15.5 12 12 12Z"
+          />
+          <path
+            d="M12 12c-3 0-7-1.5-7-4.5 0-2 1.6-3 3.2-3C11 4.5 12 8.5 12 12Z"
+          />
+          <path
+            d="M12 12c0 3-1.5 7-4.5 7-2 0-3-1.6-3-3.2C4.5 13 8.5 12 12 12Z"
+          />
+        </symbol>
+        <symbol
+          id="ic-flame"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12 22c4 0 6-2.7 6-6 0-3-2-5-3-7-.2 2-1.3 3-2.2 3.7C11.7 11.4 11 9 11 7c-3 2-5 5.3-5 9 0 3.3 2 6 6 6Z"
+          />
+        </symbol>
+        <symbol
+          id="ic-car"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M3.5 16.5V13l2-5.5A2 2 0 0 1 7.4 6h9.2a2 2 0 0 1 1.9 1.5L20.5 13v3.5"
+          />
+          <path d="M3.5 16.5h17M3.5 13h17" />
+          <circle cx="7" cy="16.5" r="1.6" />
+          <circle cx="17" cy="16.5" r="1.6" />
+        </symbol>
+        <symbol
+          id="ic-elevator"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="4" y="2.5" width="16" height="19" rx="1.5" />
+          <path d="M9.5 8.5 12 6l2.5 2.5M9.5 15.5 12 18l2.5-2.5" />
+        </symbol>
+        <symbol
+          id="ic-cutlery"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 2v8a2 2 0 0 0 4 0V2M8 10v12" />
+          <path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10" />
+        </symbol>
+        <symbol
+          id="ic-pin"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 21s7-6.4 7-12a7 7 0 0 0-14 0c0 5.6 7 12 7 12Z" />
+          <circle cx="12" cy="9" r="2.4" />
+        </symbol>
+        <symbol
+          id="ic-calendar"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3.5" y="5" width="17" height="16" rx="2" />
+          <path d="M8 3v4M16 3v4M3.5 10h17" />
+        </symbol>
+        <symbol id="ic-star" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="m12 2 3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2Z"
+          />
+        </symbol>
+        <symbol
+          id="ic-alert"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 3 2 20h20L12 3Z" />
+          <path d="M12 10v4M12 17.5v.1" />
+        </symbol>
+        <symbol
+          id="ic-check"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m5 12 5 5L19 8" />
+        </symbol>
+        <symbol
+          id="ic-close"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
+        </symbol>
+        <symbol
+          id="ic-chevron"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m9 6 6 6-6 6" />
+        </symbol>
+        <symbol id="ic-quote" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M9.5 5C6 6.2 4 9 4 12.5v6.5h6.5V12H7.3C7.6 9.7 8.7 8 10.5 7.2L9.5 5Zm9 0c-3.5 1.2-5.5 4-5.5 7.5v6.5H19.5V12h-3.2c.3-2.3 1.4-4 3.2-4.8L18.5 5Z"
+          />
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- ============ HEADER ============ -->
+    <header class="site-header" id="siteHeader">
+      <div class="wrap header-inner">
+        <a href="#inicio" class="brand">
+          <svg class="brand-icon"><use href="#ic-umbrella" /></svg>
+          <span>Depto San Juan 2530</span>
+        </a>
+        <a
+          class="btn btn-whatsapp"
+          href="https://wa.me/5491159367822?text=Hola!%20Quiero%20consultar%20por%20el%20Depto%20San%20Juan%202530"
+          target="_blank"
+          rel="noopener"
+        >
+          <svg class="ic-sm"><use href="#ic-whatsapp" /></svg>
+          <span>Consultar por WhatsApp</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ HERO ============ -->
+      <section class="hero" id="inicio">
+        <div
+          class="hero-media"
+          style="
+            background-image: url(&quot;https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1800&q=75&quot;);
+          "
+        ></div>
+        <div class="hero-overlay"></div>
+        <div class="wrap hero-content">
+          <p class="eyebrow">San Bernardo del Tuyú · Costa Atlántica</p>
+          <h1 class="hero-title">
+            <span id="typewriter" aria-live="polite"></span
+            ><span class="cursor" aria-hidden="true">|</span>
+          </h1>
+          <p class="hero-subtitle">
+            Tu lugar para desconectar y disfrutar la costa
+          </p>
+          <ul class="hero-bullets">
+            <li>A pasos del mar</li>
+            <li>Vista abierta desde la terraza</li>
+            <li>Cómodo para hasta 4 personas</li>
+          </ul>
+          <div class="hero-cta">
+            <button
+              type="button"
+              class="btn btn-primary"
+              id="btnDisponibilidad"
+            >
+              <svg class="ic-sm"><use href="#ic-calendar" /></svg> Ver
+              disponibilidad
+            </button>
+            <a href="#reserva" class="btn btn-ghost">Consultar reserva</a>
+          </div>
+        </div>
+        <svg
+          class="wave-divider"
+          viewBox="0 0 1440 90"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0,32 C240,80 480,0 720,28 C960,56 1200,86 1440,40 L1440,90 L0,90 Z"
+          ></path>
+        </svg>
+      </section>
+
+      <!-- ============ GALERÍA ============ -->
+      <section class="section" id="fotos">
+        <div class="wrap">
+          <p class="section-eyebrow">Recorré cada rincón</p>
+          <h2 class="section-title">Fotos del departamento</h2>
+          <div class="masonry" id="masonry">
+            <!-- generado por JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ EL DEPARTAMENTO ============ -->
+      <section class="section section-alt" id="departamento">
+        <div class="wrap">
+          <div class="depto-layout">
+            <div class="depto-text">
+              <p class="section-eyebrow">Conocé el lugar</p>
+              <h2 class="section-title">El Departamento</h2>
+              <p>
+                Departamento de <strong>2 ambientes</strong> ubicado en calle
+                San Juan al 2530, <strong>2° piso por ascensor</strong>, con
+                balcón y cochera cubierta. Capacidad para
+                <strong>4 personas</strong>. Se encuentra a solo
+                <strong>2 cuadras del mar</strong> y a
+                <strong>1 cuadra de la peatonal y el Bingo</strong>, rodeado de
+                confiterías y restaurantes.
+              </p>
+              <p>
+                Cuenta con <strong>DirecTV prepago</strong> (a cargo del
+                inquilino) y una <strong>terraza con vista al mar</strong>,
+                ideal para los atardeceres de la costa. Totalmente equipado para
+                que solo tengas que pensar en disfrutar.
+              </p>
+              <div class="alert-box">
+                <svg class="ic-md"><use href="#ic-alert" /></svg>
+                <p>
+                  <strong>IMPORTANTE:</strong> NO SE PERMITEN MASCOTAS SIN
+                  EXCEPCIONES.
+                </p>
+              </div>
+            </div>
+            <div class="depto-media">
+              <img
+                src="https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=900&q=75"
+                alt="Living del departamento con vista al mar"
+                loading="lazy"
+              />
+            </div>
+          </div>
+
+          <div class="amenities-grid">
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-wifi" /></svg>
+              <h3>WiFi</h3>
+              <p>Excelente velocidad</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-tv" /></svg>
+              <h3>TV LCD</h3>
+              <p>DirecTV Prepago</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-kitchen" /></svg>
+              <h3>Cocina Equipada</h3>
+              <p>Todo lo necesario</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-fan" /></svg>
+              <h3>Refrigeración</h3>
+              <p>Ventilador de techo</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-flame" /></svg>
+              <h3>Calefacción</h3>
+              <p>Estufa a gas envasado y pantallas eléctricas</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-car" /></svg>
+              <h3>Estacionamiento</h3>
+              <p>Incluido</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-elevator" /></svg>
+              <h3>Ascensor</h3>
+              <p>Acceso cómodo</p>
+            </div>
+            <div class="amenity-card">
+              <svg class="ic-lg"><use href="#ic-cutlery" /></svg>
+              <h3>Comedor</h3>
+              <p>Vajilla completa</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ UBICACIÓN ============ -->
+      <section class="section" id="ubicacion">
+        <div class="wrap">
+          <p class="section-eyebrow">Dónde vas a estar</p>
+          <h2 class="section-title">Ubicación</h2>
+          <div class="location-highlights">
+            <div class="loc-item">
+              <svg class="ic-md"><use href="#ic-pin" /></svg
+              ><span>San Bernardo del Tuyú, Buenos Aires</span>
+            </div>
+            <div class="loc-item">
+              <svg class="ic-md"><use href="#ic-umbrella" /></svg
+              ><span>A 2 cuadras del mar</span>
+            </div>
+            <div class="loc-item">
+              <svg class="ic-md"><use href="#ic-pin" /></svg
+              ><span>A 1 cuadra de la peatonal y del bingo</span>
+            </div>
+          </div>
+          <div class="map-frame">
+            <iframe
+              src="https://www.google.com/maps?q=San+Juan+2530,+San+Bernardo+del+Tuyu,+Buenos+Aires&output=embed"
+              width="100%"
+              height="100%"
+              style="border: 0"
+              allowfullscreen=""
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              title="Mapa de ubicación del departamento"
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ RESERVA / FORMULARIO ============ -->
+      <section class="section section-alt" id="reserva">
+        <div class="wrap">
+          <p class="section-eyebrow">Estamos para ayudarte</p>
+          <h2 class="section-title">Consultá tu Reserva</h2>
+
+          <form class="booking-form" id="bookingForm" novalidate>
+            <div class="form-grid">
+              <div class="field">
+                <label for="nombre">Nombre completo *</label>
+                <input type="text" id="nombre" name="nombre" required />
+              </div>
+              <div class="field">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required />
+              </div>
+              <div class="field">
+                <label for="dni">Número de DNI *</label>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="dni"
+                  name="dni"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label for="telefono">Teléfono de contacto *</label>
+                <input type="tel" id="telefono" name="telefono" required />
+              </div>
+              <div class="field">
+                <label for="procedencia">Procedencia / Localidad</label>
+                <input type="text" id="procedencia" name="procedencia" />
+              </div>
+              <div class="field">
+                <label for="fechasBtn">Fechas de estadía *</label>
+                <button type="button" class="date-trigger" id="fechasBtn">
+                  <svg class="ic-sm"><use href="#ic-calendar" /></svg>
+                  <span id="fechasLabel">Seleccionar fechas</span>
+                </button>
+                <input type="hidden" id="fechasInput" name="fechas" required />
+              </div>
+              <div class="field">
+                <label for="personas">Cantidad total de personas *</label>
+                <select id="personas" name="personas" required>
+                  <option value="">Elegir cantidad</option>
+                  <option value="1">1 persona</option>
+                  <option value="2">2 personas</option>
+                  <option value="3">3 personas</option>
+                  <option value="4">4 personas</option>
+                </select>
+              </div>
+              <div class="field" id="ninosField" hidden>
+                <label for="ninos">Cantidad de niños</label>
+                <select id="ninos" name="ninos">
+                  <option value="0">Sin niños</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group" id="edadesGroup" hidden>
+              <label>Edad de cada niño</label>
+              <div class="edades-wrap" id="edadesWrap"></div>
+            </div>
+
+            <div class="checkbox-field">
+              <label class="checkbox-label">
+                <input type="checkbox" id="vehiculo" name="vehiculo" />
+                <span>¿Posee vehículo? (opcional)</span>
+              </label>
+              <p class="fine-print">
+                Marque esta opción únicamente si cuenta con vehículo propio. En
+                caso de no poseerlo, deje la casilla sin marcar. Si posee
+                vehículo y no lo declara en el formulario, los propietarios no
+                se harán responsables.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="mensaje">Mensaje (opcional)</label>
+              <textarea id="mensaje" name="mensaje" rows="4"></textarea>
+            </div>
+
+            <div class="alert-box alert-box-inline">
+              <svg class="ic-md"><use href="#ic-alert" /></svg>
+              <p>
+                Recordá que <strong>NO SE PERMITEN MASCOTAS</strong> bajo
+                ninguna circunstancia.
+              </p>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+              Enviar consulta
+            </button>
+            <p class="form-success" id="formSuccess" hidden>
+              <svg class="ic-sm"><use href="#ic-check" /></svg> ¡Gracias!
+              Recibimos tu consulta, te vamos a contactar a la brevedad.
+            </p>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ RESEÑAS ============ -->
+      <section class="section" id="resenas">
+        <div class="wrap">
+          <div class="section-header-row">
+            <div>
+              <p class="section-eyebrow">Huéspedes felices</p>
+              <h2 class="section-title">Lo que Dicen Nuestros Huéspedes</h2>
+            </div>
+            <button type="button" class="btn btn-outline" id="btnDejarResena">
+              Dejar una reseña
+            </button>
+          </div>
+
+          <div class="reviews-carousel-wrap">
+            <button
+              type="button"
+              class="carousel-nav prev"
+              id="reviewPrev"
+              aria-label="Reseña anterior"
+            >
+              <svg class="ic-sm rot180"><use href="#ic-chevron" /></svg>
+            </button>
+            <div class="reviews-track" id="reviewsTrack">
+              <!-- generado por JS -->
+            </div>
+            <button
+              type="button"
+              class="carousel-nav next"
+              id="reviewNext"
+              aria-label="Reseña siguiente"
+            >
+              <svg class="ic-sm"><use href="#ic-chevron" /></svg>
+            </button>
+          </div>
+          <div class="carousel-dots" id="reviewDots"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <div class="footer-brand">
+          <svg class="brand-icon"><use href="#ic-umbrella" /></svg>
+          <span>Depto San Juan 2530</span>
+        </div>
+        <p class="footer-address">
+          <svg class="ic-sm"><use href="#ic-pin" /></svg> San Juan 2530, San
+          Bernardo del Tuyú, Buenos Aires — +54 9 11 5936-7822
+        </p>
+        <a
+          class="btn btn-whatsapp"
+          href="https://wa.me/5491159367822?text=Hola!%20Quiero%20consultar%20por%20el%20Depto%20San%20Juan%202530"
+          target="_blank"
+          rel="noopener"
+        >
+          <svg class="ic-sm"><use href="#ic-whatsapp" /></svg
+          ><span>Consultar por WhatsApp</span>
+        </a>
+        <p class="footer-legal">
+          © 2026 DepartamentosDimo - Dpto San Juan 2530. Todos los derechos
+          reservados. Created by Nicolás Corera
+        </p>
+      </div>
+    </footer>
+
+    <!-- ============ MODAL: DISPONIBILIDAD ============ -->
+    <div class="modal-overlay" id="modalDisponibilidad" hidden>
+      <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalDispTitle"
+      >
+        <button type="button" class="modal-close" data-close-modal>
+          <svg class="ic-sm"><use href="#ic-close" /></svg>
+        </button>
+        <h3 id="modalDispTitle">Disponibilidad</h3>
+        <p class="modal-desc">
+          Elegí un rango de fechas para consultar. Las que aparecen tildadas ya
+          están reservadas.
+        </p>
+        <div class="calendar" id="calDisponibilidad"></div>
+        <a href="#reserva" class="btn btn-primary btn-block" data-close-modal
+          >Consultar esas fechas</a
+        >
+      </div>
+    </div>
+
+    <!-- ============ MODAL: SELECCIÓN DE FECHAS (form) ============ -->
+    <div class="modal-overlay" id="modalFechas" hidden>
+      <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalFechasTitle"
+      >
+        <button type="button" class="modal-close" data-close-modal>
+          <svg class="ic-sm"><use href="#ic-close" /></svg>
+        </button>
+        <h3 id="modalFechasTitle">Elegí tus fechas de estadía</h3>
+        <p class="modal-desc">Tocá el día de llegada y luego el de salida.</p>
+        <div class="calendar" id="calFormulario"></div>
+        <button
+          type="button"
+          class="btn btn-primary btn-block"
+          id="confirmarFechas"
+        >
+          Confirmar fechas
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ MODAL: LIGHTBOX ============ -->
+    <div class="modal-overlay lightbox-overlay" id="lightbox" hidden>
+      <button type="button" class="modal-close" data-close-modal>
+        <svg class="ic-sm"><use href="#ic-close" /></svg>
+      </button>
+      <button
+        type="button"
+        class="lightbox-nav prev"
+        id="lbPrev"
+        aria-label="Foto anterior"
+      >
+        <svg class="ic-md rot180"><use href="#ic-chevron" /></svg>
+      </button>
+      <img class="lightbox-img" id="lightboxImg" src="" alt="" />
+      <button
+        type="button"
+        class="lightbox-nav next"
+        id="lbNext"
+        aria-label="Foto siguiente"
+      >
+        <svg class="ic-md"><use href="#ic-chevron" /></svg>
+      </button>
+      <p class="lightbox-count" id="lightboxCount"></p>
+    </div>
+
+    <!-- ============ MODAL: DEJAR RESEÑA ============ -->
+    <div class="modal-overlay" id="modalResena" hidden>
+      <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalResenaTitle"
+      >
+        <button type="button" class="modal-close" data-close-modal>
+          <svg class="ic-sm"><use href="#ic-close" /></svg>
+        </button>
+        <h3 id="modalResenaTitle">Dejá tu reseña</h3>
+        <form id="resenaForm">
+          <div class="field">
+            <label for="resenaNombre">Tu nombre</label>
+            <input type="text" id="resenaNombre" required />
+          </div>
+          <div class="field">
+            <label>Calificación</label>
+            <div class="star-picker" id="starPicker">
+              <button type="button" data-val="1">
+                <svg class="ic-md"><use href="#ic-star" /></svg>
+              </button>
+              <button type="button" data-val="2">
+                <svg class="ic-md"><use href="#ic-star" /></svg>
+              </button>
+              <button type="button" data-val="3">
+                <svg class="ic-md"><use href="#ic-star" /></svg>
+              </button>
+              <button type="button" data-val="4">
+                <svg class="ic-md"><use href="#ic-star" /></svg>
+              </button>
+              <button type="button" data-val="5">
+                <svg class="ic-md"><use href="#ic-star" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="resenaComentario">Comentario</label>
+            <textarea id="resenaComentario" rows="3" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            Publicar reseña
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
