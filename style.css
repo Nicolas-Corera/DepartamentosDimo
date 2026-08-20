@@ -32,6 +32,11 @@
 *::after {
   box-sizing: border-box;
 }
+/* Muchos bloques del formulario usan display:flex/grid y eso le gana al
+   display:none que el navegador aplica por defecto al atributo hidden. */
+[hidden] {
+  display: none !important;
+}
 html {
   scroll-behavior: smooth;
   scroll-padding-top: var(--header-h);
@@ -928,21 +933,48 @@ p {
 }
 
 .edades-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
 }
 .edad-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 .edad-field label {
-  font-size: 0.8rem;
+  font-weight: 600;
+  font-size: 0.82rem;
   color: #4c6a70;
 }
 .edad-field select {
-  width: 120px;
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--arena-deep);
+  background: var(--blanco);
+  color: var(--tinta);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.edad-field select:focus {
+  border-color: var(--celeste);
+  box-shadow: 0 0 0 4px rgba(63, 167, 199, 0.18);
+  outline: none;
+}
+
+/* Ayuda breve debajo de un campo (cupo restante, aclaraciones). */
+.field-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #5b7278;
+}
+.field-hint:empty {
+  display: none;
 }
 
 .checkbox-field {
@@ -969,6 +1001,91 @@ p {
   color: #5b7278;
   margin: 8px 0 0 29px;
   line-height: 1.5;
+}
+/* Segunda parte del cartel: es una advertencia, va en rojo. */
+.fine-print-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border-left: 3px solid var(--coral);
+  background: rgba(232, 98, 58, 0.09);
+  color: #b83c18;
+  font-weight: 600;
+}
+.fine-print-alert svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--coral);
+}
+
+.vehiculo-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin: 18px 0 0 29px;
+  padding-top: 18px;
+  border-top: 1.5px dashed var(--arena-deep);
+}
+@media (min-width: 560px) {
+  .vehiculo-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.vehiculo-hint {
+  grid-column: 1 / -1;
+}
+
+/* Contadores del textarea */
+.counter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+.counter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--arena-deep);
+  background: var(--blanco);
+  font-size: 0.76rem;
+  line-height: 1;
+  color: #5b7278;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.counter-chip__label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+.counter-chip__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--celeste-deep);
+}
+.counter-chip.is-warn {
+  border-color: var(--madera);
+  background: rgba(185, 137, 83, 0.12);
+  color: #8a6231;
+}
+.counter-chip.is-warn .counter-chip__value {
+  color: #8a6231;
+}
+.counter-chip.is-full {
+  border-color: var(--coral);
+  background: rgba(232, 98, 58, 0.12);
+  color: #b83c18;
+}
+.counter-chip.is-full .counter-chip__value {
+  color: #b83c18;
 }
 
 .form-success {
