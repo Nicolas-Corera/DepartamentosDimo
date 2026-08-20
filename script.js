@@ -67,12 +67,6 @@
   /* ==========================================================
      GALERÍA / MASONRY + LIGHTBOX
   =========================================================== */
-  /* Cada foto lleva un "size" segun su forma real:
-     wide  -> panoramica 1600x720   (2 columnas x 2 filas)
-     xtall -> frente 720x1600       (1 columna x 5 filas)
-     tall  -> vertical 1200x1600    (1 columna x 3 filas)
-     std   -> cuadrada 1:1          (1 columna x 2 filas)
-     El orden esta pensado para que la grilla cierre sin huecos en 3 columnas. */
   const galleryImages = [
     {
       src: "/assets/images/galeria/terraza.jpeg",
@@ -710,4 +704,39 @@
       .querySelectorAll("button")
       .forEach((b) => b.classList.remove("active"));
   });
+
+  //dpto-media opacity change
+
+  const image1 = document.getElementById("deptoImage1");
+  const image2 = document.getElementById("deptoImage2");
+
+  const images = [
+    "/assets/images/galeria/dormitorio_3.jpeg",
+    "/assets/images/galeria/dormitorio_1.jpeg",
+    "/assets/images/galeria/cocina.jpeg",
+    "/assets/images/galeria/baño.jpg",
+    "/assets/images/galeria/living.jpeg",
+    "/assets/images/galeria/comedor.jpeg",
+  ];
+
+  let currentImage = 0;
+  let showingFirst = true;
+
+  setInterval(() => {
+    currentImage = (currentImage + 1) % images.length;
+
+    if (showingFirst) {
+      image2.src = images[currentImage];
+
+      image2.style.opacity = "1";
+      image1.style.opacity = "0";
+    } else {
+      image1.src = images[currentImage];
+
+      image1.style.opacity = "1";
+      image2.style.opacity = "0";
+    }
+
+    showingFirst = !showingFirst;
+  }, 5000);
 })();
