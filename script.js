@@ -23,14 +23,12 @@
     if (!twEl || !heroTitleEl) return;
     const prevText = twEl.textContent;
     const prevHeight = heroTitleEl.style.height;
-    heroTitleEl.style.height = "auto";
     let maxHeight = 0;
     phrases.forEach((phrase) => {
       twEl.textContent = phrase;
       maxHeight = Math.max(maxHeight, heroTitleEl.scrollHeight);
     });
     twEl.textContent = prevText;
-    heroTitleEl.style.height = maxHeight ? maxHeight + "px" : prevHeight;
   }
 
   if (twEl && heroTitleEl) {
@@ -69,51 +67,56 @@
   =========================================================== */
   const galleryImages = [
     {
-      src: "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=900&q=75",
-      alt: "Living con vista al mar",
+      src: "/assets/images/galeria/terraza.jpeg",
+      alt: "Terraza",
+      size: "wide",
     },
     {
-      src: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=75",
-      alt: "Sala de estar luminosa",
+      src: "/assets/images/galeria/cocina.jpeg",
+      alt: "Cocina",
+      size: "std",
     },
     {
-      src: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=75",
-      alt: "Dormitorio principal",
+      src: "/assets/images/galeria/dormitorio_1.jpeg",
+      alt: "Dormitorio",
+      size: "tall",
     },
     {
-      src: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=75",
-      alt: "Cocina totalmente equipada",
+      src: "/assets/images/galeria/frente.jpeg",
+      alt: "Frente del edificio",
+      size: "xtall",
     },
     {
-      src: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=75",
-      alt: "Balcón del departamento",
+      src: "/assets/images/galeria/comedor.jpeg",
+      alt: "Comedor",
+      size: "tall",
     },
     {
-      src: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=75",
-      alt: "Segundo dormitorio",
+      src: "/assets/images/galeria/baño.jpg",
+      alt: "Baño",
+      size: "std",
     },
     {
-      src: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=75",
-      alt: "Baño completo",
+      src: "/assets/images/galeria/living.jpeg",
+      alt: "Living",
+      size: "std",
     },
     {
-      src: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=900&q=75",
-      alt: "Comedor con vajilla completa",
+      src: "/assets/images/galeria/entrada.jpeg",
+      alt: "Entrada",
+      size: "wide",
     },
     {
-      src: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=75",
-      alt: "Playa a dos cuadras",
-    },
-    {
-      src: "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=900&q=75",
-      alt: "Vista aérea de la costa",
+      src: "/assets/images/galeria/dormitorio_3.jpeg",
+      alt: "Dormitorio",
+      size: "std",
     },
   ];
 
   const masonry = document.getElementById("masonry");
   galleryImages.forEach((img, i) => {
     const item = document.createElement("div");
-    item.className = "masonry-item";
+    item.className = `masonry-item is-${img.size || "std"}`;
     item.innerHTML = `<img src="${img.src}" alt="${img.alt}" loading="lazy">`;
     item.addEventListener("click", () => openLightbox(i));
     masonry.appendChild(item);
@@ -698,5 +701,263 @@
     starPicker
       .querySelectorAll("button")
       .forEach((b) => b.classList.remove("active"));
+  });
+
+  //dpto-media opacity change
+
+  const image1 = document.getElementById("deptoImage1");
+  const image2 = document.getElementById("deptoImage2");
+
+  const images = [
+    "/assets/images/galeria/dormitorio_3.jpeg",
+    "/assets/images/galeria/dormitorio_1.jpeg",
+    "/assets/images/galeria/cocina.jpeg",
+    "/assets/images/galeria/baño.jpg",
+    "/assets/images/galeria/living.jpeg",
+    "/assets/images/galeria/comedor.jpeg",
+  ];
+
+  let currentImage = 0;
+  let showingFirst = true;
+
+  setInterval(() => {
+    currentImage = (currentImage + 1) % images.length;
+
+    if (showingFirst) {
+      image2.src = images[currentImage];
+
+      image2.style.opacity = "1";
+      image1.style.opacity = "0";
+    } else {
+      image1.src = images[currentImage];
+
+      image1.style.opacity = "1";
+      image2.style.opacity = "0";
+    }
+
+    showingFirst = !showingFirst;
+  }, 5000);
+
+  // ===========================
+  // MAPA LEAFLET
+  // ===========================
+  const mapContainer = document.getElementById("map");
+  const mapFrame = document.querySelector(".map-frame");
+  const mapOverlay = document.getElementById("mapOverlay");
+  const mapOverlayText = document.getElementById("mapOverlayText");
+
+  if (mapContainer && mapFrame && mapOverlay && typeof L !== "undefined") {
+    /* Coordenadas de San Bernardo del Tuyú */
+    const DEPTO_COORDS = [-36.68960161007483, -56.6791927028098];
+    const DIRECCION_HTML =
+      "<b>Dirección:</b> Calle San Juan 2530,<br>entre las calles Santa María de Oro y Andrade,<br>San Bernardo del Tuyú, Buenos Aires";
+    const HINT_DESKTOP =
+      "Usá <kbd>Ctrl</kbd> + <kbd>Scroll</kbd> para hacer zoom";
+    const HINT_TOUCH = "Usá dos dedos para mover y hacer zoom en el mapa";
+
+    /* Puntero fino (mouse/trackpad) vs. táctil. Se consulta en cada uso
+       para que siga siendo correcto al rotar o cambiar de dispositivo,
+       en vez de quedar congelado al cargar la página. */
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const isDesktop = () => finePointer.matches;
+
+    const map = L.map(mapContainer, {
+      scrollWheelZoom: false,
+      dragging: finePointer.matches,
+      touchZoom: true,
+      attributionControl: false,
+    }).setView(DEPTO_COORDS, 15);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+    }).addTo(map);
+    const markerSize =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--marker-size",
+        ),
+      ) || 40;
+
+    L.control
+      .attribution({
+        prefix: false,
+      })
+      .addAttribution("© DepartamentosDimo")
+      .addTo(map);
+
+    const BASE_RATIO = (960 - 160) / 960;
+    const customIcon = L.divIcon({
+      className: "map-marker",
+      html:
+        '<span class="map-marker__inner">' +
+        '<svg class="map-marker__icon" aria-hidden="true" focusable="false">' +
+        '<use href="#ic-house"></use></svg>' +
+        "</span>",
+      iconSize: [markerSize, markerSize],
+      iconAnchor: [markerSize / 2, markerSize * BASE_RATIO],
+      popupAnchor: [0, -markerSize * BASE_RATIO],
+    });
+
+    const marker = L.marker(DEPTO_COORDS, {
+      icon: customIcon,
+      keyboard: true,
+      riseOnHover: true,
+    }).addTo(map);
+
+    /* Leaflet sólo aplica `alt` a iconos <img>; en un divIcon el nombre
+       accesible hay que ponerlo a mano sobre el elemento generado. */
+    const markerEl = marker.getElement();
+    if (markerEl) {
+      markerEl.setAttribute(
+        "aria-label",
+        "Ubicación del departamento: Calle San Juan 2530, San Bernardo del Tuyú",
+      );
+    }
+
+    marker.bindPopup(
+      '<div class="map-popup">' +
+        "<p>" +
+        DIRECCION_HTML +
+        "</p>" +
+        '<a class="map-popup__link" target="_blank" rel="noopener"' +
+        ' href="https://www.google.com/maps/dir/-34.5407488,-58.5662464/San+Juan+2530,+B7111+San+Bernardo+del+Tuy%C3%BA,+Provincia+de+Buenos+Aires/@-35.5599758,-58.9463983,8z/data=!3m1!4b1!4m9!4m8!1m1!4e1!1m5!1m1!1s0x959c6f1e7be20f4f:0xcc0d2c6bf1f4c197!2m2!1d-56.6791927!2d-36.6897651?entry=ttu&g_ep=EgoyMDI2MDgxNy4wIKXMDSoASAFQAw%3D%3D' +
+        '">Cómo llegar</a>' +
+        "</div>",
+      { className: "map-popup-wrap", closeButton: true, autoPan: true },
+    );
+
+    // ---------------------------
+    // Overlay de bloqueo de zoom
+    // ---------------------------
+    let hintTimer = null;
+
+    function showOverlay(message) {
+      if (marker.isPopupOpen()) return;
+      if (message && mapOverlayText) mapOverlayText.innerHTML = message;
+      mapFrame.classList.add("is-locked");
+      mapOverlay.classList.add("visible");
+      mapOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function hideOverlay() {
+      clearTimeout(hintTimer);
+      mapFrame.classList.remove("is-locked");
+      mapOverlay.classList.remove("visible");
+      mapOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    marker.on("popupopen", hideOverlay);
+
+    // ---------------------------
+    // Desktop: Ctrl + Scroll
+    // ---------------------------
+    mapContainer.addEventListener("mouseenter", () => {
+      if (!isDesktop()) return;
+      showOverlay(HINT_DESKTOP);
+    });
+
+    mapContainer.addEventListener("mouseleave", () => {
+      if (!isDesktop()) return;
+      hideOverlay();
+    });
+
+    /* Se habilita el zoom con rueda sólo mientras Ctrl está presionado.
+       El reset en keyup/blur evita que quede habilitado si el usuario
+       suelta Ctrl fuera de la pestaña (Alt+Tab, cambio de ventana...). */
+    function enableWheelZoom(e) {
+      if (e.ctrlKey || e.metaKey) map.scrollWheelZoom.enable();
+    }
+    function disableWheelZoom() {
+      map.scrollWheelZoom.disable();
+    }
+
+    document.addEventListener("keydown", enableWheelZoom);
+    document.addEventListener("keyup", disableWheelZoom);
+    window.addEventListener("blur", disableWheelZoom);
+
+    mapContainer.addEventListener("wheel", (e) => {
+      if (!isDesktop()) return;
+      if (e.ctrlKey || e.metaKey) hideOverlay();
+      else showOverlay(HINT_DESKTOP);
+    });
+
+    /* Si el usuario ya está interactuando (zoom con botones, arrastre),
+       el cartel sobra. */
+    map.on("zoomstart dragstart", hideOverlay);
+
+    // ---------------------------
+    // Táctil: un dedo = scroll de página, dos dedos = mapa
+    // ---------------------------
+    function handleTouch(e) {
+      if (isDesktop()) return;
+
+      if (e.touches.length >= 2) {
+        map.dragging.enable();
+        hideOverlay();
+        return;
+      }
+
+      /* Un solo dedo: se devuelve el gesto al navegador para que la
+         página siga scrolleando y se avisa cómo manejar el mapa. */
+      map.dragging.disable();
+      if (e.type === "touchstart") {
+        showOverlay(HINT_TOUCH);
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(hideOverlay, 1800);
+      }
+    }
+
+    ["touchstart", "touchmove", "touchend", "touchcancel"].forEach((type) => {
+      mapContainer.addEventListener(type, handleTouch, { passive: true });
+    });
+
+    /* Al cambiar de puntero (tablet con teclado desmontable, rotación)
+       se recalcula el modo de arrastre y se limpia el cartel. */
+    const onPointerChange = () => {
+      if (isDesktop()) map.dragging.enable();
+      else map.dragging.disable();
+      hideOverlay();
+    };
+    if (typeof finePointer.addEventListener === "function") {
+      finePointer.addEventListener("change", onPointerChange);
+    }
+
+    /* El contenedor puede montarse oculto o cambiar de tamaño (resize,
+       cambio de layout); esto evita los típicos tiles grises a medio cargar. */
+    window.addEventListener("resize", () => {
+      map.invalidateSize();
+    });
+    setTimeout(() => map.invalidateSize(), 300);
+  }
+
+  const textarea = document.getElementById("mensaje");
+  const contador = document.getElementById("contador");
+  const caracteres = document.getElementById("caracteres");
+
+  const maxPalabras = 100;
+  const maxCaracteres = 500;
+
+  textarea.addEventListener("input", () => {
+    // Limitar caracteres
+    if (textarea.value.length > maxCaracteres) {
+      textarea.value = textarea.value.slice(0, maxCaracteres);
+    }
+
+    // Contar palabras
+    const palabras = textarea.value.trim()
+      ? textarea.value.trim().split(/\s+/)
+      : [];
+
+    // Limitar palabras
+    if (palabras.length > maxPalabras) {
+      textarea.value = palabras.slice(0, maxPalabras).join(" ");
+    }
+
+    // Actualizar contadores
+    contador.textContent = textarea.value.trim()
+      ? textarea.value.trim().split(/\s+/).length
+      : 0;
+
+    caracteres.textContent = textarea.value.length;
   });
 })();
