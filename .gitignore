@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+*.log
+dist/
+web/dist/
+.vercel
+.DS_Store
+web/public/fonts/cards/
