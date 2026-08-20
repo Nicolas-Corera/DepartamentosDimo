@@ -228,11 +228,10 @@ p {
 }
 .hero-media {
   position: absolute;
-  inset: -20px;
+  inset: 0px;
   background-size: cover;
-  background-position: center;
-  filter: blur(2px) saturate(1.05);
-  transform: scale(1.05);
+  background-position: center 70%;
+  filter: blur(8px);
   z-index: -2;
 }
 .hero-overlay {
@@ -369,22 +368,29 @@ p {
    GALERÍA MASONRY
 =============================================== */
 .masonry {
-  columns: 1;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: 1fr;
+  /* alto de la fila-unidad: cada foto ocupa 2..5 filas segun su forma */
+  grid-auto-rows: 24vw;
+  grid-auto-flow: dense;
+  gap: 16px;
 }
 @media (min-width: 560px) {
   .masonry {
-    columns: 2;
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 17vw;
   }
 }
 @media (min-width: 900px) {
   .masonry {
-    columns: 3;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: clamp(96px, 11.5vw, 138px);
   }
 }
+
 .masonry-item {
+  grid-row: span 2;
   break-inside: avoid;
-  margin-bottom: 16px;
   border-radius: var(--radius-soft);
   overflow: hidden;
   box-shadow: var(--shadow-soft);
@@ -392,11 +398,52 @@ p {
   position: relative;
   background: var(--arena-deep);
 }
+/* verticales y panoramicas */
+.masonry-item.is-tall {
+  grid-row: span 3;
+}
+.masonry-item.is-xtall {
+  grid-row: span 4;
+}
+@media (min-width: 900px) {
+  .masonry-item.is-xtall {
+    grid-row: span 5;
+  }
+  .masonry-item.is-wide {
+    grid-column: span 2;
+  }
+}
+/* mobile: 1 columna, spans afinados al ratio real de cada foto */
+@media (max-width: 559px) {
+  .masonry-item.is-std {
+    grid-row: span 3;
+  }
+  .masonry-item.is-tall {
+    grid-row: span 4;
+  }
+  .masonry-item.is-xtall {
+    grid-row: span 5;
+  }
+}
+@media (min-width: 560px) and (max-width: 899px) {
+  .masonry-item.is-wide {
+    grid-column: span 2;
+  }
+  /* cierra la ultima fila a lo ancho para no dejar hueco */
+  .masonry-item.is-std:last-child {
+    grid-column: span 2;
+  }
+}
+
 .masonry-item img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   display: block;
   transition: transform 0.5s ease;
+}
+.masonry-item.is-xtall img {
+  object-position: center 35%;
 }
 .masonry-item:hover img {
   transform: scale(1.06);
@@ -412,6 +459,7 @@ p {
   );
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 .masonry-item:hover::after {
   opacity: 1;
@@ -462,7 +510,7 @@ p {
 .amenities-grid {
   margin-top: 60px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(1, 1fr);
   gap: 16px;
 }
 @media (min-width: 640px) {
@@ -756,6 +804,11 @@ p {
 .carousel-nav:hover {
   background: var(--celeste-deep);
   color: var(--blanco);
+}
+@media (max-width: 768px) {
+  .carousel-nav{
+    display: none;
+  }
 }
 .carousel-dots {
   display: flex;

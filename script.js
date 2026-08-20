@@ -67,53 +67,64 @@
   /* ==========================================================
      GALERÍA / MASONRY + LIGHTBOX
   =========================================================== */
+  /* Cada foto lleva un "size" segun su forma real:
+     wide  -> panoramica 1600x720   (2 columnas x 2 filas)
+     xtall -> frente 720x1600       (1 columna x 5 filas)
+     tall  -> vertical 1200x1600    (1 columna x 3 filas)
+     std   -> cuadrada 1:1          (1 columna x 2 filas)
+     El orden esta pensado para que la grilla cierre sin huecos en 3 columnas. */
   const galleryImages = [
     {
-      src: "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=900&q=75",
-      alt: "Living con vista al mar",
+      src: "/assets/images/galeria/terraza.jpeg",
+      alt: "Terraza",
+      size: "wide",
     },
     {
-      src: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=75",
-      alt: "Sala de estar luminosa",
+      src: "/assets/images/galeria/cocina.jpeg",
+      alt: "Cocina",
+      size: "std",
     },
     {
-      src: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=75",
-      alt: "Dormitorio principal",
+      src: "/assets/images/galeria/dormitorio_1.jpeg",
+      alt: "Dormitorio",
+      size: "tall",
     },
     {
-      src: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=75",
-      alt: "Cocina totalmente equipada",
+      src: "/assets/images/galeria/frente.jpeg",
+      alt: "Frente del edificio",
+      size: "xtall",
     },
     {
-      src: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=75",
-      alt: "Balcón del departamento",
+      src: "/assets/images/galeria/comedor.jpeg",
+      alt: "Comedor",
+      size: "tall",
     },
     {
-      src: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=75",
-      alt: "Segundo dormitorio",
+      src: "/assets/images/galeria/baño.jpg",
+      alt: "Baño",
+      size: "std",
     },
     {
-      src: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=75",
-      alt: "Baño completo",
+      src: "/assets/images/galeria/living.jpeg",
+      alt: "Living",
+      size: "std",
     },
     {
-      src: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=900&q=75",
-      alt: "Comedor con vajilla completa",
+      src: "/assets/images/galeria/entrada.jpeg",
+      alt: "Entrada",
+      size: "wide",
     },
     {
-      src: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=75",
-      alt: "Playa a dos cuadras",
-    },
-    {
-      src: "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=900&q=75",
-      alt: "Vista aérea de la costa",
+      src: "/assets/images/galeria/dormitorio_3.jpeg",
+      alt: "Dormitorio",
+      size: "std",
     },
   ];
 
   const masonry = document.getElementById("masonry");
   galleryImages.forEach((img, i) => {
     const item = document.createElement("div");
-    item.className = "masonry-item";
+    item.className = `masonry-item is-${img.size || "std"}`;
     item.innerHTML = `<img src="${img.src}" alt="${img.alt}" loading="lazy">`;
     item.addEventListener("click", () => openLightbox(i));
     masonry.appendChild(item);
