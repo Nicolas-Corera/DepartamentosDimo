@@ -529,38 +529,78 @@
   });
 
   /* ==========================================================
+     RESEÑAS: ORIGEN DE DATOS
+
+     Las reseñas ya NO están hardcodeadas: la lista arranca vacía y se
+     llena con lo que devuelva la capa de datos (Supabase).
+
+     Todo el acoplamiento con el backend vive en estas dos funciones.
+     Ver SUPABASE.md para el paso a paso de la implementación.
+  =========================================================== */
+
+  // Lista en memoria que consume el carrusel. Cada item: { name, rating, text }
+  let reviews = [];
+
+  // Límites del comentario. Existen para que TODAS las tarjetas entren en
+  // el mismo cuadrado sin que el texto se corte: si cambiás estos números,
+  // ajustá también el -webkit-line-clamp de .review-text en style.css.
+  const REVIEW_MAX_CHARS = 180; // también está como maxlength en el HTML
+  const REVIEW_MAX_WORDS = 35;
+  const REVIEW_NAME_MAX = 40;
+
+  function countWords(str) {
+    const t = str.trim();
+    return t ? t.split(/\s+/).length : 0;
+  }
+
+  // TODO(Supabase): reemplazar por el SELECT a la tabla `reviews`.
+  //   const { data, error } = await supabase
+  //     .from("reviews")
+  //     .select("name, rating, text, created_at")
+  //     .eq("approved", true)
+  //     .order("created_at", { ascending: false });
+  //   if (error) throw error;
+  //   return data;
+  async function fetchReviews() {
+    return [];
+  }
+
+  // TODO(Supabase): reemplazar por el INSERT en la tabla `reviews`.
+  //   const { error } = await supabase.from("reviews").insert({ name, rating, text });
+  //   if (error) throw error;
+  // Mientras no exista el backend, la reseña se agrega solo en memoria
+  // (se pierde al recargar la página).
+  async function createReview(review) {
+    reviews.unshift(review);
+    return review;
+  }
+
+  /* ==========================================================
      RESEÑAS: CARRUSEL
   =========================================================== */
-  const reviews = [
-    {
-      name: "Marina G.",
-      rating: 5,
-      text: "El departamento es hermoso, la terraza con vista al mar superó todas nuestras expectativas. Volvemos el próximo verano seguro.",
-    },
-    {
-      name: "Fede R.",
-      rating: 5,
-      text: "Ubicación inmejorable, a metros de la playa y de la peatonal. Todo impecable y muy bien equipado.",
-    },
-    {
-      name: "Lucía M.",
-      rating: 4,
-      text: "Muy cómodo para 4 personas, la cocina tiene todo lo necesario. El único detalle fue el calor un día sin viento, pero el ventilador ayudó bastante.",
-    },
-    {
-      name: "Diego P.",
-      rating: 5,
-      text: "Excelente atención de los dueños, respondieron todas las consultas antes de llegar. El edificio tiene ascensor y cochera, muy práctico.",
-    },
-    {
-      name: "Sol A.",
-      rating: 5,
-      text: "Nos encantó despertar viendo el mar desde la terraza. Zona tranquila y cerca de todo. Totalmente recomendable.",
-    },
-  ];
-
   const reviewsTrack = document.getElementById("reviewsTrack");
   const reviewDots = document.getElementById("reviewDots");
+  const reviewsCarousel = document.getElementById("reviewsCarousel");
+  const reviewsEmpty = document.getElementById("reviewsEmpty");
+  const reviewPrev = document.getElementById("reviewPrev");
+  const reviewNext = document.getElementById("reviewNext");
+
+  // Cuántas tarjetas entran a la vez. Tiene que coincidir con los
+  // breakpoints de .review-card en style.css.
+  function perView() {
+    if (window.matchMedia("(min-width: 980px)").matches) return 3;
+    if (window.matchMedia("(min-width: 680px)").matches) return 2;
+    return 1;
+  }
+
+  // El loop infinito se arma triplicando la lista (clon-anterior + real +
+  // clon-siguiente). Eso solo tiene sentido si hay MÁS reseñas que las que
+  // entran en pantalla: con 1 sola reseña, las tres copias se veían todas
+  // juntas y parecía que la reseña se había guardado tres veces.
+  function shouldLoop() {
+    return reviews.length > perView();
+  }
+  let isLooping = false;
 
   function starsMarkup(rating) {
     return Array.from(
@@ -568,6 +608,22 @@
       (_, i) =>
         `<svg style="opacity:${i < rating ? 1 : 0.25}"><use href="#ic-star"/></svg>`,
     ).join("");
+  }
+
+  // Escapa el texto que viene del backend / del formulario antes de
+  // inyectarlo con innerHTML.
+  const ESC_MAP = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  function esc(str) {
+    return String(str == null ? "" : str).replace(
+      /[&<>"']/g,
+      (c) => ESC_MAP[c],
+    );
   }
 
   // Índice dentro de la lista TRIPLICADA (clon-anterior + real + clon-siguiente).
@@ -584,21 +640,44 @@
 
   function renderReviews() {
     const N = reviews.length;
+
+    // Sin reseñas: mostramos el estado vacío y escondemos el carrusel entero.
+    reviewsEmpty.hidden = N > 0;
+    reviewsCarousel.hidden = N === 0;
+    reviewDots.hidden = N === 0;
+    if (N === 0) {
+      reviewsTrack.innerHTML = "";
+      reviewDots.innerHTML = "";
+      return;
+    }
+
+    isLooping = shouldLoop();
+    const copies = isLooping ? 3 : 1;
+
     reviewsTrack.innerHTML = "";
-    for (let copy = 0; copy < 3; copy++) {
+    for (let copy = 0; copy < copies; copy++) {
       reviews.forEach((r) => {
         const card = document.createElement("div");
         card.className = "review-card";
         card.innerHTML = `
           <svg class="quote-mark"><use href="#ic-quote"/></svg>
           <div class="stars">${starsMarkup(r.rating)}</div>
-          <p>${r.text}</p>
-          <p class="review-name">${r.name}</p>
+          <p class="review-text">${esc(r.text)}</p>
+          <p class="review-name">${esc(r.name)}</p>
         `;
         reviewsTrack.appendChild(card);
       });
     }
-    tripledIndex = N; // arrancamos en el bloque real (la copia del medio)
+
+    // Sin loop, todas las reseñas entran en pantalla: flechas y dots no
+    // tienen nada que hacer. Las flechas se deshabilitan y el CSS las
+    // saca del layout (display:none), así el track aprovecha todo el ancho
+    // mientras no hagan falta.
+    reviewPrev.disabled = !isLooping;
+    reviewNext.disabled = !isLooping;
+    reviewDots.hidden = !isLooping;
+
+    tripledIndex = isLooping ? N : 0; // con loop arrancamos en la copia del medio
     activeIndex = 0;
     renderDots();
     moveTo(tripledIndex, false); // reposicionamos sin animación, sin que se note el salto inicial
@@ -633,9 +712,11 @@
   function renderDots() {
     const N = reviews.length;
     reviewDots.innerHTML = "";
+    if (!isLooping) return;
     for (let i = 0; i < N; i++) {
       const dot = document.createElement("button");
       dot.type = "button";
+      dot.setAttribute("aria-label", `Ir a la reseña ${i + 1}`);
       dot.addEventListener("click", () => goToReal(i));
       reviewDots.appendChild(dot);
     }
@@ -653,6 +734,7 @@
   // que el desplazamiento sea siempre corto.
   function goToReal(i) {
     const N = reviews.length;
+    if (!N || !isLooping) return;
     const candidates = [i, i + N, i + 2 * N];
     let best = candidates[0];
     let bestDist = Math.abs(best - tripledIndex);
@@ -675,6 +757,7 @@
   // van acumulando correctamente en vez de pisarse entre sí.
   function step(delta) {
     const N = reviews.length;
+    if (!N || !isLooping) return;
     tripledIndex += delta;
     activeIndex = ((tripledIndex % N) + N) % N;
     updateDots();
@@ -686,6 +769,7 @@
   // tarjeta clonada es visualmente idéntica, el salto es imperceptible.
   function settleLoop() {
     const N = reviews.length;
+    if (!N || !isLooping) return;
     if (tripledIndex >= 2 * N || tripledIndex < N) {
       tripledIndex = (((tripledIndex % N) + N) % N) + N;
       moveTo(tripledIndex, false);
@@ -698,10 +782,11 @@
   // con clics rápidos y terminaba "reseteando" el carrusel.
   let scrollEndTimer;
   function onScrollSettled() {
+    const N = reviews.length;
+    if (!N || !isLooping) return;
     if (!isAnimating) {
       // El usuario arrastró el carrusel manualmente (touch/trackpad):
       // ahí sí leemos la posición real y la adoptamos como fuente de verdad.
-      const N = reviews.length;
       tripledIndex = Math.round(reviewsTrack.scrollLeft / (cardWidth() || 1));
       activeIndex = ((tripledIndex % N) + N) % N;
       updateDots();
@@ -727,7 +812,11 @@
   const scheduleDotsRecalc = () => {
     clearTimeout(dotsRecalcTimer);
     dotsRecalcTimer = setTimeout(() => {
-      moveTo(tripledIndex, false);
+      if (!reviews.length) return;
+      // Si el breakpoint cambió cuántas tarjetas entran, puede que ahora
+      // sobren (o falten) copias: hay que rearmar el track.
+      if (shouldLoop() !== isLooping) renderReviews();
+      else moveTo(tripledIndex, false);
     }, 120);
   };
   if (window.ResizeObserver) {
@@ -737,55 +826,175 @@
   }
   window.addEventListener("load", scheduleDotsRecalc);
 
-  document.getElementById("reviewPrev").addEventListener("click", () => {
+  reviewPrev.addEventListener("click", () => {
     step(-1);
   });
-  document.getElementById("reviewNext").addEventListener("click", () => {
+  reviewNext.addEventListener("click", () => {
     step(1);
   });
 
-  renderReviews();
+  // Carga inicial. Si el backend falla, dejamos el estado vacío en pantalla
+  // en vez de romper la sección.
+  async function loadReviews() {
+    try {
+      const data = await fetchReviews();
+      reviews = Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("No se pudieron cargar las reseñas:", err);
+      reviews = [];
+    }
+    renderReviews();
+  }
+
+  renderReviews(); // pinta el estado vacío de entrada
+  loadReviews();
 
   /* ==========================================================
      MODAL DEJAR RESEÑA
   =========================================================== */
-  document.getElementById("btnDejarResena").addEventListener("click", () => {
-    openModal(document.getElementById("modalResena"));
-  });
-
-  let selectedStars = 0;
+  const modalResena = document.getElementById("modalResena");
+  const resenaForm = document.getElementById("resenaForm");
+  const resenaSubmit = document.getElementById("resenaSubmit");
+  const resenaSuccess = document.getElementById("resenaSuccess");
+  const resenaError = document.getElementById("resenaError");
   const starPicker = document.getElementById("starPicker");
-  starPicker.querySelectorAll("button").forEach((btn) => {
+  const starButtons = [...starPicker.querySelectorAll("button")];
+
+  document.querySelectorAll("[data-open-resena]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedStars = parseInt(btn.dataset.val, 10);
-      starPicker.querySelectorAll("button").forEach((b) => {
-        b.classList.toggle(
-          "active",
-          parseInt(b.dataset.val, 10) <= selectedStars,
-        );
-      });
+      resenaSuccess.hidden = true;
+      resenaError.hidden = true;
+      openModal(modalResena);
     });
   });
 
-  document.getElementById("resenaForm").addEventListener("submit", (e) => {
+  /* ---- Selector de estrellas ----
+     El problema anterior era que el encendido dependía de `:hover` en CSS,
+     que solo alcanza al botón que está bajo el mouse: se prendía una sola
+     estrella, sin progresión. Ahora el pintado lo maneja siempre el JS,
+     marcando TODAS las estrellas hasta el valor correspondiente:
+       - `is-on`      => valor confirmado con el clic
+       - `is-preview` => valor que se está apuntando con el mouse/teclado
+     Al salir del selector, el preview se descarta y vuelve a verse la
+     selección confirmada. */
+  let selectedStars = 0;
+
+  function paintStars(previewValue) {
+    starButtons.forEach((b) => {
+      const val = parseInt(b.dataset.val, 10);
+      b.classList.toggle("is-on", val <= selectedStars);
+      b.classList.toggle("is-preview", previewValue > 0 && val <= previewValue);
+      b.setAttribute("aria-pressed", String(val <= selectedStars));
+    });
+  }
+
+  starButtons.forEach((btn) => {
+    const val = parseInt(btn.dataset.val, 10);
+    btn.addEventListener("mouseenter", () => paintStars(val));
+    btn.addEventListener("focus", () => paintStars(val));
+    btn.addEventListener("blur", () => paintStars(0));
+    btn.addEventListener("click", () => {
+      selectedStars = val;
+      resenaError.hidden = true;
+      paintStars(val);
+    });
+  });
+  // Un único listener en el contenedor: se dispara al salir de todo el
+  // grupo, no al pasar de una estrella a la de al lado.
+  starPicker.addEventListener("mouseleave", () => paintStars(0));
+
+  function resetStars() {
+    selectedStars = 0;
+    paintStars(0);
+  }
+
+  /* ---- Contador de caracteres y palabras ----
+     Mismo comportamiento que el textarea del formulario de contacto: el
+     texto se recorta al llegar al tope, así que la reseña nunca puede
+     exceder el largo que entra en la tarjeta. Los chips avisan en amarillo
+     al acercarse y en rojo al tocar el límite. */
+  const resenaComentario = document.getElementById("resenaComentario");
+  const resenaPalabras = document.getElementById("resenaPalabras");
+  const resenaCaracteres = document.getElementById("resenaCaracteres");
+  const resenaPalabrasChip = document.getElementById("resenaPalabrasChip");
+  const resenaCaracteresChip = document.getElementById("resenaCaracteresChip");
+
+  function updateContador() {
+    const palabras = countWords(resenaComentario.value);
+    resenaPalabras.textContent = palabras;
+    resenaCaracteres.textContent = resenaComentario.value.length;
+    pintarChip(resenaPalabrasChip, palabras, REVIEW_MAX_WORDS);
+    pintarChip(
+      resenaCaracteresChip,
+      resenaComentario.value.length,
+      REVIEW_MAX_CHARS,
+    );
+  }
+
+  resenaComentario.addEventListener("input", () => {
+    if (resenaComentario.value.length > REVIEW_MAX_CHARS) {
+      resenaComentario.value = resenaComentario.value.slice(0, REVIEW_MAX_CHARS);
+    }
+    const palabras = resenaComentario.value.trim()
+      ? resenaComentario.value.trim().split(/\s+/)
+      : [];
+    if (palabras.length > REVIEW_MAX_WORDS) {
+      resenaComentario.value = palabras.slice(0, REVIEW_MAX_WORDS).join(" ");
+    }
+    updateContador();
+  });
+  updateContador();
+
+  resenaForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const nombre = document.getElementById("resenaNombre").value.trim();
     const comentario = document.getElementById("resenaComentario").value.trim();
-    if (!nombre || !comentario) {
+    resenaSuccess.hidden = true;
+    resenaError.hidden = true;
+
+    if (!nombre || !comentario) return;
+    if (!selectedStars) {
+      resenaError.textContent = "Elegí una puntuación de 1 a 5 estrellas.";
+      resenaError.hidden = false;
       return;
     }
-    reviews.unshift({
-      name: nombre,
-      rating: selectedStars || 5,
-      text: comentario,
-    });
-    renderReviews();
-    closeModal(document.getElementById("modalResena"));
-    e.target.reset();
-    selectedStars = 0;
-    starPicker
-      .querySelectorAll("button")
-      .forEach((b) => b.classList.remove("active"));
+    if (nombre.length > REVIEW_NAME_MAX) {
+      resenaError.textContent = `El nombre no puede superar los ${REVIEW_NAME_MAX} caracteres.`;
+      resenaError.hidden = false;
+      return;
+    }
+    if (comentario.length > REVIEW_MAX_CHARS) {
+      resenaError.textContent = `El comentario no puede superar los ${REVIEW_MAX_CHARS} caracteres.`;
+      resenaError.hidden = false;
+      return;
+    }
+    if (countWords(comentario) > REVIEW_MAX_WORDS) {
+      resenaError.textContent = `El comentario no puede superar las ${REVIEW_MAX_WORDS} palabras.`;
+      resenaError.hidden = false;
+      return;
+    }
+
+    resenaSubmit.disabled = true;
+    try {
+      await createReview({
+        name: nombre,
+        rating: selectedStars,
+        text: comentario,
+      });
+      renderReviews();
+      resenaForm.reset();
+      resetStars();
+      updateContador();
+      resenaSuccess.hidden = false;
+      closeModal(modalResena);
+    } catch (err) {
+      console.error("No se pudo publicar la reseña:", err);
+      resenaError.textContent =
+        "No pudimos publicar tu reseña. Probá de nuevo en un momento.";
+      resenaError.hidden = false;
+    } finally {
+      resenaSubmit.disabled = false;
+    }
   });
 
   //dpto-media opacity change

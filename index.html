@@ -547,12 +547,28 @@
               <p class="section-eyebrow">Huéspedes felices</p>
               <h2 class="section-title">Lo que Dicen Nuestros Huéspedes</h2>
             </div>
-            <button type="button" class="btn btn-outline" id="btnDejarResena">
+            <button
+              type="button"
+              class="btn btn-outline"
+              data-open-resena
+            >
               Dejar una reseña
             </button>
           </div>
 
-          <div class="reviews-carousel-wrap">
+          <!-- Estado vacío: se muestra cuando todavía no hay reseñas -->
+          <div class="reviews-empty" id="reviewsEmpty" hidden>
+            <svg class="reviews-empty-icon"><use href="#ic-star" /></svg>
+            <p class="reviews-empty-title">Todavía no hay reseñas</p>
+            <p class="reviews-empty-text">
+              Sé el primero en contar cómo la pasaste en el depto.
+            </p>
+            <button type="button" class="btn btn-primary" data-open-resena>
+              Dejá tu reseña
+            </button>
+          </div>
+
+          <div class="reviews-carousel-wrap" id="reviewsCarousel" hidden>
             <button
               type="button"
               class="carousel-nav prev"
@@ -573,7 +589,7 @@
               <svg class="ic-sm"><use href="#ic-chevron" /></svg>
             </button>
           </div>
-          <div class="carousel-dots" id="reviewDots"></div>
+          <div class="carousel-dots" id="reviewDots" hidden></div>
         </div>
       </section>
     </main>
@@ -692,35 +708,84 @@
         <form id="resenaForm">
           <div class="field">
             <label for="resenaNombre">Tu nombre</label>
-            <input type="text" id="resenaNombre" required />
+            <input type="text" id="resenaNombre" maxlength="40" required />
           </div>
           <div class="field">
             <label>Calificación</label>
-            <div class="star-picker" id="starPicker">
-              <button type="button" data-val="1">
+            <div class="star-picker" id="starPicker" role="group">
+              <button
+                type="button"
+                data-val="1"
+                aria-label="1 estrella"
+                aria-pressed="false"
+              >
                 <svg class="ic-md"><use href="#ic-star" /></svg>
               </button>
-              <button type="button" data-val="2">
+              <button
+                type="button"
+                data-val="2"
+                aria-label="2 estrellas"
+                aria-pressed="false"
+              >
                 <svg class="ic-md"><use href="#ic-star" /></svg>
               </button>
-              <button type="button" data-val="3">
+              <button
+                type="button"
+                data-val="3"
+                aria-label="3 estrellas"
+                aria-pressed="false"
+              >
                 <svg class="ic-md"><use href="#ic-star" /></svg>
               </button>
-              <button type="button" data-val="4">
+              <button
+                type="button"
+                data-val="4"
+                aria-label="4 estrellas"
+                aria-pressed="false"
+              >
                 <svg class="ic-md"><use href="#ic-star" /></svg>
               </button>
-              <button type="button" data-val="5">
+              <button
+                type="button"
+                data-val="5"
+                aria-label="5 estrellas"
+                aria-pressed="false"
+              >
                 <svg class="ic-md"><use href="#ic-star" /></svg>
               </button>
             </div>
           </div>
           <div class="field">
             <label for="resenaComentario">Comentario</label>
-            <textarea id="resenaComentario" rows="3" required></textarea>
+            <textarea
+              id="resenaComentario"
+              rows="3"
+              maxlength="180"
+              required
+            ></textarea>
+            <div class="counter-row">
+              <span class="counter-chip" id="resenaPalabrasChip">
+                <span class="counter-chip__label">Palabras</span>
+                <span class="counter-chip__value"
+                  ><span id="resenaPalabras">0</span>/35</span
+                >
+              </span>
+              <span class="counter-chip" id="resenaCaracteresChip">
+                <span class="counter-chip__label">Caracteres</span>
+                <span class="counter-chip__value"
+                  ><span id="resenaCaracteres">0</span>/180</span
+                >
+              </span>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary btn-block">
+          <button type="submit" class="btn btn-primary btn-block" id="resenaSubmit">
             Publicar reseña
           </button>
+          <p class="form-success" id="resenaSuccess" hidden>
+            <svg class="ic-sm"><use href="#ic-check" /></svg> ¡Gracias por dejar
+            tu reseña!
+          </p>
+          <p class="form-error" id="resenaError" hidden></p>
         </form>
       </div>
     </div>
