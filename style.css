@@ -1112,6 +1112,15 @@ p {
 }
 .reviews-track {
   display: flex;
+  /* El track SIEMPRE ocupa todo el ancho disponible. Sin esto su ancho lo
+     define el contenido, y con pocas tarjetas colapsaba: el flex-basis en
+     % de .review-card se calculaba sobre ese ancho chico y las tarjetas
+     salían finitas y altas en vez de cuadradas. */
+  flex: 1 1 auto;
+  min-width: 0;
+  /* flex-start (y no el stretch por defecto) para que el aspect-ratio de
+     las tarjetas mande sobre el alto y no se estiren entre sí. */
+  align-items: flex-start;
   gap: 20px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -1121,15 +1130,38 @@ p {
 .reviews-track::-webkit-scrollbar {
   display: none;
 }
+/* Todas las tarjetas miden lo mismo (cuadrado) sin importar el largo del
+   texto: el alto sale del aspect-ratio, el comentario ocupa el espacio
+   sobrante y el nombre queda siempre pegado abajo. El límite de caracteres
+   del formulario (180 / 35 palabras) está calculado para entrar acá. */
 .review-card {
   scroll-snap-align: start;
   flex: 0 0 100%;
+  aspect-ratio: 1 / 1;
+  /* Piso de alto: en pantallas muy angostas el cuadrado quedaría tan chico
+     que no entraría el texto. */
+  min-height: 330px;
+  display: flex;
+  flex-direction: column;
   background: var(--blanco);
   border: 1.5px solid var(--arena-deep);
   border-radius: var(--radius-wave);
   padding: 26px 24px;
   box-shadow: var(--shadow-soft);
   position: relative;
+  overflow: hidden;
+}
+.review-text {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  /* Red de contención: si por lo que sea entra un texto más largo (una
+     reseña vieja, o cargada a mano en la base), se recorta en vez de
+     deformar la tarjeta. */
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
 }
 @media (min-width: 680px) {
   .review-card {
@@ -1144,6 +1176,7 @@ p {
 .review-card .stars {
   display: flex;
   gap: 3px;
+  flex-shrink: 0;
   color: var(--coral);
   margin-bottom: 10px;
 }
@@ -1155,12 +1188,14 @@ p {
   color: var(--arena-deep);
   width: 28px;
   height: 28px;
+  flex-shrink: 0;
   margin-bottom: 6px;
 }
 .review-name {
   font-family: var(--font-display);
   font-weight: 700;
-  margin-top: 14px;
+  margin-top: auto;
+  padding-top: 14px;
   color: var(--celeste-deep);
 }
 .carousel-nav {
@@ -1179,9 +1214,16 @@ p {
     background 0.2s ease,
     color 0.2s ease;
 }
-.carousel-nav:hover {
+.carousel-nav:hover:not(:disabled) {
   background: var(--celeste-deep);
   color: var(--blanco);
+}
+/* Cuando no hay loop las flechas no sirven y se sacan del layout. En
+   desktop eso pasa hasta las 3 reseñas inclusive: recién con la 4ta entra
+   el loop y aparecen (en tablet, con 2 tarjetas por vista, aparecen a
+   partir de la 3ra). */
+.carousel-nav:disabled {
+  display: none;
 }
 @media (max-width: 768px) {
   .carousel-nav {
@@ -1212,20 +1254,75 @@ p {
 .star-picker {
   display: flex;
   gap: 6px;
+  width: max-content;
 }
 .star-picker button {
   background: none;
   border: none;
   padding: 2px;
+  cursor: pointer;
   color: var(--arena-deep);
   transition:
     color 0.15s ease,
     transform 0.15s ease;
 }
-.star-picker button.active,
-.star-picker button:hover {
+/* .is-on / .is-preview los pone el JS sobre TODAS las estrellas hasta la
+   elegida (o hasta la que está bajo el mouse), para que se enciendan en
+   progresión y no solo la que se toca. El :hover nativo no sirve acá porque
+   solo alcanza al botón apuntado. */
+.star-picker button.is-on,
+.star-picker button.is-preview {
   color: var(--coral);
+}
+.star-picker button.is-preview {
   transform: scale(1.12);
+}
+.star-picker button:focus-visible {
+  outline: 2px solid var(--celeste-deep);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- Reseñas: estado vacío ---- */
+.reviews-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  background: var(--blanco);
+  border: 1.5px dashed var(--arena-deep);
+  border-radius: var(--radius-wave);
+  padding: 44px 24px;
+  box-shadow: var(--shadow-soft);
+}
+.reviews-empty-icon {
+  width: 34px;
+  height: 34px;
+  color: var(--arena-deep);
+}
+.reviews-empty-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--celeste-deep);
+}
+.reviews-empty-text {
+  max-width: 42ch;
+  margin-bottom: 8px;
+}
+
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  color: #b83c18;
+  font-weight: 600;
+  background: rgba(232, 98, 58, 0.12);
+  border-radius: var(--radius-soft);
+  padding: 12px;
 }
 
 /* ============================================
