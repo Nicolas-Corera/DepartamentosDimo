@@ -406,7 +406,7 @@
               <div class="field">
                 <label for="personas">Cantidad total de personas *</label>
                 <select id="personas" name="personas" required>
-                  <option value="">Elegir cantidad</option>
+                  <option value="" selected disabled>Elegir cantidad</option>
                   <option value="1">1 persona</option>
                   <option value="2">2 personas</option>
                   <option value="3">3 personas</option>
@@ -418,6 +418,7 @@
                 <select id="ninos" name="ninos">
                   <option value="0">Sin niños</option>
                 </select>
+                <p class="field-hint" id="ninosHint"></p>
               </div>
             </div>
 
@@ -433,10 +434,66 @@
               </label>
               <p class="fine-print">
                 Marque esta opción únicamente si cuenta con vehículo propio. En
-                caso de no poseerlo, deje la casilla sin marcar. Si posee
-                vehículo y no lo declara en el formulario, los propietarios no
-                se harán responsables.
+                caso de no poseerlo, deje la casilla sin marcar.
               </p>
+              <p class="fine-print fine-print-alert">
+                <svg class="ic-sm" aria-hidden="true"><use href="#ic-alert" /></svg>
+                <span>
+                  Si posee vehículo y no lo declara en el formulario, los
+                  propietarios no se harán responsables.
+                </span>
+              </p>
+
+              <div class="vehiculo-fields" id="vehiculoFields" hidden>
+                <div class="field">
+                  <label for="vehiculoMarca">Marca *</label>
+                  <input
+                    type="text"
+                    id="vehiculoMarca"
+                    name="vehiculoMarca"
+                    placeholder="Ej: Volkswagen"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="field">
+                  <label for="vehiculoModelo">Modelo *</label>
+                  <input
+                    type="text"
+                    id="vehiculoModelo"
+                    name="vehiculoModelo"
+                    placeholder="Ej: Gol Trend"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="field">
+                  <label for="vehiculoTipo">Tipo de vehículo *</label>
+                  <select id="vehiculoTipo" name="vehiculoTipo">
+                    <option value="" selected disabled>Elegir tipo</option>
+                    <option value="auto">Auto</option>
+                    <option value="suv">SUV</option>
+                    <option value="camioneta">Camioneta</option>
+                    <option value="moto">Moto</option>
+                    <option value="bici">Bicicleta</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="vehiculoAnio">Año *</label>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="4"
+                    id="vehiculoAnio"
+                    name="vehiculoAnio"
+                    placeholder="Ej: 2018"
+                    autocomplete="off"
+                  />
+                </div>
+                <p class="field-hint vehiculo-hint">
+                  La cochera es apta para autos, SUV, camionetas medianas, motos
+                  y bicicletas. Si tu vehículo es de gran porte, consultanos
+                  antes de reservar.
+                </p>
+              </div>
             </div>
 
             <div class="field">
@@ -447,14 +504,23 @@
                 rows="4"
                 maxlength="500"
               ></textarea>
-              <p>
-                Palabras: <span id="contador">0</span>/100 | Caracteres:
-                <span id="caracteres">0</span>/500
-              </p>
+              <div class="counter-row">
+                <span class="counter-chip" id="contadorChip">
+                  <span class="counter-chip__label">Palabras</span>
+                  <span class="counter-chip__value"
+                    ><span id="contador">0</span>/100</span
+                  >
+                </span>
+                <span class="counter-chip" id="caracteresChip">
+                  <span class="counter-chip__label">Caracteres</span>
+                  <span class="counter-chip__value"
+                    ><span id="caracteres">0</span>/500</span
+                  >
+                </span>
+              </div>
             </div>
 
             <div class="alert-box alert-box-inline">
-              Caracteres: <span id="caracteres">0</span>/500
               <svg class="ic-md"><use href="#ic-alert" /></svg>
               <p>
                 Recordá que <strong>NO SE PERMITEN MASCOTAS</strong> bajo

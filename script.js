@@ -372,49 +372,134 @@
   const personasSel = document.getElementById("personas");
   const ninosField = document.getElementById("ninosField");
   const ninosSel = document.getElementById("ninos");
+  const ninosHint = document.getElementById("ninosHint");
   const edadesGroup = document.getElementById("edadesGroup");
   const edadesWrap = document.getElementById("edadesWrap");
 
-  personasSel.addEventListener("change", () => {
-    const total = parseInt(personasSel.value, 10) || 0;
-    if (total >= 2) {
-      ninosField.hidden = false;
-      const maxNinos = total; // cupo restante de personas (hasta el total elegido)
-      ninosSel.innerHTML = `<option value="0">Sin niños</option>`;
-      for (let n = 1; n <= maxNinos; n++) {
-        const opt = document.createElement("option");
-        opt.value = n;
-        opt.textContent = `${n} niño${n > 1 ? "s" : ""}`;
-        ninosSel.appendChild(opt);
-      }
-    } else {
-      ninosField.hidden = true;
-      ninosSel.value = "0";
-      edadesGroup.hidden = true;
-      edadesWrap.innerHTML = "";
-    }
-  });
+  /* Tope duro del departamento: adultos + niños nunca puede superar este número. */
+  const MAX_PERSONAS = 4;
+  const EDAD_MAX_NINO = 17;
 
-  ninosSel.addEventListener("change", () => {
+  function limpiarNinos() {
+    ninosField.hidden = true;
+    ninosSel.innerHTML = `<option value="0">Sin niños</option>`;
+    ninosSel.value = "0";
+    ninosHint.textContent = "";
+    edadesGroup.hidden = true;
+    edadesWrap.innerHTML = "";
+  }
+
+  /* El select de niños se arma según el cupo que queda para llegar a
+     MAX_PERSONAS: si eligen 2 adultos quedan 2 lugares, si eligen 3 queda 1. */
+  function renderNinos() {
+    const adultos = parseInt(personasSel.value, 10) || 0;
+    if (adultos < 2) {
+      limpiarNinos();
+      return;
+    }
+
+    const cupo = Math.max(0, MAX_PERSONAS - adultos);
+    const previo = parseInt(ninosSel.value, 10) || 0;
+
+    ninosField.hidden = false;
+    ninosSel.innerHTML = `<option value="0">Sin niños</option>`;
+    for (let n = 1; n <= cupo; n++) {
+      const opt = document.createElement("option");
+      opt.value = String(n);
+      opt.textContent = `${n} niño${n > 1 ? "s" : ""}`;
+      ninosSel.appendChild(opt);
+    }
+    ninosSel.value = String(Math.min(previo, cupo));
+
+    ninosHint.textContent =
+      cupo > 0
+        ? `Podés sumar hasta ${cupo} niño${cupo > 1 ? "s" : ""} (máximo ${MAX_PERSONAS} personas en total).`
+        : `Ya cubriste el máximo de ${MAX_PERSONAS} personas.`;
+
+    renderEdades();
+  }
+
+  /* Un select de edad (0 a 17) por cada niño declarado. */
+  function renderEdades() {
     const cantidad = parseInt(ninosSel.value, 10) || 0;
     edadesWrap.innerHTML = "";
-    if (cantidad > 0) {
-      edadesGroup.hidden = false;
-      for (let i = 1; i <= cantidad; i++) {
-        const field = document.createElement("div");
-        field.className = "edad-field";
-        field.innerHTML = `
-          <label for="edadNino${i}">Niño ${i}</label>
-          <select id="edadNino${i}" required>
-            ${Array.from({ length: 18 }, (_, y) => `<option value="${y}">${y} año${y !== 1 ? "s" : ""}</option>`).join("")}
-          </select>
-        `;
-        edadesWrap.appendChild(field);
-      }
-    } else {
+
+    if (cantidad < 1) {
       edadesGroup.hidden = true;
+      return;
     }
+
+    edadesGroup.hidden = false;
+    const opciones = Array.from({ length: EDAD_MAX_NINO + 1 }, (_, y) => {
+      const texto = y === 0 ? "Menos de 1 año" : `${y} año${y > 1 ? "s" : ""}`;
+      return `<option value="${y}">${texto}</option>`;
+    }).join("");
+
+    for (let i = 1; i <= cantidad; i++) {
+      const field = document.createElement("div");
+      field.className = "edad-field";
+      field.innerHTML = `
+        <label for="edadNino${i}">Niño ${i}</label>
+        <select id="edadNino${i}" name="edadNino${i}" required>
+          <option value="" selected disabled>Elegir edad</option>
+          ${opciones}
+        </select>
+      `;
+      edadesWrap.appendChild(field);
+    }
+  }
+
+  personasSel.addEventListener("change", renderNinos);
+  ninosSel.addEventListener("change", renderEdades);
+
+  /* ==========================================================
+     FORMULARIO: VEHÍCULO
+  =========================================================== */
+  const vehiculoChk = document.getElementById("vehiculo");
+  const vehiculoFields = document.getElementById("vehiculoFields");
+  const vehiculoMarca = document.getElementById("vehiculoMarca");
+  const vehiculoModelo = document.getElementById("vehiculoModelo");
+  const vehiculoTipo = document.getElementById("vehiculoTipo");
+  const vehiculoAnio = document.getElementById("vehiculoAnio");
+  const vehiculoInputs = [
+    vehiculoMarca,
+    vehiculoModelo,
+    vehiculoTipo,
+    vehiculoAnio,
+  ];
+
+  const ANIO_MIN = 1950;
+  const ANIO_MAX = new Date().getFullYear() + 1;
+
+  /* Los datos del vehículo solo existen (y solo son obligatorios) mientras
+     el checkbox esté tildado; al destildar se limpian para no enviar basura. */
+  function toggleVehiculo() {
+    const activo = vehiculoChk.checked;
+    vehiculoFields.hidden = !activo;
+    vehiculoInputs.forEach((el) => {
+      el.required = activo;
+      if (!activo) {
+        el.value = "";
+        el.setCustomValidity("");
+      }
+    });
+  }
+
+  vehiculoChk.addEventListener("change", toggleVehiculo);
+
+  vehiculoAnio.addEventListener("input", () => {
+    vehiculoAnio.value = vehiculoAnio.value.replace(/\D/g, "").slice(0, 4);
+    const anio = parseInt(vehiculoAnio.value, 10);
+    const valido =
+      vehiculoAnio.value.length === 4 && anio >= ANIO_MIN && anio <= ANIO_MAX;
+    vehiculoAnio.setCustomValidity(
+      vehiculoAnio.value && !valido
+        ? `Ingresá un año válido entre ${ANIO_MIN} y ${ANIO_MAX}.`
+        : "",
+    );
   });
+
+  toggleVehiculo();
 
   /* ==========================================================
      ENVÍO DE FORMULARIO DE RESERVA
@@ -435,9 +520,9 @@
     formSuccess.hidden = false;
     formSuccess.scrollIntoView({ behavior: "smooth", block: "center" });
     bookingForm.reset();
-    ninosField.hidden = true;
-    edadesGroup.hidden = true;
-    edadesWrap.innerHTML = "";
+    limpiarNinos();
+    toggleVehiculo();
+    resetContadores();
     fechasLabel.textContent = "Seleccionar fechas";
     fechasInput.value = "";
     formCalendar.reset();
@@ -933,31 +1018,49 @@
   const textarea = document.getElementById("mensaje");
   const contador = document.getElementById("contador");
   const caracteres = document.getElementById("caracteres");
+  const contadorChip = document.getElementById("contadorChip");
+  const caracteresChip = document.getElementById("caracteresChip");
 
   const maxPalabras = 100;
   const maxCaracteres = 500;
 
+  /* El chip pasa a "aviso" cerca del límite y a "lleno" cuando lo toca. */
+  function pintarChip(chip, actual, max) {
+    chip.classList.toggle("is-warn", actual >= max * 0.85 && actual < max);
+    chip.classList.toggle("is-full", actual >= max);
+  }
+
+  function actualizarContadores() {
+    const palabras = textarea.value.trim()
+      ? textarea.value.trim().split(/\s+/).length
+      : 0;
+
+    contador.textContent = palabras;
+    caracteres.textContent = textarea.value.length;
+    pintarChip(contadorChip, palabras, maxPalabras);
+    pintarChip(caracteresChip, textarea.value.length, maxCaracteres);
+  }
+
+  function resetContadores() {
+    textarea.value = "";
+    actualizarContadores();
+  }
+
   textarea.addEventListener("input", () => {
-    // Limitar caracteres
     if (textarea.value.length > maxCaracteres) {
       textarea.value = textarea.value.slice(0, maxCaracteres);
     }
 
-    // Contar palabras
     const palabras = textarea.value.trim()
       ? textarea.value.trim().split(/\s+/)
       : [];
 
-    // Limitar palabras
     if (palabras.length > maxPalabras) {
       textarea.value = palabras.slice(0, maxPalabras).join(" ");
     }
 
-    // Actualizar contadores
-    contador.textContent = textarea.value.trim()
-      ? textarea.value.trim().split(/\s+/).length
-      : 0;
-
-    caracteres.textContent = textarea.value.length;
+    actualizarContadores();
   });
+
+  actualizarContadores();
 })();
