@@ -1,0 +1,27 @@
+# Claves y configuración local
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# NOTA sobre supabase-config.js
+# ---------------------------------------------------------------------------
+# El archivo generado supabase-config.js SÍ se commitea a propósito: GitHub
+# Pages sirve los archivos tal cual están en el repo, así que si no está, el
+# sitio publicado se queda sin cliente de Supabase. Solo contiene la URL y la
+# clave pública (anon/publishable), que de todas formas son visibles para
+# cualquiera que abra el sitio.
+#
+# Si algún día pasás a un deploy con build (GitHub Actions, Netlify, Vercel),
+# descomentá la línea de abajo y generá el archivo en el paso de build a partir
+# de los secrets del proveedor:
+# supabase-config.js
