@@ -4,5 +4,17 @@
   "buildCommand": "node scripts/build-config.mjs",
   "outputDirectory": ".",
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/pago",
+      "destination": "https://pago.departamentosdimo.com.ar",
+      "permanent": false
+    },
+    {
+      "source": "/pago/:ruta*",
+      "destination": "https://pago.departamentosdimo.com.ar/:ruta*",
+      "permanent": false
+    }
+  ]
 }

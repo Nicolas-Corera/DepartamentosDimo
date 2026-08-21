@@ -405,6 +405,19 @@ async function enviarPago(formData) {
         return;
       }
 
+      // Doble clic: el otro request está cobrando en este mismo momento.
+      // Pantalla de espera, NO de error — lo último que queremos es sugerirle
+      // que lo intente otra vez cuando el pago ya salió.
+      if (cuerpo.codigo === "pago_en_curso") {
+        mostrarResultado({
+          grupo: "pendiente",
+          titulo: "Estamos confirmando tu pago",
+          detalle: cuerpo.error,
+          accion: "esperar",
+        });
+        return;
+      }
+
       mostrarAvisoDePago(
         cuerpo.mensaje || {
           titulo: "No pudimos procesar el pago",

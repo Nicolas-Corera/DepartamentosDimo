@@ -121,6 +121,52 @@ export async function consultarPago(paymentId) {
 }
 
 /**
+ * ¿MercadoPago rechazó este pedido por ser un duplicado?
+ *
+ * Cuando llegan dos requests con la misma X-Idempotency-Key, MercadoPago NO
+ * devuelve el pago original: responde
+ *
+ *     HTTP 423  resource_already_locked
+ *     code 2001 "Already posted the same request in the last minute"
+ *
+ * Es el caso del doble clic. Detectarlo es lo que permite mostrarle a la
+ * persona el pago que SÍ se hizo, en vez de un error que la invita a pagar
+ * otra vez con otra tarjeta.
+ */
+export function esPedidoDuplicado(error) {
+  if (!error) return false;
+  const status = error.status || error.statusCode;
+  if (status === 423) return true;
+  if (error.error === "resource_already_locked") return true;
+  return Array.isArray(error.cause) && error.cause.some((c) => Number(c?.code) === 2001);
+}
+
+/**
+ * GET /v1/payments/search?external_reference=… — todos los pagos de una reserva.
+ *
+ * Se usa para recuperarse del duplicado de arriba: como el `external_reference`
+ * es el uuid de la reserva, alcanza para encontrar el pago que creó el request
+ * gemelo. Se le pregunta a MercadoPago y no a nuestra base porque el gemelo
+ * puede no haber terminado de escribir todavía.
+ */
+export async function buscarPagoPorReferencia(ref) {
+  const respuesta = await pagos().search({
+    options: {
+      external_reference: ref,
+      sort: "date_created",
+      criteria: "desc",
+      limit: 5,
+    },
+  });
+
+  const resultados = respuesta?.results || [];
+  if (!resultados.length) return null;
+
+  // Si hubo varios intentos, el aprobado manda; si no, el más reciente.
+  return resultados.find((p) => p.status === "approved") || resultados[0];
+}
+
+/**
  * Se queda con los campos del pago que vale la pena guardar. Deja afuera todo
  * lo que sea dato de tarjeta más allá de los últimos 4 dígitos (que no es
  * información sensible y sirve para que el cliente reconozca la operación).
@@ -135,11 +181,30 @@ export function resumirPago(pago) {
     moneda: pago.currency_id || "ARS",
     metodo: pago.payment_method_id || null,
     tipo: pago.payment_type_id || null,
-    cuotas: pago.installments || null,
-    ultimos_cuatro: pago.card?.last_four_digits || null,
+    cuotas: normalizarCuotas(pago.installments),
+    ultimos_cuatro: normalizarUltimosCuatro(pago.card?.last_four_digits),
     payer_email: pago.payer?.email || null,
     aprobado_en: pago.date_approved || null,
   };
+}
+
+/**
+ * En los pagos RECHAZADOS, MercadoPago devuelve `card.last_four_digits` como
+ * string vacío en vez de omitirlo. Guardar eso violaba el `check` de la tabla
+ * y hacía fallar el INSERT — o sea que el rechazo no quedaba registrado y la
+ * persona veía un error genérico en lugar de "tu tarjeta no tiene fondos".
+ *
+ * Solo pasa lo que de verdad son cuatro dígitos; cualquier otra cosa es null.
+ */
+function normalizarUltimosCuatro(valor) {
+  const limpio = String(valor ?? "").trim();
+  return /^[0-9]{4}$/.test(limpio) ? limpio : null;
+}
+
+/** Mismo criterio para las cuotas: fuera del rango que acepta la tabla, null. */
+function normalizarCuotas(valor) {
+  const n = Number(valor);
+  return Number.isInteger(n) && n >= 1 && n <= 24 ? n : null;
 }
 
 /* ===========================================================================
