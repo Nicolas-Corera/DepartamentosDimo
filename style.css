@@ -873,6 +873,11 @@ p {
   flex-direction: column;
   gap: 7px;
 }
+/* Campo que ocupa las dos columnas de la grilla. Lo usa "Cantidad total de
+   personas": justo abajo se abren adultos y ninos, uno en cada columna. */
+.field-full {
+  grid-column: 1 / -1;
+}
 .field-group {
   margin-top: 22px;
   display: flex;

@@ -367,61 +367,109 @@
   });
 
   /* ==========================================================
-     FORMULARIO: PERSONAS / NIÑOS / EDADES
+     FORMULARIO: PERSONAS / ADULTOS / NIÑOS / EDADES
+
+     Primero se elige el TOTAL de personas (1 a 4, el tope del depto).
+     Recién ahí aparecen los dos selects que reparten ese total entre
+     adultos y niños. Los dos están siempre atados: si cambiás uno, el
+     otro se recalcula para que la suma dé exactamente el total, así que
+     nunca puede quedar un grupo inconsistente.
+
+     Regla que no se negocia: al menos un adulto. Por eso el select de
+     niños llega hasta total - 1 y el de adultos arranca en 1.
   =========================================================== */
   const personasSel = document.getElementById("personas");
+  const personasHint = document.getElementById("personasHint");
+  const adultosField = document.getElementById("adultosField");
+  const adultosSel = document.getElementById("adultos");
   const ninosField = document.getElementById("ninosField");
   const ninosSel = document.getElementById("ninos");
-  const ninosHint = document.getElementById("ninosHint");
   const edadesGroup = document.getElementById("edadesGroup");
   const edadesWrap = document.getElementById("edadesWrap");
 
-  /* Tope duro del departamento: adultos + niños nunca puede superar este número. */
+  /* Tope duro del departamento: adultos + niños nunca puede superarlo. */
   const MAX_PERSONAS = 4;
   const EDAD_MAX_NINO = 17;
 
-  function limpiarNinos() {
+  function total() {
+    return parseInt(personasSel.value, 10) || 0;
+  }
+
+  /* Mientras no haya un total elegido no se muestra nada del reparto. */
+  function limpiarGrupo() {
+    adultosField.hidden = true;
     ninosField.hidden = true;
+    adultosSel.innerHTML = `<option value="1">1 adulto</option>`;
+    adultosSel.value = "1";
     ninosSel.innerHTML = `<option value="0">Sin niños</option>`;
     ninosSel.value = "0";
-    ninosHint.textContent = "";
+    personasHint.textContent = "";
     edadesGroup.hidden = true;
     edadesWrap.innerHTML = "";
   }
 
-  /* El select de niños se arma según el cupo que queda para llegar a
-     MAX_PERSONAS: si eligen 2 adultos quedan 2 lugares, si eligen 3 queda 1. */
-  function renderNinos() {
-    const adultos = parseInt(personasSel.value, 10) || 0;
-    if (adultos < 2) {
-      limpiarNinos();
-      return;
-    }
+  function optAdultos(n) {
+    return `<option value="${n}">${n} adulto${n > 1 ? "s" : ""}</option>`;
+  }
 
-    const cupo = Math.max(0, MAX_PERSONAS - adultos);
-    const previo = parseInt(ninosSel.value, 10) || 0;
+  function optNinos(n) {
+    return n === 0
+      ? `<option value="0">Sin niños</option>`
+      : `<option value="${n}">${n} niño${n > 1 ? "s" : ""}</option>`;
+  }
 
+  /* Repinta los dos selects para un total dado y deja marcada la
+     combinación adultos/niños que se le pase. */
+  function renderGrupo(adultos, ninos) {
+    const t = total();
+
+    adultosSel.innerHTML = Array.from({ length: t }, (_, i) => optAdultos(i + 1))
+      .join("");
+    ninosSel.innerHTML = Array.from({ length: t }, (_, i) => optNinos(i)).join(
+      "",
+    );
+
+    adultosSel.value = String(adultos);
+    ninosSel.value = String(ninos);
+
+    adultosField.hidden = false;
     ninosField.hidden = false;
-    ninosSel.innerHTML = `<option value="0">Sin niños</option>`;
-    for (let n = 1; n <= cupo; n++) {
-      const opt = document.createElement("option");
-      opt.value = String(n);
-      opt.textContent = `${n} niño${n > 1 ? "s" : ""}`;
-      ninosSel.appendChild(opt);
-    }
-    ninosSel.value = String(Math.min(previo, cupo));
 
-    ninosHint.textContent =
-      cupo > 0
-        ? `Podés sumar hasta ${cupo} niño${cupo > 1 ? "s" : ""} (máximo ${MAX_PERSONAS} personas en total).`
-        : `Ya cubriste el máximo de ${MAX_PERSONAS} personas.`;
+    personasHint.textContent =
+      t === 1
+        ? `El departamento admite hasta ${MAX_PERSONAS} personas en total.`
+        : `Repartí las ${t} personas entre adultos y niños: al cambiar uno se ajusta el otro. Siempre tiene que haber al menos un adulto.`;
 
     renderEdades();
+  }
+
+  /* Al elegir el total se arranca con todos adultos: es la opción más
+     común y evita que el visitante tenga que tocar los dos selects. */
+  function onTotalChange() {
+    const t = total();
+    if (t < 1) {
+      limpiarGrupo();
+      return;
+    }
+    renderGrupo(t, 0);
+  }
+
+  function onAdultosChange() {
+    const adultos = parseInt(adultosSel.value, 10) || 1;
+    renderGrupo(adultos, total() - adultos);
+  }
+
+  function onNinosChange() {
+    const ninos = parseInt(ninosSel.value, 10) || 0;
+    renderGrupo(total() - ninos, ninos);
   }
 
   /* Un select de edad (0 a 17) por cada niño declarado. */
   function renderEdades() {
     const cantidad = parseInt(ninosSel.value, 10) || 0;
+    const previas = Array.from(edadesWrap.querySelectorAll("select")).map(
+      (s) => s.value,
+    );
     edadesWrap.innerHTML = "";
 
     if (cantidad < 1) {
@@ -446,11 +494,15 @@
         </select>
       `;
       edadesWrap.appendChild(field);
+      // Si ya había una edad cargada para ese niño se conserva: cambiar de
+      // 2 a 3 niños no tiene por qué borrar lo que el visitante ya eligió.
+      if (previas[i - 1]) field.querySelector("select").value = previas[i - 1];
     }
   }
 
-  personasSel.addEventListener("change", renderNinos);
-  ninosSel.addEventListener("change", renderEdades);
+  personasSel.addEventListener("change", onTotalChange);
+  adultosSel.addEventListener("change", onAdultosChange);
+  ninosSel.addEventListener("change", onNinosChange);
 
   /* ==========================================================
      FORMULARIO: VEHÍCULO
@@ -503,11 +555,95 @@
 
   /* ==========================================================
      ENVÍO DE FORMULARIO DE RESERVA
+
+     Todo el acoplamiento con Supabase vive en createBookingRequest():
+     una sola fila en public.booking_requests con TODOS los campos del
+     formulario. Esa tabla es de solo-alta desde el sitio — guarda DNI,
+     mail y teléfono, así que no tiene policy de SELECT y se lee desde el
+     panel de Supabase. Ver SUPABASE.md.
   =========================================================== */
   const bookingForm = document.getElementById("bookingForm");
   const formSuccess = document.getElementById("formSuccess");
-  bookingForm.addEventListener("submit", (e) => {
+  const formError = document.getElementById("formError");
+  const bookingSubmit = bookingForm.querySelector('button[type="submit"]');
+
+  async function createBookingRequest(consulta) {
+    const { error } = await db.from("booking_requests").insert(consulta);
+    if (error) throw error;
+  }
+
+  /* Los <select> de edad se crean dinámicamente, así que las edades se leen
+     del DOM recién al enviar. La posición i del array es el "Niño i + 1". */
+  function leerEdades() {
+    return Array.from(edadesWrap.querySelectorAll("select")).map((s) =>
+      parseInt(s.value, 10),
+    );
+  }
+
+  /* Devuelve el objeto listo para insertar, o un string con el motivo por el
+     que no se puede armar (que es justo el texto que ve el visitante).
+     Las validaciones de acá son las mismas que los check de la tabla: si
+     tocás una, tocá la otra. */
+  function armarConsulta() {
+    const [checkIn, checkOut] = fechasInput.value.split(" a ");
+    if (!checkIn || !checkOut) return "Elegí las fechas de tu estadía.";
+    if (checkOut <= checkIn)
+      return "La fecha de salida tiene que ser posterior a la de entrada.";
+
+    // El campo de DNI es de texto libre: se guarda solo con dígitos para que
+    // "12.345.678" y "12345678" no entren como dos consultas distintas.
+    const dni = document.getElementById("dni").value.replace(/\D/g, "");
+    if (dni.length < 6 || dni.length > 9)
+      return "Revisá el DNI: tiene que tener entre 6 y 9 dígitos.";
+
+    // personas es el TOTAL declarado; adultos + ninos tiene que dar justo eso.
+    // El front los mantiene atados, así que esto es la red de seguridad.
+    const personas = total();
+    const adultos = adultosField.hidden
+      ? 0
+      : parseInt(adultosSel.value, 10) || 0;
+    const ninos = ninosField.hidden ? 0 : parseInt(ninosSel.value, 10) || 0;
+    if (personas < 1 || personas > MAX_PERSONAS)
+      return `El departamento admite hasta ${MAX_PERSONAS} personas en total.`;
+    if (adultos < 1) return "Tiene que viajar al menos un adulto.";
+    if (adultos + ninos !== personas)
+      return "Revisá el reparto: adultos y niños tienen que sumar el total de personas.";
+
+    const edades = leerEdades();
+    if (edades.length !== ninos || edades.some((e) => Number.isNaN(e)))
+      return "Completá la edad de cada niño.";
+
+    const conVehiculo = vehiculoChk.checked;
+    const texto = (el) => el.value.trim() || null;
+
+    return {
+      nombre: document.getElementById("nombre").value.trim(),
+      email: document.getElementById("email").value.trim().toLowerCase(),
+      dni,
+      telefono: document.getElementById("telefono").value.trim(),
+      procedencia: texto(document.getElementById("procedencia")),
+      check_in: checkIn,
+      check_out: checkOut,
+      personas,
+      adultos,
+      ninos,
+      edades_ninos: edades,
+      vehiculo: conVehiculo,
+      vehiculo_marca: conVehiculo ? texto(vehiculoMarca) : null,
+      vehiculo_modelo: conVehiculo ? texto(vehiculoModelo) : null,
+      vehiculo_tipo: conVehiculo ? vehiculoTipo.value || null : null,
+      vehiculo_anio: conVehiculo
+        ? parseInt(vehiculoAnio.value, 10) || null
+        : null,
+      mensaje: texto(document.getElementById("mensaje")),
+    };
+  }
+
+  bookingForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    formSuccess.hidden = true;
+    formError.hidden = true;
+
     if (!bookingForm.checkValidity()) {
       bookingForm.reportValidity();
       return;
@@ -517,15 +653,42 @@
       openModal(document.getElementById("modalFechas"));
       return;
     }
-    formSuccess.hidden = false;
-    formSuccess.scrollIntoView({ behavior: "smooth", block: "center" });
-    bookingForm.reset();
-    limpiarNinos();
-    toggleVehiculo();
-    resetContadores();
-    fechasLabel.textContent = "Seleccionar fechas";
-    fechasInput.value = "";
-    formCalendar.reset();
+
+    const consulta = armarConsulta();
+    if (typeof consulta === "string") {
+      formError.textContent = consulta;
+      formError.hidden = false;
+      return;
+    }
+
+    const textoBoton = bookingSubmit.textContent;
+    bookingSubmit.disabled = true;
+    bookingSubmit.textContent = "Enviando…";
+    try {
+      await createBookingRequest(consulta);
+      formSuccess.hidden = false;
+      formSuccess.scrollIntoView({ behavior: "smooth", block: "center" });
+      bookingForm.reset();
+      limpiarGrupo();
+      toggleVehiculo();
+      resetContadores();
+      fechasLabel.textContent = "Seleccionar fechas";
+      fechasInput.value = "";
+      formCalendar.reset();
+    } catch (err) {
+      console.error("No se pudo guardar la consulta:", err);
+      // 23505 = unique_violation: lo tira booking_requests_dedupe_idx cuando
+      // ya hay una consulta con el mismo DNI y las mismas fechas.
+      formError.textContent =
+        err?.code === "23505"
+          ? "Ya recibimos una consulta con ese DNI para esas fechas. Si necesitás cambiar algo, escribinos por WhatsApp."
+          : "No pudimos enviar tu consulta. Probá de nuevo en un momento.";
+      formError.hidden = false;
+      formError.scrollIntoView({ behavior: "smooth", block: "center" });
+    } finally {
+      bookingSubmit.disabled = false;
+      bookingSubmit.textContent = textoBoton;
+    }
   });
 
   /* ==========================================================
