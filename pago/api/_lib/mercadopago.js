@@ -272,3 +272,133 @@ function tsDeLaFirma(signatureHeader) {
   const m = /(?:^|,)\s*ts\s*=\s*(\d+)/.exec(String(signatureHeader || ""));
   return m ? Number(m[1]) : null;
 }
+
+/* ===========================================================================
+   Qué tipo de tarjeta es
+   =========================================================================== */
+
+let catalogoMedios = null;
+
+/**
+ * Crédito o débito, según MercadoPago y no según el navegador.
+ *
+ * Importa porque el recargo de crédito y el de débito son distintos: si el
+ * medio lo eligiera el front, alguien manda "debito" desde la consola, paga con
+ * una tarjeta de crédito y se ahorra el recargo. El `payment_method_id` sí lo
+ * genera el Brick contra los servidores de MercadoPago, así que preguntarle a
+ * MercadoPago qué es `visa` o `debvisa` cierra el agujero.
+ *
+ * GET /v1/payment_methods devuelve el catálogo entero. Se cachea en memoria:
+ * cambia cada varios meses, y en el peor caso el proceso serverless se recicla
+ * y se vuelve a pedir.
+ *
+ * OJO CON LOS IDS REPETIDOS — es donde esto se rompió la primera vez. El
+ * catálogo NO trae un `payment_type_id` por id: `visa`, `master` y `cabal`
+ * vienen DOS veces, una como `credit_card` y otra como `prepaid_card`. Con un
+ * `Map` de id -> tipo gana el último que llegue, y en el orden actual de la
+ * respuesta eso dejaba a `visa` clasificada como prepaga: le cobrábamos el
+ * recargo de débito a una tarjeta de crédito. Por eso acá se junta el CONJUNTO
+ * de tipos de cada id y se decide con una prioridad fija.
+ *
+ * Ante la duda gana el crédito. Es el recargo más alto, y equivocarse para
+ * arriba se corrige con una devolución, mientras que equivocarse para abajo es
+ * plata que no se cobró y que nadie va a venir a reclamar.
+ *
+ * Si la consulta falla se cae al prefijo del id (`debvisa`, `debmaster`,
+ * `maestro`…). Es el mismo criterio con el que los nombra el propio panel de
+ * MercadoPago, y es preferible a cortar el pago por no poder clasificar.
+ */
+export async function tipoDeTarjeta(paymentMethodId) {
+  const id = String(paymentMethodId || "").trim().toLowerCase();
+  if (!id) return "credito";
+
+  try {
+    if (!catalogoMedios) {
+      const { mp } = leerConfig();
+      const respuesta = await fetch("https://api.mercadopago.com/v1/payment_methods", {
+        headers: { Authorization: `Bearer ${mp.accessToken}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
+      const filas = await respuesta.json();
+      catalogoMedios = new Map();
+
+      for (const fila of Array.isArray(filas) ? filas : []) {
+        const clave = String(fila.id).toLowerCase();
+        if (!catalogoMedios.has(clave)) catalogoMedios.set(clave, new Set());
+        catalogoMedios.get(clave).add(fila.payment_type_id);
+      }
+    }
+
+    const tipos = catalogoMedios.get(id);
+    if (tipos?.size) {
+      // El orden manda: un id que es crédito y prepaga a la vez es crédito.
+      if (tipos.has("credit_card")) return "credito";
+      // Débito y prepaga se cobran igual: siempre en un pago.
+      if (tipos.has("debit_card") || tipos.has("prepaid_card")) return "debito";
+    }
+  } catch (error) {
+    log.warn("mp.catalogoMedios.falló", { motivo: error?.message || String(error) });
+  }
+
+  return /^deb/.test(id) || id === "maestro" ? "debito" : "credito";
+}
+
+/**
+ * POST /v1/payments/{id}/refunds — devolución total o parcial.
+ *
+ * Sin `monto` devuelve todo. Con `monto`, esa parte: MercadoPago admite varias
+ * devoluciones parciales sobre el mismo pago mientras la suma no supere el
+ * total cobrado.
+ *
+ * La clave de idempotencia lleva el monto adentro a propósito: dos devoluciones
+ * parciales distintas sobre el mismo pago tienen que poder convivir, pero un
+ * doble clic sobre la MISMA devolución no puede devolver la plata dos veces.
+ */
+export async function devolverPago(paymentId, monto = null) {
+  const { mp } = leerConfig();
+
+  const cuerpo = monto == null ? {} : { amount: Number(monto) };
+  const clave = crypto
+    .createHash("sha256")
+    .update(`refund:${paymentId}:${monto == null ? "total" : monto}`)
+    .digest("hex")
+    .slice(0, 32);
+
+  log.info("mp.devolucion.inicio", { payment_id: String(paymentId), monto });
+
+  const respuesta = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}/refunds`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${mp.accessToken}`,
+      "Content-Type": "application/json",
+      "X-Idempotency-Key": clave,
+    },
+    body: JSON.stringify(cuerpo),
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  const datos = await respuesta.json().catch(() => ({}));
+
+  if (!respuesta.ok) {
+    const detalle = datos?.message || datos?.error || `HTTP ${respuesta.status}`;
+    log.error("mp.devolucion.rechazada", new Error(detalle), {
+      payment_id: String(paymentId),
+      monto,
+      status: respuesta.status,
+    });
+    const error = new Error(detalle);
+    error.status = respuesta.status;
+    throw error;
+  }
+
+  log.info("mp.devolucion.ok", {
+    payment_id: String(paymentId),
+    refund_id: datos?.id,
+    monto: datos?.amount,
+    status: datos?.status,
+  });
+
+  return datos;
+}

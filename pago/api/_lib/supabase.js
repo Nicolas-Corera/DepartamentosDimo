@@ -143,3 +143,60 @@ export async function confirmarReserva(bookingId) {
   }
   return true;
 }
+
+/* ===========================================================================
+   Configuración de tarifas
+   ---------------------------------------------------------------------------
+   Los precios ya no están en variables de entorno: viven en tres tablas que se
+   editan desde el dashboard. Se leen en cada pedido, sin caché.
+
+   Sin caché a propósito: son tres SELECT de menos de 30 filas contra un índice
+   primario, y el proceso serverless se recicla cada dos por tres, así que una
+   caché en memoria acertaría poco y agregaría el peor de los bugs posibles —
+   que cambies un precio en el dashboard y siga cobrando el viejo sin que se
+   entienda por qué.
+   =========================================================================== */
+
+/**
+ * Las temporadas, los medios de pago y los planes de cuotas, en una sola vuelta.
+ *
+ * Si alguna consulta falla se corta con un error: a diferencia de las tarifas
+ * especiales (donde seguir de largo solo significa cobrar un fin de semana
+ * largo a precio de semana), sin temporadas no hay precio que calcular y
+ * seguir sería inventar un monto.
+ */
+export async function leerConfigTarifas() {
+  const [temporadas, medios, planes] = await Promise.all([
+    db().from("temporadas").select("clave, nombre, fecha_desde, fecha_hasta, precio_por_noche, orden").order("orden"),
+    db().from("medios_pago").select("clave, nombre, habilitado, recargo_porcentaje, orden").order("orden"),
+    db().from("planes_cuotas").select("cuotas, habilitado, recargo_porcentaje").order("cuotas"),
+  ]);
+
+  for (const [nombre, r] of [["temporadas", temporadas], ["medios_pago", medios], ["planes_cuotas", planes]]) {
+    if (r.error) {
+      log.error("supabase.leerConfigTarifas", r.error, { tabla: nombre });
+      throw new Error(`No se pudo leer la configuración de tarifas (${nombre}): ${r.error.message}`);
+    }
+  }
+
+  if (!temporadas.data?.length) {
+    throw new Error(
+      "La tabla `temporadas` está vacía. Corré pago/sql/configuracion-tarifas.sql en Supabase.",
+    );
+  }
+
+  return {
+    temporadas: temporadas.data,
+    // Los porcentajes llegan como string desde PostgREST (numeric), y sumarlos
+    // como texto da "0.008.00". Se normalizan una sola vez, acá.
+    medios: (medios.data || []).map((m) => ({
+      ...m,
+      recargo_porcentaje: Number(m.recargo_porcentaje),
+    })),
+    planes: (planes.data || []).map((p) => ({
+      ...p,
+      cuotas: Number(p.cuotas),
+      recargo_porcentaje: Number(p.recargo_porcentaje),
+    })),
+  };
+}

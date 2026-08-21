@@ -31,13 +31,21 @@ import {
   tienePagoAprobado,
   confirmarReserva,
   buscarTarifasEspeciales,
+  leerConfigTarifas,
 } from "./_lib/supabase.js";
-import { calcularPrecio } from "./_lib/precios.js";
+import {
+  calcularPrecio,
+  calcularRecargo,
+  planDeCuotas,
+  maximoDeCuotas,
+  medioDePago,
+} from "./_lib/precios.js";
 import {
   crearPago,
   resumirPago,
   esPedidoDuplicado,
   buscarPagoPorReferencia,
+  tipoDeTarjeta,
 } from "./_lib/mercadopago.js";
 import { mensajeDePago } from "./_lib/mensajes.js";
 import { log, ofuscarEmail } from "./_lib/log.js";
@@ -50,8 +58,9 @@ function fechaCorta(iso) {
   return `${m[3]} ${MESES[Number(m[2]) - 1]}`;
 }
 
-function textoDescripcion(reserva) {
-  return `Reserva Dimo ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
+function textoDescripcion(reserva, cobro) {
+  const base = `Reserva Dimo ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
+  return cobro.cuotas > 1 ? `${base} (${cobro.cuotas} cuotas)` : base;
 }
 
 /**
@@ -112,10 +121,47 @@ export default async function handler(req, res) {
     const body = leerBody(req);
     ref = String(body.ref || "").trim();
 
-    const datos = validarFormData(body.formData, config.mp.maxCuotas);
     const reserva = await buscarReserva(ref);
-    const tarifas = await buscarTarifasEspeciales(reserva.check_in, reserva.check_out);
-    const precio = calcularPrecio(reserva, config.precios, tarifas);
+    const [tarifasConfig, especiales] = await Promise.all([
+      leerConfigTarifas(),
+      buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
+    ]);
+
+    const datos = validarFormData(body.formData, maximoDeCuotas(tarifasConfig.planes));
+    const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+
+    /**
+     * El recargo lo decide el servidor de punta a punta.
+     *
+     * Crédito y débito tienen recargos distintos, así que si el medio lo
+     * eligiera el navegador alcanzaría con mandar "debito" desde la consola y
+     * pagar con una tarjeta de crédito. `tipoDeTarjeta()` se lo pregunta a
+     * MercadoPago a partir del payment_method_id que generó el Brick, que sí
+     * es confiable.
+     */
+    const claveMedio = await tipoDeTarjeta(datos.paymentMethodId);
+    const medio = medioDePago(claveMedio, tarifasConfig.medios);
+    if (!medio) {
+      throw new ErrorVisible(
+        400,
+        "Ese medio de pago no está habilitado en este momento. Probá con otro.",
+        "medio_deshabilitado",
+      );
+    }
+
+    // En débito no hay cuotas: MercadoPago cobra siempre en un pago, así que
+    // aplicarle el recargo de un plan sería cobrar de más por algo que no pasa.
+    const plan = claveMedio === "credito" ? planDeCuotas(datos.cuotas, tarifasConfig.planes) : null;
+    if (claveMedio === "credito" && datos.cuotas > 1 && !plan) {
+      throw new ErrorVisible(
+        400,
+        "Esa cantidad de cuotas no está disponible. Elegí otra y volvé a intentar.",
+        "cuotas_invalidas",
+      );
+    }
+
+    const cobro = calcularRecargo(precio.total, medio, plan);
+    const cuotasACobrar = claveMedio === "credito" ? datos.cuotas : 1;
 
     // Freno contra el doble cobro por vías distintas (dos pestañas, dos
     // tarjetas). La idempotencia de MercadoPago cubre el reintento del MISMO
@@ -132,8 +178,11 @@ export default async function handler(req, res) {
 
     log.info("pago.intento", {
       ref: reserva.id,
-      monto: precio.aCobrar,
-      cuotas: datos.cuotas,
+      base: cobro.totalBase,
+      recargo_porcentaje: cobro.recargoPorcentaje,
+      monto: cobro.total,
+      medio: claveMedio,
+      cuotas: cuotasACobrar,
       payment_method_id: datos.paymentMethodId,
       email: ofuscarEmail(datos.email || reserva.email),
     });
@@ -142,12 +191,12 @@ export default async function handler(req, res) {
     try {
       pago = await crearPago({
         ref: reserva.id,
-        monto: precio.aCobrar,
-        cuotas: datos.cuotas,
+        monto: cobro.total,
+        cuotas: cuotasACobrar,
         token: datos.token,
         paymentMethodId: datos.paymentMethodId,
         issuerId: datos.issuerId,
-        descripcion: textoDescripcion(reserva),
+        descripcion: textoDescripcion(reserva, { cuotas: cuotasACobrar }),
         pagador: {
           // El titular de la tarjeta puede no ser quien reservó (paga un
           // familiar, por ejemplo). Por eso mandan los datos del formulario, y
@@ -231,6 +280,8 @@ export default async function handler(req, res) {
       monto: resumen.monto,
       cuotas: resumen.cuotas,
       ultimosCuatro: resumen.ultimos_cuatro,
+      recargo: cobro.recargo,
+      recargoPorcentaje: cobro.recargoPorcentaje,
       mensaje,
     });
   } catch (error) {

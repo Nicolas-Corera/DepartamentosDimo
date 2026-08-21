@@ -2,11 +2,14 @@
  * GET /api/reserva?ref=<uuid>
  * ---------------------------------------------------------------------------
  * Lo primero que pide la página: con el código de reserva del link devuelve el
- * resumen, el monto ya calculado y la Public Key para montar el Brick.
+ * resumen, el precio base ya calculado, los medios de pago habilitados con su
+ * recargo, los planes de cuotas y la Public Key para montar el Brick.
  *
- * Por qué la Public Key sale de acá y no de un archivo generado en el build:
- * ya hay un backend, así que no hace falta inventar un paso de build ni dejar
- * la clave escrita en el repo. Un endpoint menos que mantener.
+ * Por qué devuelve los recargos y no un solo monto: el total depende de con qué
+ * vaya a pagar, y eso se elige en la página. Se manda la tabla entera para que
+ * el resumen pueda mostrar el total de cada pestaña sin ir y volver al servidor
+ * en cada clic. El monto que se cobra igual lo recalcula `/api/pagos`: esto es
+ * para mostrar.
  *
  * Qué NO devuelve: el DNI completo (va enmascarado) ni el Access Token. El mail
  * sí, porque es el de quien reserva y sirve para precargar el formulario — el
@@ -15,8 +18,13 @@
 
 import { leerConfig } from "./_lib/env.js";
 import { exigirMetodo, json, manejarError, ErrorVisible } from "./_lib/http.js";
-import { buscarReserva, tienePagoAprobado, buscarTarifasEspeciales } from "./_lib/supabase.js";
-import { calcularPrecio } from "./_lib/precios.js";
+import {
+  buscarReserva,
+  tienePagoAprobado,
+  buscarTarifasEspeciales,
+  leerConfigTarifas,
+} from "./_lib/supabase.js";
+import { calcularPrecio, calcularRecargo, maximoDeCuotas } from "./_lib/precios.js";
 import { log } from "./_lib/log.js";
 
 /** "32456789" -> "•••••789". Alcanza para que la persona se reconozca. */
@@ -42,14 +50,58 @@ export default async function handler(req, res) {
 
     const config = leerConfig();
     const reserva = await buscarReserva(ref);
-    const tarifas = await buscarTarifasEspeciales(reserva.check_in, reserva.check_out);
-    const precio = calcularPrecio(reserva, config.precios, tarifas);
+    const [tarifasConfig, especiales] = await Promise.all([
+      leerConfigTarifas(),
+      buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
+    ]);
+
+    const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
     const pagoAprobado = await tienePagoAprobado(reserva.id);
+
+    // El total de cada pestaña, precalculado. Transferencia y débito son un
+    // solo pago; crédito trae además el desglose de cada plan de cuotas.
+    const planesHabilitados = tarifasConfig.planes.filter((p) => p.habilitado);
+    const medios = tarifasConfig.medios
+      .filter((m) => m.habilitado)
+      .map((m) => {
+        const base = calcularRecargo(precio.total, m, null);
+        return {
+          clave: m.clave,
+          nombre: m.nombre,
+          recargoPorcentaje: m.recargo_porcentaje,
+          total: base.total,
+          recargo: base.recargo,
+          // Solo el crédito ofrece cuotas. Para el resto la lista queda vacía y
+          // la página no dibuja el selector.
+          planes:
+            m.clave === "credito"
+              ? planesHabilitados.map((p) => {
+                  const conPlan = calcularRecargo(precio.total, m, p);
+                  return {
+                    cuotas: p.cuotas,
+                    recargoPorcentaje: conPlan.recargoPorcentaje,
+                    total: conPlan.total,
+                    recargo: conPlan.recargo,
+                    valorCuota: conPlan.valorCuota,
+                  };
+                })
+              : [],
+        };
+      });
+
+    if (precio.nochesSinTemporada > 0) {
+      // No rompe el pago (se cobró al precio de temporada baja), pero significa
+      // que hay un hueco en la configuración y se está cobrando por defecto.
+      log.warn("reserva.noches_sin_temporada", {
+        ref: reserva.id,
+        noches: precio.nochesSinTemporada,
+      });
+    }
 
     log.info("reserva.consultada", {
       ref: reserva.id,
       noches: precio.cantidadNoches,
-      monto: precio.aCobrar,
+      base: precio.total,
       tarifa_uniforme: precio.tarifaUniforme,
       especiales: precio.noches.filter((n) => n.motivo).length,
       ya_pagada: Boolean(pagoAprobado),
@@ -57,7 +109,7 @@ export default async function handler(req, res) {
 
     json(res, 200, {
       publicKey: config.mp.publicKey,
-      maxCuotas: config.mp.maxCuotas,
+      maxCuotas: maximoDeCuotas(tarifasConfig.planes),
       reserva: {
         id: reserva.id,
         nombre: reserva.nombre,
@@ -71,6 +123,7 @@ export default async function handler(req, res) {
         estado: reserva.estado,
       },
       precio,
+      medios,
       pago: pagoAprobado
         ? { yaPagada: true, paymentId: pagoAprobado.mp_payment_id, monto: pagoAprobado.monto }
         : { yaPagada: false },
