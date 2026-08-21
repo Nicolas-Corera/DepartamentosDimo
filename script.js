@@ -553,25 +553,26 @@
     return t ? t.split(/\s+/).length : 0;
   }
 
-  // TODO(Supabase): reemplazar por el SELECT a la tabla `reviews`.
-  //   const { data, error } = await supabase
-  //     .from("reviews")
-  //     .select("name, rating, text, created_at")
-  //     .eq("approved", true)
-  //     .order("created_at", { ascending: false });
-  //   if (error) throw error;
-  //   return data;
   async function fetchReviews() {
-    return [];
+    const { data, error } = await db
+      .from("reviews")
+      .select("name, rating, text, created_at")
+      .eq("approved", true)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) throw error;
+    return data;
   }
 
-  // TODO(Supabase): reemplazar por el INSERT en la tabla `reviews`.
-  //   const { error } = await supabase.from("reviews").insert({ name, rating, text });
-  //   if (error) throw error;
-  // Mientras no exista el backend, la reseña se agrega solo en memoria
-  // (se pierde al recargar la página).
   async function createReview(review) {
-    reviews.unshift(review);
+    const { error } = await db.from("reviews").insert({
+      name: review.name,
+      rating: review.rating,
+      text: review.text,
+    });
+
+    if (error) throw error;
     return review;
   }
 
@@ -933,7 +934,10 @@
 
   resenaComentario.addEventListener("input", () => {
     if (resenaComentario.value.length > REVIEW_MAX_CHARS) {
-      resenaComentario.value = resenaComentario.value.slice(0, REVIEW_MAX_CHARS);
+      resenaComentario.value = resenaComentario.value.slice(
+        0,
+        REVIEW_MAX_CHARS,
+      );
     }
     const palabras = resenaComentario.value.trim()
       ? resenaComentario.value.trim().split(/\s+/)

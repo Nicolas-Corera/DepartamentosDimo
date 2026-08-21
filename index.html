@@ -437,7 +437,9 @@
                 caso de no poseerlo, deje la casilla sin marcar.
               </p>
               <p class="fine-print fine-print-alert">
-                <svg class="ic-sm" aria-hidden="true"><use href="#ic-alert" /></svg>
+                <svg class="ic-sm" aria-hidden="true">
+                  <use href="#ic-alert" />
+                </svg>
                 <span>
                   Si posee vehículo y no lo declara en el formulario, los
                   propietarios no se harán responsables.
@@ -547,11 +549,7 @@
               <p class="section-eyebrow">Huéspedes felices</p>
               <h2 class="section-title">Lo que Dicen Nuestros Huéspedes</h2>
             </div>
-            <button
-              type="button"
-              class="btn btn-outline"
-              data-open-resena
-            >
+            <button type="button" class="btn btn-outline" data-open-resena>
               Dejar una reseña
             </button>
           </div>
@@ -778,7 +776,11 @@
               </span>
             </div>
           </div>
-          <button type="submit" class="btn btn-primary btn-block" id="resenaSubmit">
+          <button
+            type="submit"
+            class="btn btn-primary btn-block"
+            id="resenaSubmit"
+          >
             Publicar reseña
           </button>
           <p class="form-success" id="resenaSuccess" hidden>
@@ -790,6 +792,8 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
