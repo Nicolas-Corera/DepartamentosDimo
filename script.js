@@ -211,6 +211,62 @@
     return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   }
 
+  /* ==========================================================
+     CALENDARIO: HASTA CUÁNDO SE PUEDE RESERVAR PARA HOY
+
+     El mismo día se puede reservar hasta las 09:00; pasada esa hora el
+     día de hoy queda bloqueado y la estadía tiene que arrancar mañana.
+
+     La hora se mide SIEMPRE en la zona del departamento, no en la del
+     visitante: si alguien consulta desde España, lo que manda es qué
+     hora es en San Bernardo, no en su reloj.
+  =========================================================== */
+  const TZ_DESTINO = "America/Argentina/Buenos_Aires";
+  const HORA_CIERRE = 9;
+  // Para los textos, siempre con dos digitos: 9 -> "09:00".
+  const HORA_CIERRE_TXT = String(HORA_CIERRE).padStart(2, "0") + ":00";
+
+  const FMT_DESTINO = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ_DESTINO,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23", // sin esto, medianoche puede venir como "24"
+  });
+
+  function ahoraEnDestino() {
+    const p = {};
+    FMT_DESTINO.formatToParts(new Date()).forEach((x) => {
+      p[x.type] = x.value;
+    });
+    return {
+      anio: Number(p.year),
+      mes: Number(p.month) - 1,
+      dia: Number(p.day),
+      hora: Number(p.hour),
+    };
+  }
+
+  /* "2026-01-10" -> Date del 10/01/2026 a medianoche LOCAL.
+     Con `new Date("2026-01-10")` sería medianoche UTC, o sea el día
+     anterior a las 21:00 hora argentina, y las comparaciones se corren
+     un día. */
+  function keyADate(key) {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  /* Primer día que se puede elegir: hoy si todavía no son las 09:00 en
+     el destino, mañana si ya pasaron. Se recalcula en cada render, así
+     que una página abierta desde temprano se corrige sola. */
+  function primerDiaElegible() {
+    const { anio, mes, dia, hora } = ahoraEnDestino();
+    const base = new Date(anio, mes, dia);
+    if (hora >= HORA_CIERRE) base.setDate(base.getDate() + 1);
+    return base;
+  }
+
   function createCalendar(container, { onRangeChange } = {}) {
     const today = new Date();
     let viewYear = today.getFullYear();
@@ -249,11 +305,19 @@
         grid.appendChild(empty);
       }
 
-      const todayMidnight = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate(),
-      );
+      const hoy = ahoraEnDestino();
+      const minimo = primerDiaElegible();
+      const hoyCerrado = hoy.hora >= HORA_CIERRE;
+
+      /* Si la página quedó abierta y en el medio cruzó las 09:00 (o
+         cambió el día), lo que ya estaba elegido puede haber quedado
+         fuera de rango. Se limpia acá para que nunca se pueda confirmar
+         una fecha que el calendario ya no deja tocar. */
+      if (rangeStart && keyADate(rangeStart) < minimo) {
+        rangeStart = null;
+        rangeEnd = null;
+        if (onRangeChange) onRangeChange(null, null);
+      }
 
       for (let d = 1; d <= daysInMonth; d++) {
         const btn = document.createElement("button");
@@ -263,7 +327,10 @@
         const key = fmtKey(viewYear, viewMonth, d);
         const dateObj = new Date(viewYear, viewMonth, d);
 
-        if (dateObj < todayMidnight) {
+        // El día de hoy pasada la hora de cierre queda igual que un día ya
+        // pasado: mismo apagado, sin marca propia. Lo que explica por qué
+        // está cerrado es la nota de abajo de la grilla.
+        if (dateObj < minimo) {
           btn.disabled = true;
         } else if (bookedDates.has(key)) {
           btn.classList.add("booked");
@@ -282,8 +349,8 @@
           if (
             rangeStart &&
             rangeEnd &&
-            dateObj > new Date(rangeStart) &&
-            dateObj < new Date(rangeEnd)
+            dateObj > keyADate(rangeStart) &&
+            dateObj < keyADate(rangeEnd)
           ) {
             btn.classList.add("in-range");
           }
@@ -292,7 +359,7 @@
               rangeStart = key;
               rangeEnd = null;
             } else {
-              if (new Date(key) < new Date(rangeStart)) {
+              if (keyADate(key) < keyADate(rangeStart)) {
                 rangeStart = key;
               } else {
                 rangeEnd = key;
@@ -305,6 +372,20 @@
         grid.appendChild(btn);
       }
       container.appendChild(grid);
+
+      /* La aclaración del horario solo tiene sentido mirando el mes en
+         curso: en marzo del año que viene no aporta nada. */
+      if (viewYear === hoy.anio && viewMonth === hoy.mes) {
+        const nota = document.createElement("p");
+        nota.className = "cal-note";
+        if (hoyCerrado) {
+          nota.classList.add("cal-note-cerrado");
+          nota.textContent = `Hoy ya no se puede reservar: las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. La estadía puede arrancar desde mañana.`;
+        } else {
+          nota.textContent = `Podés reservar para hoy mismo hasta las ${HORA_CIERRE_TXT}.`;
+        }
+        container.appendChild(nota);
+      }
 
       head.querySelectorAll("[data-nav]").forEach((b) => {
         b.addEventListener("click", () => {
@@ -329,11 +410,16 @@
         rangeEnd = null;
         render();
       },
+      // Repinta con la hora de AHORA. Se llama al abrir cada modal para
+      // que el corte de las 09:00 valga aunque la página lleve horas abierta.
+      refresh: render,
     };
   }
 
   // Calendario del modal "Ver disponibilidad"
-  createCalendar(document.getElementById("calDisponibilidad"));
+  const dispoCalendar = createCalendar(
+    document.getElementById("calDisponibilidad"),
+  );
 
   // Calendario del formulario
   const fechasInput = document.getElementById("fechasInput");
@@ -346,10 +432,20 @@
   }
 
   document.getElementById("btnDisponibilidad").addEventListener("click", () => {
+    dispoCalendar.refresh();
     openModal(document.getElementById("modalDisponibilidad"));
   });
 
   document.getElementById("fechasBtn").addEventListener("click", () => {
+    // Repintar con la hora de ahora puede invalidar lo que ya estaba
+    // elegido (cruzaron las 09:00 con la página abierta). Si pasa, el
+    // formulario también tiene que dejar de mostrar esas fechas.
+    formCalendar.refresh();
+    const { start, end } = formCalendar.getRange();
+    if (!start || !end) {
+      fechasInput.value = "";
+      fechasLabel.textContent = "Seleccionar fechas";
+    }
     openModal(document.getElementById("modalFechas"));
   });
 
@@ -589,6 +685,11 @@
     if (!checkIn || !checkOut) return "Elegí las fechas de tu estadía.";
     if (checkOut <= checkIn)
       return "La fecha de salida tiene que ser posterior a la de entrada.";
+    // Misma regla que el calendario: después de las 09:00 el día de hoy ya
+    // no se puede reservar. Acá se vuelve a chequear por si la página
+    // quedó abierta desde antes de esa hora.
+    if (keyADate(checkIn) < primerDiaElegible())
+      return `Las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. Elegí de nuevo las fechas de tu estadía.`;
 
     // El campo de DNI es de texto libre: se guarda solo con dígitos para que
     // "12.345.678" y "12345678" no entren como dos consultas distintas.
@@ -679,8 +780,13 @@
       console.error("No se pudo guardar la consulta:", err);
       // 23505 = unique_violation: lo tira booking_requests_dedupe_idx cuando
       // ya hay una consulta con el mismo DNI y las mismas fechas.
-      formError.textContent =
-        err?.code === "23505"
+      // 42501 = la política RLS rechazó la fila. Con los datos ya validados
+      // en el front, el caso realista es la fecha: cruzaron las 09:00 entre
+      // que eligió las fechas y que apretó enviar.
+      const rlsFecha = err?.code === "42501";
+      formError.textContent = rlsFecha
+        ? `Las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. Volvé a elegir las fechas de tu estadía.`
+        : err?.code === "23505"
           ? "Ya recibimos una consulta con ese DNI para esas fechas. Si necesitás cambiar algo, escribinos por WhatsApp."
           : "No pudimos enviar tu consulta. Probá de nuevo en un momento.";
       formError.hidden = false;
