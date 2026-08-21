@@ -15,6 +15,16 @@
       "source": "/pago/:ruta*",
       "destination": "https://pago.departamentosdimo.com.ar/:ruta*",
       "permanent": false
+    },
+    {
+      "source": "/dashboard",
+      "destination": "https://dash.departamentosdimo.com.ar",
+      "permanent": false
+    },
+    {
+      "source": "/dashboard/:ruta*",
+      "destination": "https://dash.departamentosdimo.com.ar/:ruta*",
+      "permanent": false
     }
   ]
 }
