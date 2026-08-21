@@ -329,9 +329,11 @@ pone un pago aprobado. Si preferís que las consultas sin pagar también bloquee
 es agregar el estado al `where` de la vista en
 [`sql/tarifas-y-ocupacion.sql`](sql/tarifas-y-ocupacion.sql) y volver a correrlo.
 
-**El día de salida queda libre:** una reserva del 10 al 14 ocupa las noches 10,
-11, 12 y 13. El 14 puede ser el check-in de otra persona. Si querés margen de
-limpieza, está marcado en el código dónde cambiarlo.
+**El día de salida también se bloquea:** una reserva del 10 al 14 cobra las
+noches 10, 11, 12 y 13 —  el precio va por noche y el 14 esa mañana se van— pero
+en el calendario se tachan los cinco días. El 14 no puede ser el check-in de
+otra persona: queda como margen para limpiar y preparar, y evita el cruce de dos
+grupos el mismo día. Está marcado en `script.js` dónde revertirlo.
 
 Además, el calendario no deja elegir un rango que *cruce* días ocupados: sin eso
 se puede pedir del 8 al 16 con el 12 ya reservado, que es una reserva imposible.

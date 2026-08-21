@@ -523,17 +523,20 @@
 
      Llama a la función `fechas_ocupadas()`, que solo devuelve
      check_in y check_out de las reservas confirmadas. Cada reserva se
-     expande a las NOCHES que ocupa: del 10 al 14 son el 10, 11, 12 y
-     13. El check-out no se marca, porque esa mañana se van y el
-     departamento queda disponible para quien entre ese día.
+     expande al rango COMPLETO, con el día de salida incluido: del 10
+     al 14 se tachan el 10, 11, 12, 13 y 14.
+
+     El 14 no se cobra —  el precio va por noche y esa mañana se van—
+     pero igual se bloquea: deja el margen para limpiar y preparar el
+     departamento, y evita el cruce de dos grupos el mismo día.
 
      Es una función y no una vista a propósito: una vista sobre
      booking_requests necesita correr con los privilegios de su dueño,
      y el Security Advisor de Supabase desactiva eso. El detalle está
      en pago/sql/tarifas-y-ocupacion.sql.
 
-     Si querés que el día de salida también quede bloqueado (para
-     tener margen de limpieza), cambiá el `<` por un `<=` en el while.
+     Si alguna vez querés liberar el día de salida, cambiá el `<=` por
+     un `<` en el while.
 
      Si la consulta falla, el calendario queda como estaba: todos los
      días libres. Es lo mismo que pasaba antes de tener esto, y es
@@ -558,7 +561,7 @@
       // Tope de seguridad: una fila con fechas corruptas no puede colgar
       // el navegador en un while infinito.
       let vueltas = 0;
-      while (cursor < salida && vueltas++ < 400) {
+      while (cursor <= salida && vueltas++ < 400) {
         bookedDates.add(
           fmtKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()),
         );
