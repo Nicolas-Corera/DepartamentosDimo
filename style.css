@@ -1160,7 +1160,7 @@ p {
      reseña vieja, o cargada a mano en la base), se recorta en vez de
      deformar la tarjeta. */
   display: -webkit-box;
-  -webkit-line-clamp: 7;
+  line-clamp: 7;
   -webkit-box-orient: vertical;
 }
 @media (min-width: 680px) {
@@ -1297,8 +1297,8 @@ p {
   box-shadow: var(--shadow-soft);
 }
 .reviews-empty-icon {
-  width: 34px;
-  height: 34px;
+  width: 60px;
+  height: 60px;
   color: var(--arena-deep);
 }
 .reviews-empty-title {

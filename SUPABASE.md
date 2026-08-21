@@ -38,6 +38,7 @@ referencia de cómo está armado y cómo tocarlo, no una lista de pendientes.
 | Proyecto Supabase | `aiytevmxalwwbxxbgtwe` (región `us-west-2`) |
 | Tabla `reviews` + índices + checks | creada |
 | RLS | activo — lectura e inserción públicas, `update`/`delete` bloqueados |
+| Security Advisor | **0 avisos** (ver sección 2) |
 | Modo de publicación | **automática**, sin moderación (ver sección 2) |
 | `.env` local | completo, fuera del repo |
 | Variables en Vercel | `SUPABASE_URL` y `SUPABASE_ANON_KEY` |
@@ -138,6 +139,35 @@ create policy "alta publica de reseñas sin aprobar"
 - El `with check (approved = false)` impide que alguien mande `approved: true` en
   el insert desde la consola del navegador.
 
+### El Security Advisor de Supabase
+
+En el panel, **Advisors → Security**, Supabase corre un linter sobre la base.
+Hoy el proyecto está en **cero avisos**. Los tres que aparecieron en su momento
+y cómo se cerraron:
+
+| Aviso | Qué era | Cómo se resolvió |
+| --- | --- | --- |
+| *RLS Policy Always True* | La política de `insert` era `with check (true)` | Se acotó a `approved = true and created_at <= now()` (arriba) |
+| *Public Can Execute SECURITY DEFINER Function* | `anon` tenía `EXECUTE` sobre `public.rls_auto_enable()` | `revoke execute ... from anon` |
+| *Signed-In Users Can Execute SECURITY DEFINER Function* | Lo mismo para `authenticated` | `revoke execute ... from authenticated` |
+
+Sobre `rls_auto_enable()`: **no la creamos nosotros y conviene dejarla**. Es una
+función defensiva colgada del event trigger `ensure_rls`, que activa RLS
+automáticamente en cada tabla nueva que se cree en `public` — justo la clase de
+olvido que produce una filtración. Devuelve `event_trigger`, así que Postgres ni
+siquiera permite invocarla como función normal; el aviso era de higiene, no un
+agujero explotable. Igual el permiso no tenía por qué estar:
+
+```sql
+revoke execute on function public.rls_auto_enable() from public;
+revoke execute on function public.rls_auto_enable() from anon;
+revoke execute on function public.rls_auto_enable() from authenticated;
+```
+
+Revocar el `EXECUTE` **no apaga el event trigger**: los triggers los dispara el
+motor, sin chequear los permisos de quien ejecuta el DDL. Verificado después de
+aplicarlo — `ensure_rls` sigue activo.
+
 ### Aprobar reseñas
 
 Panel de Supabase → **Table Editor → `reviews`** → tildá la columna `approved` de
@@ -168,14 +198,43 @@ El SQL que produce esta configuración:
 ```sql
 alter table public.reviews alter column approved set default true;
 
-drop policy "lectura publica de reseñas aprobadas" on public.reviews;
-create policy "lectura publica de reseñas"
-  on public.reviews for select to anon, authenticated using (true);
+drop policy if exists "lectura publica de reseñas aprobadas" on public.reviews;
+create policy "lectura publica de resenas"
+  on public.reviews for select to anon, authenticated
+  using (true);
 
-drop policy "alta publica de reseñas sin aprobar" on public.reviews;
-create policy "alta publica de reseñas"
-  on public.reviews for insert to anon, authenticated with check (true);
+drop policy if exists "alta publica de reseñas sin aprobar" on public.reviews;
+create policy "alta publica de resenas"
+  on public.reviews for insert to anon, authenticated
+  with check (
+    approved = true
+    and created_at <= now()
+  );
 ```
+
+> **Por qué el `with check` no es un `true` pelado.** La versión obvia sería
+> `with check (true)`: "que entre cualquier fila". Pero eso no restringe nada de
+> lo que el visitante manda, y habilita dos abusos que no son teóricos:
+>
+> - **Clavarse primero en el carrusel para siempre.** El orden es
+>   `created_at desc`, y PostgREST deja mandar `created_at` explícito. Alguien
+>   podía insertar con `created_at = '2099-01-01'` y quedar en la primera
+>   tarjeta de forma permanente.
+> - **Meter filas invisibles.** Mandando `approved = false` se podía engordar la
+>   tabla con filas que no se ven en el sitio.
+>
+> Las dos condiciones cierran eso sin tocar el uso normal: el formulario solo
+> manda `name`, `rating` y `text`, así que las otras dos columnas toman sus
+> valores por defecto y pasan el chequeo sin enterarse.
+>
+> De paso, es lo que saca el aviso **"RLS Policy Always True"** del Security
+> Advisor de Supabase.
+
+**Nota sobre los nombres de las políticas:** están escritos sin `ñ` a propósito.
+Los nombres con acentos se corrompen al viajar por la API de administración, y
+el resultado es peor que feo: un `drop policy` que no matchea deja la política
+vieja viva y crea una segunda al lado. Como las políticas se suman con **OR**,
+alcanza con que sobreviva una permisiva para que la restrictiva no sirva de nada.
 
 > **Ojo:** aunque en este modo `approved` siempre arranca en `true`, **conviene
 > dejar el `.eq("approved", true)` en `fetchReviews()`**. No molesta, y es lo que
