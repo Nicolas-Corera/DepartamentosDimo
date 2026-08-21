@@ -95,6 +95,11 @@
             d="M200-120v-400q-33 0-56.5-23.5T120-600v-212q0-12 8-20t20-8q12 0 20 8t8 20v132h36v-132q0-12 8-20t20-8q12 0 20 8t8 20v132h36v-132q0-12 8-20t20-8q12 0 20 8t8 20v212q0 33-23.5 56.5T280-520v400h-80Zm280 0v-404q-42-20-61-62.5T400-676q0-63 31.5-113.5T520-840q57 0 88.5 50.5T640-676q0 47-19 89.5T560-524v404h-80Zm200 0v-720q66 0 113 47t47 113v240h-80v320h-80Z"
           />
         </symbol>
+        <symbol id="ic-phone" viewBox="0 -960 960 960" fill="currentColor">
+          <path
+            d="M798-120q-125 0-247-54.5T329-329Q229-429 174.5-551T120-798q0-18 12-30t30-12h162q14 0 25 9.5t13 22.5l26 140q2 16-1 27t-11 19l-97 98q20 37 47.5 71.5T387-386q31 31 65 57.5t72 48.5l94-94q9-9 23.5-13.5T670-390l138 28q14 4 23 14.5t9 23.5v162q0 18-12 30t-30 12Z"
+          />
+        </symbol>
         <!-- location.svg -->
         <symbol id="ic-pin" viewBox="0 -960 960 960" fill="currentColor">
           <path
@@ -176,7 +181,7 @@
         </a>
         <a
           class="btn btn-whatsapp"
-          href="https://wa.me/5491159367822?text=Hola!%20Quiero%20consultar%20por%20el%20Depto%20San%20Juan%202530"
+          href="https://wa.me/5491159367822?text=Hola,%20buen%20día.%0AQuisiera%20realizar%20una%20consulta%20por%20el%20departamento%20ubicado%20en%20San%20Bernardo%20en%20la%20calle%20San%20Juan%202530.%0AMuchas%20gracias."
           target="_blank"
           rel="noopener"
         >
@@ -544,11 +549,6 @@
             <button type="submit" class="btn btn-primary btn-block">
               Enviar consulta
             </button>
-            <p class="form-success" id="formSuccess" hidden>
-              <svg class="ic-sm"><use href="#ic-check" /></svg> ¡Gracias!
-              Recibimos tu consulta, te vamos a contactar a la brevedad.
-            </p>
-            <p class="form-error" id="formError" hidden></p>
           </form>
         </div>
       </section>
@@ -607,23 +607,45 @@
     <!-- ============ FOOTER ============ -->
     <footer class="site-footer">
       <div class="wrap footer-inner">
-        <div class="footer-brand">
-          <svg class="brand-icon"><use href="#ic-umbrella" /></svg>
-          <span>Depto San Juan 2530</span>
+        <div class="top-footer">
+          <div class="footer-brand">
+            <svg class="brand-icon"><use href="#ic-umbrella" /></svg>
+            <span>Depto San Juan 2530</span>
+          </div>
+          <!-- <p class="footer-address">
+            <svg class="ic-sm"><use href="#ic-pin" /></svg> San Juan 2530, San
+            Bernardo del Tuyú, Buenos Aires — +54 9 11 5936-7822
+          </p> -->
+          <div class="footer-address">
+            <span>
+              <svg class="ic-sm"><use href="#ic-pin" /></svg>
+              <a
+                href="https://maps.app.goo.gl/m8ZhJKfsz3MiaFjb6"
+                target="_blank"
+              >
+                San Juan 2530, San Bernardo del Tuyú, Buenos Aires
+              </a>
+            </span>
+            <span>
+              <svg class="ic-sm"><use href="#ic-phone" /></svg>
+              <a
+                href="https://wa.me/5491159367822?text=Hola,%20buen%20día.%0AQuisiera%20realizar%20una%20consulta%20por%20el%20departamento%20ubicado%20en%20San%20Bernardo%20en%20la%20calle%20San%20Juan%202530.%0AMuchas%20gracias."
+                target="_blank"
+              >
+                +54 9 11 5936-7822
+              </a>
+            </span>
+          </div>
+          <a
+            class="btn btn-whatsapp"
+            href="https://wa.me/5491159367822?text=Hola,%20buen%20día.%0AQuisiera%20realizar%20una%20consulta%20por%20el%20departamento%20ubicado%20en%20San%20Bernardo%20en%20la%20calle%20San%20Juan%202530.%0AMuchas%20gracias."
+            target="_blank"
+            rel="noopener"
+          >
+            <svg class="ic-sm"><use href="#ic-whatsapp" /></svg
+            ><span>Consultar por WhatsApp</span>
+          </a>
         </div>
-        <p class="footer-address">
-          <svg class="ic-sm"><use href="#ic-pin" /></svg> San Juan 2530, San
-          Bernardo del Tuyú, Buenos Aires — +54 9 11 5936-7822
-        </p>
-        <a
-          class="btn btn-whatsapp"
-          href="https://wa.me/5491159367822?text=Hola!%20Quiero%20consultar%20por%20el%20Depto%20San%20Juan%202530"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg class="ic-sm"><use href="#ic-whatsapp" /></svg
-          ><span>Consultar por WhatsApp</span>
-        </a>
         <p class="footer-legal">
           © 2026 DepartamentosDimo - Dpto San Juan 2530. Todos los derechos
           reservados. Created by Nicolás Corera
@@ -795,14 +817,15 @@
           >
             Publicar reseña
           </button>
-          <p class="form-success" id="resenaSuccess" hidden>
-            <svg class="ic-sm"><use href="#ic-check" /></svg> ¡Gracias por dejar
-            tu reseña!
-          </p>
-          <p class="form-error" id="resenaError" hidden></p>
         </form>
       </div>
     </div>
+
+    <!-- ============ AVISOS FLOTANTES (toasts) ============
+         Vacío a propósito: lo llena mostrarToast() en script.js. Vive al
+         final del body y con position:fixed, así ningún contenedor con
+         overflow lo puede recortar. -->
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
