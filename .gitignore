@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Config local de Claude Code (servidor de preview)
+.claude/
+
 # Node
 node_modules/
 npm-debug.log*

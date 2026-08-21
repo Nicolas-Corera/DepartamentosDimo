@@ -106,20 +106,29 @@ function maskKey(key) {
    Main
    -------------------------------------------------------------------------- */
 
-if (!existsSync(ENV_FILE)) {
-  fail(
-    "No existe el archivo .env en la raíz del proyecto.",
-    "Copiá la plantilla:  cp .env.example .env   (en PowerShell: copy .env.example .env)",
-  );
-}
+// De dónde salen las variables, en este orden:
+//   1. el archivo .env  -> desarrollo local
+//   2. process.env      -> Vercel / GitHub Actions / cualquier CI
+// En Vercel NO existe el .env: las variables se cargan en el panel del
+// proyecto (Settings -> Environment Variables) y llegan como env vars reales.
+const fileEnv = existsSync(ENV_FILE)
+  ? parseEnv(readFileSync(ENV_FILE, "utf8"))
+  : {};
+const origen = existsSync(ENV_FILE) ? ".env" : "process.env";
 
-const env = parseEnv(readFileSync(ENV_FILE, "utf8"));
+const env = {};
+for (const name of PUBLIC_VARS) {
+  env[name] = fileEnv[name] || process.env[name] || "";
+}
 
 for (const name of PUBLIC_VARS) {
   if (!env[name]) {
     fail(
-      `Falta la variable ${name} en el .env (o está vacía).`,
-      "Está en Supabase → Project Settings → API. Ver SUPABASE.md, sección 3.",
+      `Falta la variable ${name} (no está ni en el .env ni en el entorno).`,
+      existsSync(ENV_FILE)
+        ? "Completala en el .env. El valor está en Supabase → Project Settings → API."
+        : "En local: cp .env.example .env y completalo. " +
+          "En Vercel: Settings → Environment Variables. Ver SUPABASE.md, sección 3.",
     );
   }
 }
@@ -202,7 +211,8 @@ const body = `
 const output = `${banner}\n${body}`;
 
 if (CHECK_ONLY) {
-  console.log("\n  OK  .env válido");
+  console.log(`
+  OK  configuración válida (origen: ${origen})`);
   console.log(`      SUPABASE_URL       ${url}`);
   console.log(`      SUPABASE_ANON_KEY  ${maskKey(anonKey)}  (clave pública)`);
   console.log("      (--check: no se escribió ningún archivo)\n");
@@ -212,7 +222,7 @@ if (CHECK_ONLY) {
 writeFileSync(OUT_FILE, output, "utf8");
 
 console.log("\n  OK  supabase-config.js generado");
-console.log(`      desde              ${relative(ROOT, ENV_FILE)}`);
+console.log(`      desde              ${origen}`);
 console.log(`      hacia              ${relative(ROOT, OUT_FILE)}`);
 console.log(`      SUPABASE_URL       ${url}`);
 console.log(`      SUPABASE_ANON_KEY  ${maskKey(anonKey)}  (clave pública)\n`);
