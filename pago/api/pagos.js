@@ -50,9 +50,8 @@ function fechaCorta(iso) {
   return `${m[3]} ${MESES[Number(m[2]) - 1]}`;
 }
 
-function textoDescripcion(reserva, precio) {
-  const base = `Reserva Dimo ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
-  return precio.esSenia ? `${base} (seña ${precio.porcentajeACobrar}%)` : base;
+function textoDescripcion(reserva) {
+  return `Reserva Dimo ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
 }
 
 /**
@@ -148,7 +147,7 @@ export default async function handler(req, res) {
         token: datos.token,
         paymentMethodId: datos.paymentMethodId,
         issuerId: datos.issuerId,
-        descripcion: textoDescripcion(reserva, precio),
+        descripcion: textoDescripcion(reserva),
         pagador: {
           // El titular de la tarjeta puede no ser quien reservó (paga un
           // familiar, por ejemplo). Por eso mandan los datos del formulario, y
