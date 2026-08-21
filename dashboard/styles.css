@@ -581,7 +581,12 @@ select:focus {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  /* scroll-snap-type: x mandatory; */
+  /**
+   * Estaba comentado, y sin el tipo en el contenedor el `scroll-snap-align` de
+   * las tarjetas no hace nada: arrastrando con el dedo o con el trackpad el
+   * carrusel quedaba donde lo soltaras, mostrando media tarjeta y media otra.
+   */
+  scroll-snap-type: x mandatory;
   gap: 16px;
   padding-bottom: 16px;
   scrollbar-width: none;
@@ -596,7 +601,9 @@ select:focus {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  scroll-snap-align: center;
+  /* `start` y no `center`: las tarjetas ocupan el ancho completo, y centrar
+     con un gap de por medio las deja corridas media separación. */
+  scroll-snap-align: start;
   /* background-color: var(--surface-container-low); */
   /* padding: 16px; */
   border-radius: 8px;
