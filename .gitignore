@@ -28,3 +28,6 @@ Thumbs.db
 # descomentá la línea de abajo y generá el archivo en el paso de build a partir
 # de los secrets del proveedor:
 supabase-config.js
+
+# Link local del proyecto de Vercel (lo crea el CLI)
+.vercel/

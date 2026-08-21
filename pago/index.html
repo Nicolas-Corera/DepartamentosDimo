@@ -942,6 +942,18 @@
       </p>
     </footer>
 
-    <script src="/pago/pago.js" type="module"></script>
+    <!--
+      Ruta RELATIVA, no "/pago/pago.js".
+
+      El proyecto de Vercel de este sitio tiene Root Directory = "pago", así que
+      esta carpeta es la raíz del dominio: el archivo se sirve en /pago.js y una
+      ruta absoluta /pago/pago.js da 404 (la página queda colgada en "Buscando
+      tu reserva…" porque el script nunca carga).
+
+      Relativa funciona en los dos casos: acá resuelve a /pago.js, y si algún
+      día la página se sirviera desde el sitio principal en /pago/, resolvería
+      a /pago/pago.js.
+    -->
+    <script src="pago.js" type="module"></script>
   </body>
 </html>

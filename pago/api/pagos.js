@@ -27,7 +27,12 @@ import { leerConfig } from "./_lib/env.js";
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
 import { buscarReserva, guardarPago, tienePagoAprobado, confirmarReserva } from "./_lib/supabase.js";
 import { calcularPrecio } from "./_lib/precios.js";
-import { crearPago, resumirPago } from "./_lib/mercadopago.js";
+import {
+  crearPago,
+  resumirPago,
+  esPedidoDuplicado,
+  buscarPagoPorReferencia,
+} from "./_lib/mercadopago.js";
 import { mensajeDePago } from "./_lib/mensajes.js";
 import { log, ofuscarEmail } from "./_lib/log.js";
 
@@ -127,32 +132,81 @@ export default async function handler(req, res) {
       email: ofuscarEmail(datos.email || reserva.email),
     });
 
-    const pago = await crearPago({
-      ref: reserva.id,
-      monto: precio.aCobrar,
-      cuotas: datos.cuotas,
-      token: datos.token,
-      paymentMethodId: datos.paymentMethodId,
-      issuerId: datos.issuerId,
-      descripcion: textoDescripcion(reserva, precio),
-      pagador: {
-        // El titular de la tarjeta puede no ser quien reservó (paga un
-        // familiar, por ejemplo). Por eso mandan los datos del formulario, y
-        // los de la reserva son solo el respaldo.
-        email: datos.email || reserva.email,
-        identificacion: datos.identificacion || { type: "DNI", number: reserva.dni },
-        nombre: reserva.nombre?.split(" ")[0] || null,
-      },
-    });
+    let pago;
+    try {
+      pago = await crearPago({
+        ref: reserva.id,
+        monto: precio.aCobrar,
+        cuotas: datos.cuotas,
+        token: datos.token,
+        paymentMethodId: datos.paymentMethodId,
+        issuerId: datos.issuerId,
+        descripcion: textoDescripcion(reserva, precio),
+        pagador: {
+          // El titular de la tarjeta puede no ser quien reservó (paga un
+          // familiar, por ejemplo). Por eso mandan los datos del formulario, y
+          // los de la reserva son solo el respaldo.
+          email: datos.email || reserva.email,
+          identificacion: datos.identificacion || { type: "DNI", number: reserva.dni },
+          nombre: reserva.nombre?.split(" ")[0] || null,
+        },
+      });
+    } catch (error) {
+      if (!esPedidoDuplicado(error)) throw error;
+
+      /**
+       * Doble clic: los dos requests salieron con la misma clave de
+       * idempotencia y MercadoPago bloqueó el segundo con un 423
+       * `resource_already_locked`. El cobro NO se duplicó — eso es justamente
+       * lo que hizo la clave — pero este request se quedó sin respuesta.
+       *
+       * Devolver acá un error genérico sería lo peor que podemos hacer: la
+       * persona pagó bien y leería "volvé a intentar", que es una invitación a
+       * pagar dos veces. Así que le preguntamos a MercadoPago cuál fue el pago
+       * de esta reserva y mostramos ese.
+       */
+      log.warn("pago.duplicado_recuperando", { ref: reserva.id });
+      pago = await buscarPagoPorReferencia(reserva.id);
+
+      if (!pago) {
+        // El request gemelo sigue en vuelo. No inventamos un resultado:
+        // decimos lo único cierto, y sobre todo decimos "no pagues de nuevo".
+        throw new ErrorVisible(
+          409,
+          "Ya recibimos tu pago y lo estamos confirmando. No vuelvas a pagar: " +
+            "en unos minutos te llega el mail con el comprobante.",
+          "pago_en_curso",
+        );
+      }
+      log.info("pago.duplicado_resuelto", { ref: reserva.id, payment_id: pago.id });
+    }
 
     const resumen = resumirPago(pago);
 
-    // Se guarda SIEMPRE, aprobado o rechazado: el historial de intentos es lo
-    // que después explica "pagué y no me figura".
-    await guardarPago({ ...resumen, booking_id: reserva.id });
+    /**
+     * A partir de acá el cobro YA ocurrió. Guardar en la base y confirmar la
+     * reserva son tareas nuestras, y si fallan no pueden cambiar lo que se le
+     * dice a la persona: si le devolviéramos un error después de haberle
+     * cobrado, lo más probable es que pague de nuevo con otra tarjeta.
+     *
+     * Así que se registra el problema a los gritos en el log y se sigue. El
+     * webhook vuelve a sincronizar este pago más tarde — es exactamente para
+     * esto que existe.
+     */
+    try {
+      // Se guarda SIEMPRE, aprobado o rechazado: el historial de intentos es
+      // lo que después explica "pagué y no me figura".
+      await guardarPago({ ...resumen, booking_id: reserva.id });
 
-    if (resumen.status === "approved" && config.confirmarReservaAlAprobar) {
-      await confirmarReserva(reserva.id);
+      if (resumen.status === "approved" && config.confirmarReservaAlAprobar) {
+        await confirmarReserva(reserva.id);
+      }
+    } catch (error) {
+      log.error("pago.no_se_pudo_registrar", error, {
+        ref: reserva.id,
+        payment_id: resumen.mp_payment_id,
+        status: resumen.status,
+      });
     }
 
     const mensaje = mensajeDePago(resumen.status, resumen.status_detail);

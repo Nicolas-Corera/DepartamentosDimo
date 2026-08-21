@@ -9,31 +9,50 @@ Este archivo cubre cómo funciona, qué hay que configurar y cómo probarlo.
 
 ## 0. Estado
 
-### Ya hecho
+### Funcionando y probado de punta a punta
 
-| Qué | Detalle |
+Se hizo un deploy de **preview** en Vercel y se ejecutaron cobros reales contra el
+ambiente de prueba de MercadoPago. Resultados:
+
+| Prueba | Resultado |
 | --- | --- |
-| Tabla `payments` creada | En el proyecto `departamentosDimo DataBase` (`aiytevmxalwwbxxbgtwe`). RLS activo, cero políticas, sin permisos para `anon`. Verificado: la clave pública recibe `401 permission denied` en lectura y en escritura |
-| `pago/.env` generado | Con `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (clave `sb_secret_`, sacada de la Management API) y los precios. Está gitignoreado |
-| Reserva de prueba | `798445ee-eed5-466a-90ed-3a04c90ea36b` — 15 al 20 de enero de 2027, 2 personas, total $160.000. Se puede borrar cuando no haga falta |
-| Endpoints verificados | `/api/reserva` lee la reserva real y calcula el monto; `/api/webhook` rechaza firmas inválidas con 401 y no le cree al payload |
+| Pago aprobado (titular `APRO`) | `approved` / `accredited`, pago `1350682609`, $160.000. Fila en `payments`, reserva pasada a `confirmada` |
+| Se mandó `transaction_amount: 1` desde el cliente | Se cobraron **$160.000**: el servidor ignoró el importe del navegador |
+| Rechazos (`FUND`, `SECU`, `CALL`) | Cada uno con su mensaje y su acción: "no tiene fondos" → otra tarjeta, "revisá el código" → reintentar, "tu banco tiene que autorizar" → contactar |
+| Pendiente (`CONT`) | `in_process` / `pending_contingency`, pantalla de espera |
+| Segundo cobro sobre una reserva ya paga | 409, no llega a MercadoPago |
+| Doble clic (dos requests simultáneos) | **Un solo cobro.** El segundo recibe "ya recibimos tu pago, no vuelvas a pagar" |
+| Webhook sin firma / con firma falsa | 401 los dos |
+| Webhook con firma válida pero payload mintiendo `"approved"` | No escribió nada: fue a consultar la API en vez de creerle |
+| `payments` desde el navegador (clave `anon`) | `401 permission denied` en lectura y en escritura |
 
-### Falta — las tres son tuyas
+Infraestructura lista:
 
-Ninguna se puede hacer desde el código: requieren tu cuenta de MercadoPago y el
-panel de Vercel.
+- Tabla `payments` creada en `departamentosDimo DataBase` (`aiytevmxalwwbxxbgtwe`).
+- Variables cargadas en el proyecto `departamentosdimopagoweb` (Root Directory `pago`),
+  en Production, Preview y Development.
+- `pago/.env` local generado (gitignoreado).
 
-| # | Qué | Dónde |
+### Reservas de prueba
+
+Quedaron en `booking_requests` para poder probar desde el navegador. Son
+borrables cuando no hagan falta.
+
+| Reserva | uuid | Estado |
 | --- | --- | --- |
-| 1 | Completar las 3 variables de MercadoPago en `pago/.env` | Panel de MercadoPago → sección 2 |
-| 2 | Configurar el webhook (URL + clave secreta) | Panel de MercadoPago → sección 5 |
-| 3 | Cargar todas las variables en Vercel | Settings → Environment Variables → sección 2 |
+| Reserva de Prueba | `798445ee-eed5-466a-90ed-3a04c90ea36b` | pagada ($160.000) |
+| Prueba Idempotencia | `a72b593c-404f-4484-a77b-c6fdf2a9005c` | pagada |
+| Prueba Idempotencia 2 | `d51ca9bc-7488-4463-b6e5-49cf44703d91` | pagada |
+| **Prueba Rechazo** | `592b2e1a-f10a-44c9-b8f4-a4e2cbaca15f` | **sin pagar** — usá esta para probar |
 
-Una vez hecho el punto 1, esto tiene que dar OK:
+### Falta
 
-```bash
-cd pago && npm run env:check
-```
+1. **Configurar el webhook en el panel de MercadoPago** (sección 5). Es lo único
+   que no se pudo hacer por API: URL `https://pago.departamentosdimo.com.ar/api/webhook`
+   y la clave secreta tiene que coincidir con `MP_WEBHOOK_SECRET`.
+2. **Pasar a producción**: commitear, pushear a `main` y Vercel deploya solo.
+   Hasta que eso pase, `pago.departamentosdimo.com.ar` sigue sirviendo la página
+   vieja.
 
 ---
 
@@ -170,6 +189,17 @@ mismo doble candado que ya tiene `booking_requests`.
 Se guarda **un registro por intento**, aprobado o rechazado. El historial de
 rechazos es lo que después explica un *"yo pagué y no me figura"*.
 
+**Si la escritura falla, el cobro se informa igual.** Una vez que MercadoPago
+cobró, guardar en la base es problema nuestro: devolverle un error a alguien a
+quien ya le cobramos es la forma más rápida de que pague dos veces. Así que el
+fallo se loguea como `pago.no_se_pudo_registrar` y la respuesta sale igual. El
+webhook resincroniza ese pago después — para eso está.
+
+**Nota sobre `ultimos_cuatro`:** en los pagos rechazados MercadoPago manda
+`card.last_four_digits` como string vacío, no ausente. Se normaliza a `null`
+antes de guardar; sin eso, el `check` de la tabla rechazaba el INSERT y el
+rechazo no quedaba registrado.
+
 ### Relación con `booking_requests`
 
 Cuando un pago se aprueba, la reserva pasa a `estado = 'confirmada'`.
@@ -213,6 +243,16 @@ se pisan.
 
 Además, antes de cobrar se consulta si la reserva ya tiene un pago aprobado. Si
 lo tiene, responde `409` y no llama a MercadoPago.
+
+**Qué hace MercadoPago con una clave repetida.** No devuelve el pago original,
+como uno esperaría: responde `HTTP 423 resource_already_locked`, código 2001,
+*"Already posted the same request in the last minute"*. O sea que la clave evita
+el doble cobro, pero deja al segundo request sin respuesta. Eso se detecta
+(`esPedidoDuplicado`) y se resuelve buscando el pago por `external_reference` en
+`GET /v1/payments/search`; si todavía no aparece porque el gemelo sigue en vuelo,
+se responde 409 `pago_en_curso` con el texto *"ya recibimos tu pago, no vuelvas a
+pagar"*. Nunca un error genérico: a alguien que acaba de pagar bien, un "volvé a
+intentar" lo empuja a pagar dos veces.
 
 ### `POST /api/webhook`
 
@@ -258,7 +298,7 @@ migró a una versión de firma nueva y hay que actualizar `mercadopago`.
 Panel de MercadoPago → tu aplicación → **Webhooks** → Configurar notificaciones:
 
 1. **URL de producción:**
-   `https://<tu-dominio-de-pago>/api/webhook`
+   `https://pago.departamentosdimo.com.ar/api/webhook`
 2. **Eventos:** tildar solo **Pagos** (`payment`).
    El endpoint responde 200 e ignora el resto, pero no tiene sentido recibirlos.
 3. **Generar clave secreta** → copiala a `MP_WEBHOOK_SECRET`, en el `.env` y en
@@ -282,7 +322,7 @@ panel — o directamente probar contra un preview de Vercel.
 1. Insertá una consulta desde el formulario del sitio principal (o cargá una
    fila a mano en `booking_requests` desde el panel de Supabase).
 2. Copiá el `id` (uuid) de esa fila.
-3. Abrí `https://<tu-dominio-de-pago>/?reserva=<uuid>`.
+3. Abrí `https://pago.departamentosdimo.com.ar/?reserva=<uuid>`.
 4. Pagá con una tarjeta de prueba.
 
 ### Tarjetas de prueba (Argentina)
