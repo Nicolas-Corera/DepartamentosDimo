@@ -189,7 +189,7 @@ p {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 9999;
+  z-index: 99;
   height: var(--header-h);
   background: rgba(246, 238, 223, 0.88);
   backdrop-filter: blur(10px);
@@ -764,10 +764,10 @@ p {
   color: var(--blanco);
 }
 
-.leaflet-right{
+.leaflet-right {
   right: 62.5rem;
 }
-.leaflet-bottom{
+.leaflet-bottom {
   bottom: 0.5rem;
 }
 
@@ -1093,19 +1093,6 @@ p {
   color: #b83c18;
 }
 
-.form-success {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 16px;
-  color: #1f7a4d;
-  font-weight: 600;
-  background: #e6f6ee;
-  border-radius: var(--radius-soft);
-  padding: 12px;
-}
-
 /* ============================================
    RESEÑAS
 =============================================== */
@@ -1317,26 +1304,13 @@ p {
   margin-bottom: 8px;
 }
 
-.form-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 16px;
-  color: #b83c18;
-  font-weight: 600;
-  background: rgba(232, 98, 58, 0.12);
-  border-radius: var(--radius-soft);
-  padding: 12px;
-}
-
 /* ============================================
    FOOTER
 =============================================== */
 .site-footer {
   background: var(--tinta);
   color: rgba(255, 253, 248, 0.85);
-  padding: 56px 0 30px;
+  padding: 56px 0 10px;
 }
 .footer-inner {
   display: flex;
@@ -1344,6 +1318,14 @@ p {
   align-items: center;
   text-align: center;
   gap: 14px;
+}
+.top-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #21454d;
 }
 .footer-brand {
   display: flex;
@@ -1359,11 +1341,25 @@ p {
 }
 .footer-address {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 0.92rem;
   flex-wrap: wrap;
   justify-content: center;
+  flex-direction: column;
+}
+
+.footer-address span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+}
+.footer-address a{
+  transition: all 100ms ease-in-out;
+}
+.footer-address a:hover {
+  color: #3e7f8d;
 }
 .footer-legal {
   margin-top: 18px;
@@ -1564,5 +1560,88 @@ p {
   }
   .lightbox-nav.next {
     right: 40px;
+  }
+}
+
+/* ============================================
+   AVISOS FLOTANTES (toasts)
+
+   Esquina inferior izquierda, por encima de todo (el header sticky
+   esta en 9999 y los modales en 100). El stack no recibe clicks para
+   no tapar lo que hay debajo; cada toast si, porque se cierra al
+   tocarlo.
+=============================================== */
+.toast-stack {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 40px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border-radius: var(--radius-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-lift);
+  cursor: pointer;
+  animation: toast-in 0.28s ease;
+}
+.toast svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.toast-exito {
+  background: #e6f6ee;
+  color: #1f7a4d;
+  border-color: rgba(31, 122, 77, 0.28);
+}
+.toast-error {
+  background: #fdece4;
+  color: #b83c18;
+  border-color: rgba(184, 60, 24, 0.28);
+}
+.toast-saliendo {
+  animation: toast-out 0.25s ease forwards;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast-saliendo {
+    animation: none;
+  }
+}
+/* En pantallas chicas ocupa el ancho completo menos los margenes. */
+@media (max-width: 520px) {
+  .toast-stack {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
   }
 }

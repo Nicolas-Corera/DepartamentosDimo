@@ -147,6 +147,43 @@
     renderLightbox();
   });
 
+  const toastStack = document.getElementById("toastStack");
+
+  // Un error necesita más tiempo de lectura que un "listo".
+  const TOAST_MS = { exito: 3000, error: 5000 };
+
+  function mostrarToast(mensaje, tipo = "exito") {
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${tipo}`;
+    // Los errores interrumpen al lector de pantalla; los avisos de éxito no.
+    toast.setAttribute("role", tipo === "error" ? "alert" : "status");
+
+    const icono = tipo === "error" ? "#ic-alert" : "#ic-check";
+    toast.innerHTML = `<svg class="ic-sm" aria-hidden="true"><use href="${icono}"/></svg><span></span>`;
+    // textContent y no innerHTML: el texto puede venir del mensaje de error
+    // de la base y no tiene por qué terminar interpretado como HTML.
+    toast.querySelector("span").textContent = mensaje;
+
+    let reloj;
+    let cerrando = false;
+    function cerrar() {
+      if (cerrando) return;
+      cerrando = true;
+      clearTimeout(reloj);
+      toast.classList.add("toast-saliendo");
+      toast.addEventListener("animationend", () => toast.remove());
+      // Red de seguridad: con animaciones desactivadas (reduced motion)
+      // animationend no llega nunca y el toast se quedaría pegado.
+      setTimeout(() => toast.remove(), 400);
+    }
+
+    toast.addEventListener("click", cerrar);
+    reloj = setTimeout(cerrar, TOAST_MS[tipo] || TOAST_MS.exito);
+
+    toastStack.appendChild(toast);
+    return toast;
+  }
+
   /* ==========================================================
      MODALES (genérico)
   =========================================================== */
@@ -455,11 +492,18 @@
       fechasLabel.textContent = `${fmtDisplay(start)} → ${fmtDisplay(end)}`;
       fechasInput.value = `${start} a ${end}`;
       closeModal(document.getElementById("modalFechas"));
-    } else if (start) {
-      fechasLabel.textContent = `Elegí también la fecha de salida`;
-    } else {
-      fechasLabel.textContent = "Seleccionar fechas";
+      return;
     }
+    // Falta una de las dos fechas: el modal se queda abierto y el aviso va
+    // por toast. Antes se escribía en la etiqueta del botón que abre este
+    // mismo modal, o sea que quedaba tapada detrás del overlay y el
+    // visitante veía que "Confirmar fechas" no hacía nada.
+    mostrarToast(
+      start
+        ? "Elegí también la fecha de salida."
+        : "Elegí la fecha de entrada y la de salida.",
+      "error",
+    );
   });
 
   /* ==========================================================
@@ -659,8 +703,6 @@
      panel de Supabase. Ver SUPABASE.md.
   =========================================================== */
   const bookingForm = document.getElementById("bookingForm");
-  const formSuccess = document.getElementById("formSuccess");
-  const formError = document.getElementById("formError");
   const bookingSubmit = bookingForm.querySelector('button[type="submit"]');
 
   async function createBookingRequest(consulta) {
@@ -742,8 +784,6 @@
 
   bookingForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    formSuccess.hidden = true;
-    formError.hidden = true;
 
     if (!bookingForm.checkValidity()) {
       bookingForm.reportValidity();
@@ -757,8 +797,7 @@
 
     const consulta = armarConsulta();
     if (typeof consulta === "string") {
-      formError.textContent = consulta;
-      formError.hidden = false;
+      mostrarToast(consulta, "error");
       return;
     }
 
@@ -767,8 +806,10 @@
     bookingSubmit.textContent = "Enviando…";
     try {
       await createBookingRequest(consulta);
-      formSuccess.hidden = false;
-      formSuccess.scrollIntoView({ behavior: "smooth", block: "center" });
+      mostrarToast(
+        "¡Gracias! Recibimos tu consulta, te vamos a contactar a la brevedad.",
+        "exito",
+      );
       bookingForm.reset();
       limpiarGrupo();
       toggleVehiculo();
@@ -784,13 +825,12 @@
       // en el front, el caso realista es la fecha: cruzaron las 09:00 entre
       // que eligió las fechas y que apretó enviar.
       const rlsFecha = err?.code === "42501";
-      formError.textContent = rlsFecha
+      const aviso = rlsFecha
         ? `Las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. Volvé a elegir las fechas de tu estadía.`
         : err?.code === "23505"
           ? "Ya recibimos una consulta con ese DNI para esas fechas. Si necesitás cambiar algo, escribinos por WhatsApp."
           : "No pudimos enviar tu consulta. Probá de nuevo en un momento.";
-      formError.hidden = false;
-      formError.scrollIntoView({ behavior: "smooth", block: "center" });
+      mostrarToast(aviso, "error");
     } finally {
       bookingSubmit.disabled = false;
       bookingSubmit.textContent = textoBoton;
@@ -1125,15 +1165,11 @@
   const modalResena = document.getElementById("modalResena");
   const resenaForm = document.getElementById("resenaForm");
   const resenaSubmit = document.getElementById("resenaSubmit");
-  const resenaSuccess = document.getElementById("resenaSuccess");
-  const resenaError = document.getElementById("resenaError");
   const starPicker = document.getElementById("starPicker");
   const starButtons = [...starPicker.querySelectorAll("button")];
 
   document.querySelectorAll("[data-open-resena]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      resenaSuccess.hidden = true;
-      resenaError.hidden = true;
       openModal(modalResena);
     });
   });
@@ -1165,7 +1201,6 @@
     btn.addEventListener("blur", () => paintStars(0));
     btn.addEventListener("click", () => {
       selectedStars = val;
-      resenaError.hidden = true;
       paintStars(val);
     });
   });
@@ -1222,28 +1257,31 @@
     e.preventDefault();
     const nombre = document.getElementById("resenaNombre").value.trim();
     const comentario = document.getElementById("resenaComentario").value.trim();
-    resenaSuccess.hidden = true;
-    resenaError.hidden = true;
 
     if (!nombre || !comentario) return;
     if (!selectedStars) {
-      resenaError.textContent = "Elegí una puntuación de 1 a 5 estrellas.";
-      resenaError.hidden = false;
+      mostrarToast("Elegí una puntuación de 1 a 5 estrellas.", "error");
       return;
     }
     if (nombre.length > REVIEW_NAME_MAX) {
-      resenaError.textContent = `El nombre no puede superar los ${REVIEW_NAME_MAX} caracteres.`;
-      resenaError.hidden = false;
+      mostrarToast(
+        `El nombre no puede superar los ${REVIEW_NAME_MAX} caracteres.`,
+        "error",
+      );
       return;
     }
     if (comentario.length > REVIEW_MAX_CHARS) {
-      resenaError.textContent = `El comentario no puede superar los ${REVIEW_MAX_CHARS} caracteres.`;
-      resenaError.hidden = false;
+      mostrarToast(
+        `El comentario no puede superar los ${REVIEW_MAX_CHARS} caracteres.`,
+        "error",
+      );
       return;
     }
     if (countWords(comentario) > REVIEW_MAX_WORDS) {
-      resenaError.textContent = `El comentario no puede superar las ${REVIEW_MAX_WORDS} palabras.`;
-      resenaError.hidden = false;
+      mostrarToast(
+        `El comentario no puede superar las ${REVIEW_MAX_WORDS} palabras.`,
+        "error",
+      );
       return;
     }
 
@@ -1261,17 +1299,18 @@
       resenaForm.reset();
       resetStars();
       updateContador();
-      resenaSuccess.hidden = false;
+      mostrarToast("¡Gracias por dejar tu reseña!", "exito");
       closeModal(modalResena);
     } catch (err) {
       console.error("No se pudo publicar la reseña:", err);
       // 23505 = unique_violation: lo tira el índice reviews_dedupe_idx cuando
       // ya existe una reseña con el mismo nombre y el mismo comentario.
-      resenaError.textContent =
+      mostrarToast(
         err?.code === "23505"
           ? "Ya hay una reseña publicada con ese nombre y ese mismo comentario."
-          : "No pudimos publicar tu reseña. Probá de nuevo en un momento.";
-      resenaError.hidden = false;
+          : "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
+        "error",
+      );
     } finally {
       resenaSubmit.disabled = false;
     }

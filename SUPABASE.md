@@ -803,6 +803,35 @@ las fechas"* en vez del error genérico.
 Para cambiar el horario de corte: `HORA_CIERRE` en [script.js](script.js) y
 el `time '09:00'` de la policy. Son los dos únicos lugares.
 
+### Dónde se ven los avisos
+
+Ningún mensaje de "salió bien" / "salió mal" vive ya dentro del formulario
+ni del modal que lo dispara: **todos salen por un toast en la esquina
+inferior izquierda**, y todos pasan por la misma función,
+`mostrarToast(mensaje, tipo)` en [script.js](script.js), con `tipo` en
+`"exito"` o `"error"`.
+
+El contenedor es un `<div id="toastStack">` vacío al final del `body`. Está
+en `position: fixed` con `z-index: 10000` — por encima del header sticky
+(9999) y de los modales (100) —, así que ningún contenedor con `overflow` lo
+puede recortar.
+
+Cómo se comportan:
+
+- Se apilan: si caen dos seguidos, el más nuevo queda abajo.
+- Se van solos a los 5 segundos si son de éxito y a los 8 si son de error,
+  que necesitan más tiempo de lectura.
+- Se cierran al tocarlos.
+- El texto entra por `textContent`, nunca por `innerHTML`: parte de esos
+  mensajes vienen del error que devuelve la base y no tienen por qué
+  terminar interpretados como HTML.
+
+Esto arregló de paso dos cosas que estaban rotas: el aviso de la reseña
+publicada se perdía al cerrarse el modal, y el de *"Elegí también la fecha
+de salida"* se escribía en la etiqueta del botón que abre el modal de
+fechas — o sea, tapada detrás del overlay, con el visitante viendo que
+*Confirmar fechas* no hacía nada.
+
 ### Agregar un campo nuevo al formulario
 
 1. El campo en [index.html](index.html).
