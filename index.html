@@ -408,7 +408,7 @@
                 </button>
                 <input type="hidden" id="fechasInput" name="fechas" required />
               </div>
-              <div class="field">
+              <div class="field field-full">
                 <label for="personas">Cantidad total de personas *</label>
                 <select id="personas" name="personas" required>
                   <option value="" selected disabled>Elegir cantidad</option>
@@ -417,13 +417,19 @@
                   <option value="3">3 personas</option>
                   <option value="4">4 personas</option>
                 </select>
+                <p class="field-hint" id="personasHint"></p>
+              </div>
+              <div class="field" id="adultosField" hidden>
+                <label for="adultos">Cantidad de adultos *</label>
+                <select id="adultos" name="adultos">
+                  <option value="1">1 adulto</option>
+                </select>
               </div>
               <div class="field" id="ninosField" hidden>
-                <label for="ninos">Cantidad de niños</label>
+                <label for="ninos">Cantidad de niños *</label>
                 <select id="ninos" name="ninos">
                   <option value="0">Sin niños</option>
                 </select>
-                <p class="field-hint" id="ninosHint"></p>
               </div>
             </div>
 
@@ -542,6 +548,7 @@
               <svg class="ic-sm"><use href="#ic-check" /></svg> ¡Gracias!
               Recibimos tu consulta, te vamos a contactar a la brevedad.
             </p>
+            <p class="form-error" id="formError" hidden></p>
           </form>
         </div>
       </section>

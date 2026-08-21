@@ -37,6 +37,7 @@ referencia de cómo está armado y cómo tocarlo, no una lista de pendientes.
 | --- | --- |
 | Proyecto Supabase | `aiytevmxalwwbxxbgtwe` (región `us-west-2`) |
 | Tabla `reviews` + índices + checks | creada |
+| Tabla `booking_requests` (formulario de reserva) | creada — ver sección 8 |
 | RLS | activo — lectura e inserción públicas, `update`/`delete` bloqueados |
 | Security Advisor | **0 avisos** (ver sección 2) |
 | Modo de publicación | **automática**, sin moderación (ver sección 2) |
@@ -47,6 +48,10 @@ referencia de cómo está armado y cómo tocarlo, no una lista de pendientes.
 Verificado de punta a punta contra la base real: alta de reseña desde el
 navegador, aparición inmediata en el carrusel, rechazo de duplicados, y
 confirmación de que un visitante **no** puede editar ni borrar filas ajenas.
+
+El formulario de reserva guarda cada consulta en `booking_requests`, una tabla
+de **solo-alta** (tiene DNI, mail y teléfono: el sitio escribe pero no lee).
+Está documentada en la [sección 8](#8-consultas-de-reserva--tabla-booking_requests).
 
 **Comandos del día a día:**
 
@@ -573,3 +578,195 @@ db.channel("reviews-live")
 | `Invalid API key` / `401` | La clave está incompleta (se cortó al copiar) o es de otro proyecto. Verificá con `npm run config:check`. |
 | `Failed to fetch` contra `supabase.co` | La `SUPABASE_URL` está mal escrita, tiene barra final o le sobra `/rest/v1`. |
 | La sección queda vacía y hay error en consola | El `catch` de `loadReviews()` deja el estado vacío a propósito para no romper la página. El detalle está en la consola. |
+
+---
+
+## 8. Consultas de reserva — tabla `booking_requests`
+
+El formulario **"Consultá tu Reserva"** guarda cada envío como una fila en
+`public.booking_requests`. No manda mails ni avisa a nadie: **solo persiste los
+datos** para poder reutilizarlos después (es la base sobre la que se va a armar
+el calendario de ocupación).
+
+### Diferencia clave con `reviews`
+
+`reviews` es pública en las dos direcciones (cualquiera lee, cualquiera escribe).
+`booking_requests` **no**: guarda DNI, mail y teléfono de personas reales, así
+que es **solo-alta**. El sitio puede insertar y nada más — no hay política de
+`SELECT`, y además se revocaron los permisos de `select`, `update`, `delete` y
+`truncate` para `anon` y `authenticated`. Las consultas se leen desde el panel
+de Supabase (**Table Editor → `booking_requests`**), nunca desde el navegador.
+
+Verificado contra la base real: un visitante que intente leer la tabla desde la
+consola recibe `permission denied for table booking_requests` (401), y lo mismo
+pasa con un `delete` o con un alta que se auto-marque como `confirmada`
+(`42501`).
+
+### Estructura
+
+| Columna | Tipo | De dónde sale |
+| --- | --- | --- |
+| `id` | `uuid` | generado |
+| `created_at` | `timestamptz` | generado |
+| `nombre` | `text` | Nombre completo |
+| `email` | `text` | Email (se guarda en minúsculas) |
+| `dni` | `text` | DNI **solo dígitos**: el front le saca puntos y espacios |
+| `telefono` | `text` | Teléfono de contacto |
+| `procedencia` | `text` `null` | Procedencia / Localidad |
+| `check_in` / `check_out` | `date` | Las dos fechas del calendario, ya partidas |
+| `personas` | `smallint` | El **total** de huéspedes que elige el visitante |
+| `adultos` | `smallint` | Cuántos de ese total son adultos (mínimo 1) |
+| `ninos` | `smallint` | El resto del total. `adultos + ninos = personas` |
+| `edades_ninos` | `smallint[]` | Una edad por niño, en el orden de los campos |
+| `vehiculo` | `boolean` | El checkbox |
+| `vehiculo_marca` / `_modelo` / `_tipo` / `_anio` | `text` / `smallint` | Solo si `vehiculo = true`; si no, van en `null` |
+| `mensaje` | `text` `null` | Mensaje (opcional) |
+| `estado` | `text` | `nueva` → `contactada` → `confirmada` / `descartada`. El front **solo** puede insertar `nueva`. |
+
+**Por qué las fechas son dos columnas `date` y no el string del formulario:** el
+input oculto guarda `"2026-01-10 a 2026-01-17"`, que sirve para mostrar pero no
+para consultar. Partido en dos `date` con el índice `booking_requests_fechas_idx`
+se puede preguntar "qué hay ocupado entre tal y tal día" — que es exactamente lo
+que va a necesitar el calendario.
+
+**Por qué el vehículo no tiene tabla aparte:** la relación es 0..1 (una consulta
+tiene un vehículo o ninguno). En una tabla aparte sería un `join` más y un
+segundo `insert` sin transacción, para no ganar nada.
+
+### Los `check` de la tabla replican las validaciones del front
+
+Si tocás una validación, tocá las dos: están en `armarConsulta()` dentro de
+[script.js](script.js) y en los `constraint` de la tabla.
+
+- La salida tiene que ser posterior a la entrada (`booking_requests_fechas_ok`).
+- `adultos + ninos` tiene que dar exactamente `personas` (`booking_requests_grupo_ok`),
+  y `personas` va de 1 a 4 — el mismo tope que `MAX_PERSONAS` en el JS.
+- Tiene que haber al menos un adulto (`booking_requests_adultos_ok`): nunca puede
+  viajar un grupo de solo niños.
+- Tiene que haber una edad por niño declarado, entre 0 y 17
+  (`booking_requests_edades_ok`).
+- O el vehículo viene completo, o no viene nada (`booking_requests_vehiculo_ok`).
+- El DNI son 6 a 9 dígitos y el mail tiene forma de mail.
+
+### Cómo se reparte el grupo en el formulario
+
+Primero se elige el **total** de personas (1 a 4). Recién ahí aparecen los dos
+selects que lo reparten: **cantidad de adultos** y **cantidad de niños**.
+
+Los dos están atados: al cambiar uno, el otro se recalcula solo para que la suma
+dé exactamente el total. Por eso el grupo nunca puede quedar inconsistente, y
+por eso el select de niños llega hasta `total - 1` — siempre queda lugar para al
+menos un adulto.
+
+En la grilla, el select del total ocupa las dos columnas (`.field-full` en
+[style.css](style.css)) y abajo quedan adultos y niños, uno en cada columna.
+
+La lógica está en `renderGrupo()` / `onTotalChange()` / `onAdultosChange()` /
+`onNinosChange()` en [script.js](script.js). Las tres funciones terminan
+llamando a `renderGrupo()`, que es el único lugar que pinta los dos selects: si
+hay que tocar el reparto, se toca ahí y nada más.
+
+### Evitar el doble envío
+
+El índice único `booking_requests_dedupe_idx (dni, check_in, check_out)` impide
+que la misma persona cargue dos veces la misma consulta (doble clic, F5). Cuando
+salta, el front muestra *"Ya recibimos una consulta con ese DNI para esas
+fechas"*. Es el mismo mecanismo que `reviews_dedupe_idx`.
+
+### El SQL, por si hay que rehacerlo
+
+```sql
+create table public.booking_requests (
+  id          uuid        primary key default gen_random_uuid(),
+  created_at  timestamptz not null default now(),
+
+  nombre      text not null check (char_length(btrim(nombre)) between 2 and 80),
+  email       text not null check (
+                email ~* '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'
+                and char_length(email) <= 120),
+  dni         text not null check (dni ~ '^[0-9]{6,9}$'),
+  telefono    text not null check (char_length(btrim(telefono)) between 6 and 30),
+  procedencia text          check (char_length(btrim(procedencia)) between 1 and 80),
+
+  check_in     date       not null,
+  check_out    date       not null,
+  personas     smallint   not null check (personas between 1 and 4),
+  adultos      smallint   not null check (adultos between 1 and 4),
+  ninos        smallint   not null default 0 check (ninos between 0 and 3),
+  edades_ninos smallint[] not null default '{}',
+
+  vehiculo        boolean not null default false,
+  vehiculo_marca  text     check (char_length(btrim(vehiculo_marca)) between 1 and 40),
+  vehiculo_modelo text     check (char_length(btrim(vehiculo_modelo)) between 1 and 40),
+  vehiculo_tipo   text     check (vehiculo_tipo in ('auto','suv','camioneta','moto','bici')),
+  vehiculo_anio   smallint check (vehiculo_anio between 1950 and 2100),
+
+  mensaje text check (char_length(mensaje) <= 500),
+  estado  text not null default 'nueva'
+          check (estado in ('nueva','contactada','confirmada','descartada')),
+
+  constraint booking_requests_fechas_ok check (check_out > check_in),
+  constraint booking_requests_grupo_ok  check (adultos + ninos = personas),
+  constraint booking_requests_edades_ok check (
+    coalesce(array_length(edades_ninos, 1), 0) = ninos
+    and edades_ninos <@ '{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17}'::smallint[]
+  ),
+  constraint booking_requests_vehiculo_ok check (
+    (vehiculo
+       and vehiculo_marca is not null and vehiculo_modelo is not null
+       and vehiculo_tipo is not null and vehiculo_anio is not null)
+    or
+    (not vehiculo
+       and vehiculo_marca is null and vehiculo_modelo is null
+       and vehiculo_tipo is null and vehiculo_anio is null)
+  )
+);
+
+create index booking_requests_created_idx on public.booking_requests (created_at desc);
+create index booking_requests_fechas_idx  on public.booking_requests (check_in, check_out);
+create unique index booking_requests_dedupe_idx
+  on public.booking_requests (dni, check_in, check_out);
+
+alter table public.booking_requests enable row level security;
+
+-- Alta publica, y nada mas. Sin politica de select: la tabla no se lee desde
+-- el sitio. El "estado = 'nueva'" evita que alguien inserte una consulta ya
+-- confirmada desde la consola del navegador.
+create policy "alta publica de consultas"
+  on public.booking_requests
+  for insert
+  to anon, authenticated
+  with check (estado = 'nueva' and check_out > check_in);
+
+grant insert on public.booking_requests to anon, authenticated;
+revoke select, update, delete, truncate, references, trigger
+  on public.booking_requests from anon, authenticated;
+```
+
+> Ojo si lo corrés por la Management API: los acentos se corrompen en el camino.
+> Por eso los nombres de políticas y los comentarios de ese bloque no llevan
+> tildes. Ver la nota del principio de este documento.
+
+Después de crearla, el **Security Advisor sigue en 0 avisos**: la policy de
+`insert` no es un `with check (true)`, que es lo que dispara el aviso *RLS Policy
+Always True*.
+
+### Agregar un campo nuevo al formulario
+
+1. El campo en [index.html](index.html).
+2. `alter table public.booking_requests add column <campo> <tipo>;`
+3. Una línea más en el objeto que devuelve `armarConsulta()` en [script.js](script.js).
+
+No hace falta tocar nada más: el insert manda el objeto entero.
+
+### Ver y trabajar las consultas
+
+Panel de Supabase → **Table Editor → `booking_requests`**, ordenado por
+`created_at desc`. Para marcar una como atendida:
+
+```sql
+update public.booking_requests set estado = 'contactada' where id = 'PEGAR-EL-UUID';
+```
+
+Las que lleguen a `confirmada` son las que después van a alimentar el calendario
+de ocupación.
