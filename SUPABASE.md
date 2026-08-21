@@ -28,21 +28,34 @@ el `min-height` de `.review-card` en [style.css](style.css).
 
 ---
 
-## Resumen rápido
+## Estado actual — todo funcionando
 
-Si ya sabés lo que estás haciendo, son cinco comandos y un copy/paste:
+La integración está **terminada y verificada**. Este documento pasa a ser la
+referencia de cómo está armado y cómo tocarlo, no una lista de pendientes.
+
+| Pieza | Estado |
+| --- | --- |
+| Proyecto Supabase | `aiytevmxalwwbxxbgtwe` (región `us-west-2`) |
+| Tabla `reviews` + índices + checks | creada |
+| RLS | activo — lectura e inserción públicas, `update`/`delete` bloqueados |
+| Modo de publicación | **automática**, sin moderación (ver sección 2) |
+| `.env` local | completo, fuera del repo |
+| Variables en Vercel | `SUPABASE_URL` y `SUPABASE_ANON_KEY` |
+| `index.html` / `script.js` | cableados contra Supabase |
+
+Verificado de punta a punta contra la base real: alta de reseña desde el
+navegador, aparición inmediata en el carrusel, rechazo de duplicados, y
+confirmación de que un visitante **no** puede editar ni borrar filas ajenas.
+
+**Comandos del día a día:**
 
 ```bash
-# 1. crear el proyecto en Supabase y correr el SQL de la sección 2
-# 2. pegar Project URL + clave pública en el .env (ya está creado en la raíz)
-npm run config      # genera supabase-config.js a partir del .env
-npm run dev         # levanta el sitio en http://localhost:8000
+npm run config        # regenera supabase-config.js desde el .env
+npm run config:check  # valida el .env sin escribir nada
+npm run dev           # levanta el sitio en http://localhost:8000
 ```
 
-Falta además agregar los tres `<script>` en el `index.html` (sección 3.3) y
-reemplazar `fetchReviews()` / `createReview()` en el `script.js` (sección 4).
-
-**Las dos variables del `.env` se llaman:**
+**Las dos variables se llaman:**
 
 | Variable | De dónde sale |
 | --- | --- |
@@ -134,10 +147,23 @@ la fila que quieras publicar. También podés hacerlo por SQL:
 update public.reviews set approved = true where id = 'PEGAR-EL-UUID';
 ```
 
-### Si preferís que se publiquen automáticamente
+### Publicación automática — ⚠️ ESTA ES LA CONFIGURACIÓN ACTIVA HOY
 
-Si no querés moderar (no recomendado en un sitio público), cambiá la política de
-lectura y el default:
+**El proyecto está corriendo con esta variante, no con la moderada de arriba.**
+Es una decisión tomada a propósito: las reseñas se publican solas, sin revisión.
+
+Lo que implica, para que no sorprenda:
+
+- Cualquiera que entre al sitio puede publicar una reseña y aparece al instante.
+- No hay filtro de spam. La defensa que hay hoy es el índice `reviews_dedupe_idx`
+  (impide repetir exactamente el mismo nombre + comentario) y nada más.
+- **Cómo bajar una reseña:** en Supabase → Table Editor → `reviews`, destildá
+  `approved` en esa fila. `fetchReviews()` mantiene el `.eq("approved", true)`
+  justo para esto: es el interruptor manual para ocultar algo sin borrarlo.
+- Si aparece spam, la vuelta a moderación es correr el bloque de la sección
+  anterior (default `false` + políticas restrictivas).
+
+El SQL que produce esta configuración:
 
 ```sql
 alter table public.reviews alter column approved set default true;
@@ -151,7 +177,10 @@ create policy "alta publica de reseñas"
   on public.reviews for insert to anon, authenticated with check (true);
 ```
 
-Y en `fetchReviews()` sacá el `.eq("approved", true)`.
+> **Ojo:** aunque en este modo `approved` siempre arranca en `true`, **conviene
+> dejar el `.eq("approved", true)` en `fetchReviews()`**. No molesta, y es lo que
+> te permite ocultar una reseña puntual destildando la casilla en el panel. Si lo
+> sacás, perdés esa posibilidad y la única forma de bajar algo es borrarlo.
 
 ---
 
@@ -183,13 +212,29 @@ esconderla, está para otras tres cosas:
 | [.env.example](.env.example) | sí | La **plantilla**. Tiene los nombres de las variables y valores de ejemplo, ninguna clave real. Sirve para saber qué hay que completar. |
 | `.env` | **no** (está en [.gitignore](.gitignore)) | Tus claves reales. Solo existe en tu máquina. |
 | [scripts/build-config.mjs](scripts/build-config.mjs) | sí | El script que lee el `.env`, valida y genera el archivo de abajo. |
-| `supabase-config.js` | sí (generado) | Lo que realmente carga el navegador. **No se edita a mano**: se regenera. |
+| `supabase-config.js` | **no** (generado) | Lo que realmente carga el navegador. **No se edita a mano**: se regenera. En local sale del `.env`; en Vercel lo genera el build. |
+| [vercel.json](vercel.json) | sí | Le dice a Vercel que antes de publicar corra el generador. |
 
-> **¿Por qué `supabase-config.js` sí se commitea?** Porque GitHub Pages sirve los
-> archivos tal como están en el repo, sin paso de build: si no está el archivo,
-> el sitio publicado se queda sin cliente de Supabase. Y no hay problema en
-> commitearlo: solo contiene la URL y la clave pública, que de todas formas
-> cualquiera puede ver abriendo el código del sitio.
+> **Sobre "que las claves no queden públicas":** hay que ser preciso, porque son
+> dos cosas distintas.
+>
+> - **Fuera del repo de GitHub:** ✅ resuelto. El `.env` está en `.gitignore` y
+>   `supabase-config.js` ya no se versiona. En Vercel las variables se cargan en
+>   Settings → Environment Variables y el archivo se genera durante el build.
+> - **Invisible para el visitante:** ❌ imposible, y no hace falta. El navegador
+>   necesita la clave para hablar con Supabase, así que va a estar en el JS que
+>   se descarga: cualquiera la ve con F12 → Network. Eso pasa con **todo** sitio
+>   estático que use Supabase, Firebase o similares.
+>
+> Por eso la clave se llama *publishable* (publicable). No autoriza nada por sí
+> sola: solo identifica el proyecto. Quien decide qué se puede leer y escribir
+> son las políticas RLS de la sección 2. Por eso lo único verdaderamente secreto
+> es la `service_role` / `sb_secret_`, que no toca nunca el navegador.
+>
+> Si algún día necesitás que el visitante ni siquiera vea la clave, la única vía
+> real es no hablarle a Supabase desde el navegador: poner una Serverless
+> Function en Vercel que guarde la clave del lado del servidor y que el front le
+> pegue a ella. Para una tabla de reseñas protegida con RLS es sobreingeniería.
 
 ### 3.1 — Crear el `.env`
 
@@ -282,27 +327,41 @@ window.db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 Se llama `db` y no `supabase` a propósito: el UMD del CDN ya ocupa el nombre
 `supabase` con el namespace del SDK, y pisarlo rompe el `createClient`.
 
-### 3.4 — Si más adelante hacés deploy con build
+### 3.4 — Deploy en Vercel
 
-Si pasás de GitHub Pages plano a un deploy con paso de build (GitHub Actions,
-Netlify, Vercel), el patrón cambia un poco: en vez de commitear
-`supabase-config.js`, guardás las dos variables como *secrets* del proveedor y
-generás el archivo durante el build.
+El sitio se publica con **Vercel**, y ahí no existe el `.env`: las variables se
+cargan en el panel del proyecto.
 
-Con GitHub Actions, por ejemplo:
+1. En Vercel → tu proyecto → **Settings → Environment Variables**, cargá las dos
+   con exactamente los mismos nombres que en el `.env`:
 
-```yaml
-- name: Generar configuración
-  env:
-    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-    SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-  run: |
-    printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env
-    npm run config
-```
+   | Name | Value |
+   | --- | --- |
+   | `SUPABASE_URL` | `https://aiytevmxalwwbxxbgtwe.supabase.co` |
+   | `SUPABASE_ANON_KEY` | la clave `sb_publishable_...` |
 
-Y ahí sí descomentás `supabase-config.js` en el [.gitignore](.gitignore) para que
-deje de versionarse.
+   Marcalas para **Production**, **Preview** y **Development**.
+
+2. El [vercel.json](vercel.json) ya está en el repo y le dice a Vercel qué hacer:
+
+   ```json
+   {
+     "buildCommand": "node scripts/build-config.mjs",
+     "outputDirectory": "."
+   }
+   ```
+
+   En cada deploy, Vercel corre el generador, que esta vez lee las variables
+   desde el entorno en lugar del `.env`, y escribe `supabase-config.js` justo
+   antes de publicar. Por eso el archivo no necesita estar en el repo.
+
+3. Si falta una variable, **el build falla con un mensaje claro** en vez de
+   publicar un sitio roto. Es a propósito: es preferible que no salga el deploy
+   a que salga sin cliente de Supabase.
+
+> El generador busca las variables en este orden: primero el `.env` (desarrollo
+> local), y si no existe, `process.env` (Vercel, GitHub Actions, cualquier CI).
+> El mismo comando funciona en los dos lados sin cambiar nada.
 
 ---
 

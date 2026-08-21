@@ -985,7 +985,10 @@
         rating: selectedStars,
         text: comentario,
       });
-      renderReviews();
+      // Con publicación automática la reseña ya está visible en la base, así
+      // que se recarga la lista desde Supabase en vez de re-pintar la copia
+      // en memoria (que no la tiene y dejaba el carrusel igual que antes).
+      await loadReviews();
       resenaForm.reset();
       resetStars();
       updateContador();
@@ -993,8 +996,12 @@
       closeModal(modalResena);
     } catch (err) {
       console.error("No se pudo publicar la reseña:", err);
+      // 23505 = unique_violation: lo tira el índice reviews_dedupe_idx cuando
+      // ya existe una reseña con el mismo nombre y el mismo comentario.
       resenaError.textContent =
-        "No pudimos publicar tu reseña. Probá de nuevo en un momento.";
+        err?.code === "23505"
+          ? "Ya hay una reseña publicada con ese nombre y ese mismo comentario."
+          : "No pudimos publicar tu reseña. Probá de nuevo en un momento.";
       resenaError.hidden = false;
     } finally {
       resenaSubmit.disabled = false;
