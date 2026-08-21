@@ -1,0 +1,429 @@
+<!doctype html>
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Acceso al Panel - DepartamentosDimo</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- Material Symbols -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- GSAP for Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+      /* CSS Reset & Custom Properties */
+      :root {
+        --background: #fff8ef;
+        --blanco: #fffdf8;
+        --tinta: #163238;
+        --turquesa: #6fcfc0;
+        --madera: #b98953;
+        --on-surface-variant: #3f484c;
+        --outline-variant: rgba(191, 200, 205, 0.6);
+        --arena-deep: rgba(228, 210, 168, 0.2);
+
+        --font-body: "Plus Jakarta Sans", sans-serif;
+        --font-heading: "Outfit", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-body);
+        background-color: var(--background);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Background Element */
+      .bg-shape-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 0;
+      }
+
+      .bg-shape {
+        position: absolute;
+        top: -20%;
+        right: -10%;
+        width: 80%;
+        height: auto;
+        color: var(--arena-deep);
+        transform: rotate(12deg);
+      }
+
+      /* Card Layout */
+      .login-card {
+        background-color: var(--blanco);
+        width: 100%;
+        max-width: 440px;
+        border-radius: 28px 8px 28px 8px;
+        box-shadow: 0 12px 40px rgba(22, 50, 56, 0.06);
+        border: 1px solid rgba(185, 137, 83, 0.15);
+        padding: 40px;
+        position: relative;
+        z-index: 10;
+        opacity: 0;
+        transform: translateY(32px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* Header */
+      .brand-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        color: var(--tinta);
+      }
+
+      .brand-icon {
+        width: 40px;
+        height: 40px;
+        background-color: rgba(111, 207, 192, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--turquesa);
+      }
+
+      .brand-title {
+        font-family: var(--font-heading);
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      /* Typography */
+      .text-context {
+        text-align: center;
+        margin-bottom: 40px;
+        width: 100%;
+      }
+
+      .main-heading {
+        font-family: var(--font-heading);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--tinta);
+        margin-bottom: 8px;
+        line-height: 1.3;
+      }
+
+      .sub-text {
+        font-size: 16px;
+        color: var(--on-surface-variant);
+        max-width: 320px;
+        margin: 0 auto;
+        line-height: 1.65;
+      }
+
+      /* Form */
+      .otp-form {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+      }
+
+      /* OTP Inputs - Visually Together */
+      .otp-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px; /* Slightly reduced gap to keep them together visually */
+        width: 100%;
+      }
+
+      .otp-input {
+        width: 100%;
+        height: 56px;
+        text-align: center;
+        font-family: var(--font-heading);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--tinta);
+        background-color: var(--blanco);
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+
+      .otp-input:focus {
+        border-color: var(--turquesa);
+        box-shadow: 0 0 0 2px rgba(111, 207, 192, 0.2);
+        outline: none;
+      }
+
+      /* Hide spinners */
+      .otp-input::-webkit-outer-spin-button,
+      .otp-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .otp-input[type="number"] {
+        appearance: textfield;
+      }
+
+      /* Actions */
+      .actions-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 8px;
+      }
+
+      .btn-primary {
+        width: 100%;
+        background-color: var(--tinta);
+        color: var(--blanco);
+        border-radius: 9999px;
+        padding: 16px 24px;
+        font-family: var(--font-heading);
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .btn-primary:hover {
+        background-color: rgba(22, 50, 56, 0.9);
+        box-shadow:
+          0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+
+      .btn-primary:active {
+        transform: scale(0.98);
+      }
+
+      .btn-icon {
+        font-size: 20px;
+        transition: transform 0.2s ease;
+      }
+
+      .btn-primary:hover .btn-icon {
+        transform: translateX(4px);
+      }
+
+      .btn-link {
+        font-family: var(--font-body);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--turquesa);
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+
+      .btn-link:hover {
+        color: var(--tinta);
+      }
+
+      .btn-link:disabled {
+        opacity: 0.6;
+        color: var(--on-surface-variant);
+        cursor: not-allowed;
+      }
+
+      .btn-link:disabled:hover {
+        color: var(--on-surface-variant);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Decorative Organic Background Element -->
+    <div class="bg-shape-container">
+      <svg
+        class="bg-shape"
+        viewbox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M47.7,-57.2C59.9,-43.3,66.8,-25.9,67.6,-8.7C68.4,8.5,63.1,25.5,52.3,38.8C41.4,52,24.9,61.4,7.2,63.9C-10.5,66.4,-29.4,62.1,-43.5,50.7C-57.6,39.3,-66.8,20.9,-68.8,1.4C-70.8,-18.2,-65.5,-38.8,-52.3,-52.5C-39.1,-66.2,-17.9,-73.1,-0.2,-72.9C17.6,-72.7,35.5,-65.4,47.7,-57.2Z"
+          fill="currentColor"
+          transform="translate(100 100)"
+        ></path>
+      </svg>
+    </div>
+    <!-- Main Login Card -->
+    <main class="login-card" id="login-card">
+      <!-- Brand Header -->
+      <div class="brand-header">
+        <div class="brand-icon">
+          <span class="material-symbols-outlined" style="font-size: 24px"
+            >apartment</span
+          >
+        </div>
+        <span class="brand-title">DepartamentosDimo</span>
+      </div>
+      <!-- Typography Context -->
+      <div class="text-context">
+        <h1 class="main-heading">Acceso al Panel</h1>
+        <p class="sub-text">
+          Ingresá el código de 8 dígitos enviado a tu dispositivo.
+        </p>
+      </div>
+      <!-- Form Area -->
+      <form class="otp-form" id="otp-form">
+        <!-- OTP Input Container -->
+        <div class="otp-container" id="otp-container">
+          <input
+            autofocus=""
+            class="otp-input"
+            inputmode="numeric"
+            maxlength="1"
+            pattern="[0-9]*"
+            type="text"
+          />
+          <input
+            class="otp-input"
+            inputmode="numeric"
+            maxlength="1"
+            pattern="[0-9]*"
+            type="text"
+          />
+          <input
+            class="otp-input"
+            inputmode="numeric"
+            maxlength="1"
+            pattern="[0-9]*"
+            type="text"
+          />
+          <input
+            class="otp-input"
+            inputmode="numeric"
+            maxlength="1"
+            pattern="[0-9]*"
+            type="text"
+          />
+          <input
+            class="otp-input"
+            inputmode="numeric"
+            maxlength="1"
+            pattern="[0-9]*"
+            type="text"
+          />
+          <input
+            class="otp-input"
+            inputmode="numeric"
+            maxlength="1"
+            pattern="[0-9]*"
+            type="text"
+          />
+        </div>
+        <!-- Actions Container -->
+        <div class="actions-container">
+          <button class="btn-primary" id="submit-btn" type="button">
+            Verificar y Entrar
+            <span class="material-symbols-outlined btn-icon"
+              >arrow_forward</span
+            >
+          </button>
+        </div>
+      </form>
+    </main>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        // Entrance Animation
+        gsap.to("#login-card", {
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: "power3.out",
+          delay: 0.1,
+        });
+
+        // Button Animation
+        const submitBtn = document.getElementById("submit-btn");
+        submitBtn.addEventListener("mousedown", () => {
+          gsap.to(submitBtn, { scale: 0.98, duration: 0.1 });
+        });
+        submitBtn.addEventListener("mouseup", () => {
+          gsap.to(submitBtn, { scale: 1, duration: 0.1 });
+        });
+        submitBtn.addEventListener("mouseleave", () => {
+          gsap.to(submitBtn, { scale: 1, duration: 0.1 });
+        });
+
+        // OTP Logic
+        const inputs = document.querySelectorAll(".otp-input");
+
+        inputs.forEach((input, index) => {
+          input.addEventListener("input", (e) => {
+            // Ensure only numbers
+            e.target.value = e.target.value.replace(/[^0-9]/g, "");
+
+            // Auto advance
+            if (e.target.value !== "" && index < inputs.length - 1) {
+              inputs[index + 1].focus();
+            }
+          });
+
+          input.addEventListener("keydown", (e) => {
+            // Handle backspace
+            if (e.key === "Backspace" && e.target.value === "" && index > 0) {
+              inputs[index - 1].focus();
+            }
+          });
+
+          // Paste handling
+          input.addEventListener("paste", (e) => {
+            e.preventDefault();
+            const pastedData = e.clipboardData
+              .getData("text")
+              .replace(/[^0-9]/g, "")
+              .slice(0, inputs.length);
+            if (pastedData) {
+              pastedData.split("").forEach((char, i) => {
+                if (inputs[i]) {
+                  inputs[i].value = char;
+                  if (i < inputs.length - 1) {
+                    inputs[i + 1].focus();
+                  } else {
+                    inputs[i].blur();
+                  }
+                }
+              });
+            }
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
