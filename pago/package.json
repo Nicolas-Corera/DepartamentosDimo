@@ -1,0 +1,19 @@
+{
+  "name": "departamentos-dimo-pago",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sitio de pago de Departamentos Dimo — Checkout API de MercadoPago (Card Payment Brick)",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env scripts/dev-server.mjs",
+    "env:check": "node --env-file=.env api/_lib/env.js",
+    "dev:vercel": "vercel dev"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "mercadopago": "^2.0.15"
+  }
+}

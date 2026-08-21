@@ -4,6 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta name="robots" content="noindex, nofollow" />
     <title>Reserva y Pago - DepartamentosDimo</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap"
@@ -14,6 +15,13 @@
       rel="stylesheet"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!--
+      SDK de MercadoPago v2. Es lo que monta el Card Payment Brick.
+      Los campos de tarjeta que dibuja son iframes servidos por MercadoPago:
+      el número, el vencimiento y el CVV nunca tocan este sitio ni nuestro
+      backend. Lo único que sale de acá es un token de un solo uso.
+    -->
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
     <style>
       :root {
         --color-background: #fff8ef;
@@ -34,6 +42,10 @@
         --color-tertiary-container: #b63e19;
         --color-coral-subtle: #fdece4;
         --color-arena-deep: #e4d2a8;
+        --color-exito: #1f6b47;
+        --color-exito-suave: #e6f4ec;
+        --color-espera: #8a5a00;
+        --color-espera-suave: #fdf1dc;
 
         --font-headline: "Outfit", sans-serif;
         --font-body: "Plus Jakarta Sans", sans-serif;
@@ -60,6 +72,10 @@
         display: flex;
         flex-direction: column;
         font-size: 16px;
+      }
+
+      [hidden] {
+        display: none !important;
       }
 
       .material-symbols-rounded {
@@ -258,40 +274,6 @@
         margin-bottom: 8px;
       }
 
-      .input-wrapper {
-        position: relative;
-      }
-
-      .input-icon {
-        position: absolute;
-        left: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--color-on-surface-variant);
-      }
-
-      .input-field {
-        width: 100%;
-        background-color: var(--color-blanco);
-        border: 1px solid var(--color-surface-variant);
-        border-radius: 8px;
-        padding: 12px 16px;
-        font-family: var(--font-body);
-        font-size: 16px;
-        color: var(--color-on-surface);
-        transition: all 0.2s ease;
-      }
-
-      .input-wrapper .input-field {
-        padding-left: 48px;
-      }
-
-      .input-field:focus {
-        outline: none;
-        border-color: var(--color-turquesa);
-        box-shadow: 0 0 0 2px var(--color-turquesa);
-      }
-
       .static-value {
         width: 100%;
         background-color: var(--color-blanco);
@@ -302,23 +284,9 @@
         color: var(--color-on-surface);
       }
 
-      .select-field {
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233f484c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 20px;
-        padding-right: 40px;
-      }
-
       .info-box {
-        background-color: rgba(
-          253,
-          236,
-          228,
-          0.3
-        ); /* coral-subtle with opacity */
-        border: 1px solid rgba(182, 62, 25, 0.2); /* tertiary-container with opacity */
+        background-color: rgba(253, 236, 228, 0.3);
+        border: 1px solid rgba(182, 62, 25, 0.2);
         border-radius: 8px;
         padding: 16px;
         margin-top: 8px;
@@ -355,6 +323,127 @@
 
       .info-list li {
         margin-bottom: 8px;
+      }
+
+      /* ------------------------------------------------------------------
+         Card Payment Brick
+         El Brick trae sus propios estilos; acá solo se le da el marco y se
+         reserva alto mientras carga, para que no salte el layout.
+         ------------------------------------------------------------------ */
+      .brick-wrapper {
+        min-height: 320px;
+        position: relative;
+      }
+
+      .brick-cargando {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        min-height: 320px;
+        color: var(--color-on-surface-variant);
+        font-size: 14px;
+      }
+
+      /* Velo mientras se procesa el pago: evita el doble envío por clic */
+      .procesando-velo {
+        position: absolute;
+        inset: 0;
+        background-color: rgba(255, 253, 248, 0.88);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        z-index: 5;
+        text-align: center;
+        padding: 24px;
+      }
+
+      .procesando-velo p {
+        font-family: var(--font-headline);
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-tinta);
+      }
+
+      .procesando-velo span.nota {
+        font-family: var(--font-body);
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--color-on-surface-variant);
+      }
+
+      /* Spinner */
+      .spinner {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 3px solid var(--color-surface-variant);
+        border-top-color: var(--color-primary);
+        animation: girar 0.8s linear infinite;
+      }
+
+      @keyframes girar {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .spinner {
+          animation-duration: 2s;
+        }
+      }
+
+      /* ------------------------------------------------------------------
+         Avisos (error de pago sobre el formulario)
+         ------------------------------------------------------------------ */
+      .aviso {
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: var(--spacing-md);
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        border: 1px solid transparent;
+      }
+
+      .aviso .material-symbols-rounded {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      .aviso-titulo {
+        font-family: var(--font-headline);
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 2px;
+      }
+
+      .aviso-detalle {
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .aviso--error {
+        background-color: var(--color-coral-subtle);
+        border-color: rgba(182, 62, 25, 0.3);
+        color: var(--color-tertiary);
+      }
+
+      .aviso--espera {
+        background-color: var(--color-espera-suave);
+        border-color: rgba(138, 90, 0, 0.25);
+        color: var(--color-espera);
+      }
+
+      .aviso--exito {
+        background-color: var(--color-exito-suave);
+        border-color: rgba(31, 107, 71, 0.25);
+        color: var(--color-exito);
       }
 
       /* Right Column (Summary) */
@@ -427,6 +516,12 @@
         font-size: 28px;
         font-weight: 600;
         color: var(--color-tinta);
+        margin-bottom: 8px;
+      }
+
+      .nota-senia {
+        font-size: 13px;
+        color: var(--color-on-surface-variant);
         margin-bottom: 24px;
       }
 
@@ -456,6 +551,148 @@
         margin-right: 8px;
       }
 
+      .btn-secundario {
+        background-color: transparent;
+        color: var(--color-primary);
+        border: 2px solid var(--color-primary);
+      }
+
+      .btn-secundario:hover {
+        background-color: var(--color-surface-container);
+      }
+
+      .nota-segura {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--color-on-surface-variant);
+        margin-top: 12px;
+        text-align: center;
+      }
+
+      .nota-segura .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      /* ------------------------------------------------------------------
+         Pantallas de estado (carga, error de la reserva, resultado del pago)
+         ------------------------------------------------------------------ */
+      .pantalla {
+        background-color: var(--color-blanco);
+        border-radius: 24px;
+        padding: var(--spacing-lg);
+        box-shadow: 0 10px 40px -10px rgba(22, 50, 56, 0.15);
+        max-width: 620px;
+        margin: 0 auto;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .pantalla-icono {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--color-surface-container);
+      }
+
+      .pantalla-icono .material-symbols-rounded {
+        font-size: 40px;
+        font-variation-settings: "FILL" 1;
+        color: var(--color-primary);
+      }
+
+      .pantalla-icono--exito {
+        background-color: var(--color-exito-suave);
+      }
+      .pantalla-icono--exito .material-symbols-rounded {
+        color: var(--color-exito);
+      }
+
+      .pantalla-icono--espera {
+        background-color: var(--color-espera-suave);
+      }
+      .pantalla-icono--espera .material-symbols-rounded {
+        color: var(--color-espera);
+      }
+
+      .pantalla-icono--error {
+        background-color: var(--color-coral-subtle);
+      }
+      .pantalla-icono--error .material-symbols-rounded {
+        color: var(--color-tertiary);
+      }
+
+      .pantalla-titulo {
+        font-family: var(--font-headline);
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--color-tinta);
+        line-height: 1.25;
+      }
+
+      .pantalla-detalle {
+        font-size: 16px;
+        color: var(--color-on-surface-variant);
+        max-width: 46ch;
+      }
+
+      .pantalla-datos {
+        width: 100%;
+        background-color: var(--color-surface-container-low);
+        border: 1px solid var(--color-surface-variant);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        text-align: left;
+      }
+
+      .pantalla-datos .price-row {
+        font-size: 14px;
+      }
+
+      .pantalla-acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+        width: 100%;
+      }
+
+      .pantalla-acciones .submit-btn {
+        width: auto;
+        min-width: 200px;
+        padding: 14px 28px;
+      }
+
+      /* Skeleton de carga */
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          var(--color-surface-container) 25%,
+          var(--color-surface-container-low) 50%,
+          var(--color-surface-container) 75%
+        );
+        background-size: 200% 100%;
+        animation: brillo 1.4s ease-in-out infinite;
+        border-radius: 8px;
+      }
+
+      @keyframes brillo {
+        to {
+          background-position: -200% 0;
+        }
+      }
+
       /* Footer */
       .footer {
         width: 100%;
@@ -470,6 +707,19 @@
         font-size: 14px;
         color: var(--color-on-surface-variant);
       }
+
+      /* Solo para lectores de pantalla: los cambios de estado se anuncian */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
     </style>
   </head>
   <body>
@@ -477,10 +727,36 @@
       <div class="header-section">
         <h1 class="page-title">Finalizar Reserva</h1>
         <p class="page-subtitle">
-          Completa los detalles para asegurar tu estadía en DepartamentosDimo.
+          Completá el pago para asegurar tu estadía en DepartamentosDimo.
         </p>
       </div>
-      <div class="layout-grid">
+
+      <!-- Anuncios de estado para lectores de pantalla -->
+      <p class="sr-only" role="status" aria-live="polite" id="anuncio"></p>
+
+      <!-- ============ 1. Cargando la reserva ============ -->
+      <section class="pantalla" id="pantalla-carga">
+        <div class="spinner"></div>
+        <p class="pantalla-detalle">Buscando tu reserva…</p>
+      </section>
+
+      <!-- ============ 2. No se pudo cargar la reserva ============ -->
+      <section class="pantalla" id="pantalla-error" hidden>
+        <div class="pantalla-icono pantalla-icono--error">
+          <span class="material-symbols-rounded">link_off</span>
+        </div>
+        <h2 class="pantalla-titulo" id="error-titulo">No pudimos abrir tu reserva</h2>
+        <p class="pantalla-detalle" id="error-detalle"></p>
+        <div class="pantalla-acciones">
+          <button class="submit-btn btn-secundario" type="button" id="error-reintentar">
+            <span class="material-symbols-rounded">refresh</span>
+            Reintentar
+          </button>
+        </div>
+      </section>
+
+      <!-- ============ 3. Checkout ============ -->
+      <div class="layout-grid" id="checkout" hidden>
         <!-- Left Column -->
         <div class="left-column">
           <!-- Datos Section -->
@@ -492,97 +768,63 @@
             <div class="user-data-grid">
               <div class="data-item">
                 <span class="data-label">Nombre Completo</span>
-                <span class="data-value">María Laura Gómez</span>
+                <span class="data-value" id="dato-nombre">—</span>
               </div>
               <div class="data-item">
                 <span class="data-label">Email</span>
-                <span class="data-value">maria.gomez@ejemplo.com</span>
+                <span class="data-value" id="dato-email">—</span>
               </div>
               <div class="data-item">
                 <span class="data-label">DNI</span>
-                <span class="data-value">32.456.789</span>
+                <span class="data-value" id="dato-dni">—</span>
               </div>
               <div class="data-item">
-                <span class="data-label">Ubicación</span>
-                <span class="data-value">CABA, Buenos Aires</span>
+                <span class="data-label">Huéspedes</span>
+                <span class="data-value" id="dato-huespedes">—</span>
               </div>
             </div>
           </section>
+
           <!-- Metodo Pago Section -->
-          <section class="card-section">
+          <section class="card-section" id="seccion-pago">
             <h2 class="section-title">
               <span class="material-symbols-rounded">payment</span>
               Método de Pago
             </h2>
+
+            <!-- Resultado de un intento fallido: se muestra sobre el formulario -->
+            <div class="aviso aviso--error" id="aviso-pago" hidden>
+              <span class="material-symbols-rounded">error</span>
+              <div>
+                <p class="aviso-titulo" id="aviso-pago-titulo"></p>
+                <p class="aviso-detalle" id="aviso-pago-detalle"></p>
+              </div>
+            </div>
+
             <div class="tabs-container">
-              <button
-                class="tab-btn active"
-                data-target="form-card"
-                data-type="credit"
-              >
+              <button class="tab-btn active" data-target="form-card" type="button">
                 <span class="material-symbols-rounded">credit_card</span>
-                Tarjeta de crédito
+                Tarjeta de crédito o débito
               </button>
-              <button class="tab-btn" data-target="form-card" data-type="debit">
-                <span class="material-symbols-rounded">credit_card</span>
-                Tarjeta de débito
-              </button>
-              <button
-                class="tab-btn"
-                data-target="form-transfer"
-                data-type="transfer"
-              >
+              <button class="tab-btn" data-target="form-transfer" type="button">
                 <span class="material-symbols-rounded">account_balance</span>
                 Transferencia
               </button>
             </div>
+
             <div class="form-container">
-              <!-- Card Form (used for both Credit and Debit) -->
+              <!-- Tarjeta: acá se monta el Card Payment Brick -->
               <div class="form-content active" id="form-card">
-                <div class="form-grid">
-                  <div class="input-group col-span-2">
-                    <label class="input-label">Número de Tarjeta</label>
-                    <div class="input-wrapper">
-                      <span class="material-symbols-rounded input-icon"
-                        >credit_card</span
-                      >
-                      <input
-                        class="input-field"
-                        placeholder="0000 0000 0000 0000"
-                        type="text"
-                      />
-                    </div>
+                <div class="brick-wrapper" id="brick-wrapper">
+                  <div class="brick-cargando" id="brick-cargando">
+                    <div class="spinner"></div>
+                    <p>Cargando el formulario seguro de MercadoPago…</p>
                   </div>
-                  <div class="input-group">
-                    <label class="input-label">Vencimiento</label>
-                    <input
-                      class="input-field"
-                      placeholder="MM/AA"
-                      type="text"
-                    />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">CVV</label>
-                    <input class="input-field" placeholder="123" type="text" />
-                  </div>
-                  <div class="input-group col-span-2">
-                    <label class="input-label">Nombre en la Tarjeta</label>
-                    <input
-                      class="input-field"
-                      placeholder="Como aparece en la tarjeta"
-                      type="text"
-                    />
-                  </div>
-                  <div class="input-group col-span-2" id="container-cuotas">
-                    <label class="input-label">Cuotas</label>
-                    <select class="input-field select-field">
-                      <option>1 Pago de $150.000</option>
-                      <option>3 Pagos de $50.000 (Sin interés)</option>
-                    </select>
-                  </div>
+                  <div id="cardPaymentBrick_container"></div>
                 </div>
               </div>
-              <!-- Transfer Form -->
+
+              <!-- Transferencia -->
               <div class="form-content" id="form-transfer">
                 <div class="form-grid">
                   <div class="input-group">
@@ -597,10 +839,15 @@
                     <label class="input-label">Titular</label>
                     <div class="static-value">DepartamentosDimo SRL</div>
                   </div>
+                  <div class="input-group">
+                    <label class="input-label">Importe a transferir</label>
+                    <div class="static-value" id="transfer-monto">—</div>
+                  </div>
                   <div class="info-box col-span-2">
                     <p class="info-text">
-                      Una vez realizada la transferencia, el equipo confirmará
-                      tu pago en las próximas 24 horas hábiles.
+                      Una vez realizada la transferencia, enviá el comprobante y
+                      el equipo confirmará tu pago en las próximas 24 horas
+                      hábiles. Poné tu DNI en la referencia.
                     </p>
                   </div>
                 </div>
@@ -608,50 +855,56 @@
             </div>
           </section>
         </div>
+
         <!-- Right Column -->
         <div class="right-column">
           <div class="summary-card">
             <div class="property-image">
               <img
-                alt="Dimo Playa Apartment"
+                alt="Departamento Dimo Playa"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd6Ns8q3Kcv5i8MouOBZdfZSfpGG5Phz6L90MLtReIglsIUX_NOxk1azn8iQ1zaZAf-smZdCTqU4Cm2saO8K8HN1FPP-51L22n4CqtLz0GJvJL_x2mqbwQzdbIDB9poce8UXmSpz2m8JgpY_rKsnAZbOOVIGkr870lq3f41ghsCsL61jBaYKhVo7sOsCVZ_vGNdAdoL7FEjE7IjGzOEmZlAIDcQnfjMv40Acr0Lxle0Eh_PeLVK8ZPrg"
               />
             </div>
             <h3 class="property-title">Dimo Playa</h3>
             <p class="property-dates">
               <span class="material-symbols-rounded">calendar_today</span>
-              15 Ene - 20 Ene (5 noches)
+              <span id="resumen-fechas">—</span>
             </p>
             <div class="price-breakdown">
               <div class="price-row">
                 <span>Precio por noche</span>
-                <span>$30.000</span>
+                <span id="resumen-por-noche">—</span>
               </div>
               <div class="price-row">
                 <span>Noches</span>
-                <span>x 5</span>
+                <span id="resumen-noches">—</span>
               </div>
               <div class="price-row">
                 <span>Check-in</span>
-                <span>15 Ene, 2026</span>
+                <span id="resumen-checkin">—</span>
               </div>
               <div class="price-row">
                 <span>Check-out</span>
-                <span>20 Ene, 2026</span>
+                <span id="resumen-checkout">—</span>
               </div>
               <div class="price-row">
                 <span>Tasa de limpieza</span>
-                <span>$10.000</span>
+                <span id="resumen-limpieza">—</span>
               </div>
             </div>
             <div class="total-row">
-              <span>Total</span>
-              <span>$160.000</span>
+              <span id="resumen-total-label">Total</span>
+              <span id="resumen-total">—</span>
             </div>
-            <button class="submit-btn">
+            <p class="nota-senia" id="nota-senia" hidden></p>
+            <button class="submit-btn" type="button" id="btn-ir-al-pago">
               <span class="material-symbols-rounded">lock</span>
-              Confirmar y Pagar
+              Ir al pago
             </button>
+            <p class="nota-segura">
+              <span class="material-symbols-rounded">verified_user</span>
+              Pago protegido por MercadoPago. No guardamos los datos de tu tarjeta.
+            </p>
             <div class="info-box mt-lg">
               <h4 class="info-title">
                 <span class="material-symbols-rounded">info</span>
@@ -669,62 +922,26 @@
           </div>
         </div>
       </div>
+
+      <!-- ============ 4. Resultado del pago ============ -->
+      <section class="pantalla" id="pantalla-resultado" hidden>
+        <div class="pantalla-icono" id="resultado-icono">
+          <span class="material-symbols-rounded" id="resultado-icono-glifo">check_circle</span>
+        </div>
+        <h2 class="pantalla-titulo" id="resultado-titulo"></h2>
+        <p class="pantalla-detalle" id="resultado-detalle"></p>
+        <div class="pantalla-datos" id="resultado-datos" hidden></div>
+        <div class="pantalla-acciones" id="resultado-acciones"></div>
+      </section>
     </main>
+
     <footer class="footer">
       <p>
-        © 2024 DepartamentosDimo San Bernardo. Tu refugio frente al mar. (Pago
+        © 2026 DepartamentosDimo San Bernardo. Tu refugio frente al mar. (Pago
         Seguro)
       </p>
     </footer>
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const tabs = document.querySelectorAll(".tab-btn");
-        const contents = document.querySelectorAll(".form-content");
-        const cuotasContainer = document.getElementById("container-cuotas");
-        let activeContent = document.getElementById("form-card");
 
-        tabs.forEach((tab) => {
-          tab.addEventListener("click", () => {
-            if (tab.classList.contains("active")) return;
-
-            // Update Tab Styles
-            tabs.forEach((t) => t.classList.remove("active"));
-            tab.classList.add("active");
-
-            const targetId = tab.getAttribute("data-target");
-            const paymentType = tab.getAttribute("data-type");
-            const targetContent = document.getElementById(targetId);
-
-            // Handle Cuotas visibility for Card Form
-            if (targetId === "form-card") {
-              if (paymentType === "credit") {
-                cuotasContainer.style.display = "flex"; // It's in a grid, but flex acts block-like for the group
-              } else {
-                cuotasContainer.style.display = "none";
-              }
-            }
-
-            if (targetContent !== activeContent) {
-              // GSAP Animation for smooth transition
-              gsap.to(activeContent, {
-                opacity: 0,
-                y: 10,
-                duration: 0.2,
-                onComplete: () => {
-                  activeContent.classList.remove("active");
-                  targetContent.classList.add("active");
-                  gsap.fromTo(
-                    targetContent,
-                    { opacity: 0, y: -10 },
-                    { opacity: 1, y: 0, duration: 0.3 },
-                  );
-                  activeContent = targetContent;
-                },
-              });
-            }
-          });
-        });
-      });
-    </script>
+    <script src="pago.js" type="module"></script>
   </body>
 </html>
