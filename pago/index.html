@@ -1,0 +1,730 @@
+<!doctype html>
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Reserva y Pago - DepartamentosDimo</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+      :root {
+        --color-background: #fff8ef;
+        --color-surface: #fff8ef;
+        --color-blanco: #fffdf8;
+        --color-surface-container: #f5edde;
+        --color-surface-container-low: #fbf3e4;
+        --color-surface-container-lowest: #ffffff;
+        --color-surface-variant: #e9e2d3;
+
+        --color-tinta: #163238;
+        --color-on-surface: #1e1b12;
+        --color-on-surface-variant: #3f484c;
+        --color-primary: #00566b;
+        --color-turquesa: #6fcfc0;
+        --color-madera: #b98953;
+        --color-tertiary: #942700;
+        --color-tertiary-container: #b63e19;
+        --color-coral-subtle: #fdece4;
+        --color-arena-deep: #e4d2a8;
+
+        --font-headline: "Outfit", sans-serif;
+        --font-body: "Plus Jakarta Sans", sans-serif;
+
+        --spacing-sm: 8px;
+        --spacing-md: 20px;
+        --spacing-lg: 40px;
+        --spacing-section: 84px;
+        --max-width: 1180px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-body);
+        background-color: var(--color-background);
+        color: var(--color-on-surface);
+        line-height: 1.65;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-size: 16px;
+      }
+
+      .material-symbols-rounded {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+        vertical-align: middle;
+      }
+
+      .page-container {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        width: 100%;
+        padding: var(--spacing-section) var(--spacing-md);
+        flex-grow: 1;
+      }
+
+      .header-section {
+        margin-bottom: var(--spacing-lg);
+      }
+
+      .page-title {
+        font-family: var(--font-headline);
+        font-size: 38px;
+        font-weight: 700;
+        color: var(--color-tinta);
+        line-height: 1.2;
+        margin-bottom: 8px;
+      }
+
+      .page-subtitle {
+        font-size: 18px;
+        color: var(--color-on-surface-variant);
+      }
+
+      .layout-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+      }
+
+      @media (min-width: 1024px) {
+        .layout-grid {
+          grid-template-columns: 8fr 4fr;
+        }
+      }
+
+      .left-column {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-lg);
+      }
+
+      .card-section {
+        background-color: var(--color-blanco);
+        border-radius: 24px;
+        padding: var(--spacing-lg);
+        box-shadow: 0 10px 40px -10px rgba(22, 50, 56, 0.15);
+      }
+
+      .section-title {
+        font-family: var(--font-headline);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--color-tinta);
+        display: flex;
+        align-items: center;
+        margin-bottom: var(--spacing-md);
+      }
+
+      .section-title .material-symbols-rounded {
+        color: var(--color-primary);
+        margin-right: 8px;
+      }
+
+      /* User Data Grid */
+      .user-data-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+      }
+
+      @media (min-width: 768px) {
+        .user-data-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .data-item {
+        background-color: var(--color-surface-container-lowest);
+        border: 1px solid var(--color-surface-variant);
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .data-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--color-on-surface-variant);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 4px;
+      }
+
+      .data-value {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--color-on-surface);
+      }
+
+      /* Tabs */
+      .tabs-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: var(--spacing-md);
+      }
+
+      .tab-btn {
+        flex: 1;
+        min-width: 140px;
+        font-family: var(--font-headline);
+        font-size: 16px;
+        font-weight: 600;
+        padding: 12px 16px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: var(--color-blanco);
+        border: 2px solid var(--color-surface-variant);
+        color: var(--color-on-surface-variant);
+      }
+
+      .tab-btn:hover {
+        border-color: rgba(0, 86, 107, 0.5);
+        color: var(--color-primary);
+      }
+
+      .tab-btn.active {
+        background-color: var(--color-surface-container);
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+      }
+
+      .tab-btn .material-symbols-rounded {
+        margin-right: 8px;
+      }
+
+      /* Forms */
+      .form-container {
+        background-color: var(--color-surface-container-low);
+        border-radius: 12px;
+        padding: 24px;
+        border: 1px solid var(--color-arena-deep);
+        overflow: hidden; /* For animation */
+      }
+
+      .form-content {
+        display: none;
+      }
+
+      .form-content.active {
+        display: block;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      @media (min-width: 768px) {
+        .form-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .col-span-2 {
+          grid-column: span 2;
+        }
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .input-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--color-tinta);
+        margin-bottom: 8px;
+      }
+
+      .input-wrapper {
+        position: relative;
+      }
+
+      .input-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-on-surface-variant);
+      }
+
+      .input-field {
+        width: 100%;
+        background-color: var(--color-blanco);
+        border: 1px solid var(--color-surface-variant);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: var(--font-body);
+        font-size: 16px;
+        color: var(--color-on-surface);
+        transition: all 0.2s ease;
+      }
+
+      .input-wrapper .input-field {
+        padding-left: 48px;
+      }
+
+      .input-field:focus {
+        outline: none;
+        border-color: var(--color-turquesa);
+        box-shadow: 0 0 0 2px var(--color-turquesa);
+      }
+
+      .static-value {
+        width: 100%;
+        background-color: var(--color-blanco);
+        border: 1px solid var(--color-surface-variant);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 16px;
+        color: var(--color-on-surface);
+      }
+
+      .select-field {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233f484c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 20px;
+        padding-right: 40px;
+      }
+
+      .info-box {
+        background-color: rgba(
+          253,
+          236,
+          228,
+          0.3
+        ); /* coral-subtle with opacity */
+        border: 1px solid rgba(182, 62, 25, 0.2); /* tertiary-container with opacity */
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 8px;
+      }
+
+      .info-box.mt-lg {
+        margin-top: var(--spacing-md);
+      }
+
+      .info-text {
+        font-size: 14px;
+        color: var(--color-on-surface-variant);
+      }
+
+      .info-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--color-tertiary);
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .info-title .material-symbols-rounded {
+        font-size: 20px;
+        margin-right: 4px;
+      }
+
+      .info-list {
+        font-size: 14px;
+        color: var(--color-on-surface-variant);
+        padding-left: 20px;
+      }
+
+      .info-list li {
+        margin-bottom: 8px;
+      }
+
+      /* Right Column (Summary) */
+      .summary-card {
+        background-color: var(--color-surface-container);
+        border-radius: 24px;
+        padding: var(--spacing-lg);
+        border: 1px solid rgba(185, 137, 83, 0.2);
+        box-shadow: 0 10px 40px -10px rgba(22, 50, 56, 0.15);
+        position: sticky;
+        top: 24px;
+      }
+
+      .property-image {
+        width: 100%;
+        height: 192px;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: var(--spacing-md);
+      }
+
+      .property-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .property-title {
+        font-family: var(--font-headline);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--color-tinta);
+        margin-bottom: 8px;
+      }
+
+      .property-dates {
+        font-size: 16px;
+        color: var(--color-on-surface-variant);
+        display: flex;
+        align-items: center;
+        margin-bottom: 24px;
+      }
+
+      .property-dates .material-symbols-rounded {
+        color: var(--color-madera);
+        font-size: 20px;
+        margin-right: 4px;
+      }
+
+      .price-breakdown {
+        border-bottom: 1px solid rgba(185, 137, 83, 0.2);
+        padding-bottom: 24px;
+        margin-bottom: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .price-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 16px;
+        color: var(--color-on-surface);
+      }
+
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--font-headline);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--color-tinta);
+        margin-bottom: 24px;
+      }
+
+      .submit-btn {
+        width: 100%;
+        background-color: var(--color-tinta);
+        color: var(--color-blanco);
+        font-family: var(--font-headline);
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 16px;
+        border-radius: 9999px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.3s ease;
+      }
+
+      .submit-btn:hover {
+        background-color: var(--color-primary);
+      }
+
+      .submit-btn .material-symbols-rounded {
+        margin-right: 8px;
+      }
+
+      /* Footer */
+      .footer {
+        width: 100%;
+        padding: 24px;
+        background-color: var(--color-surface);
+        border-top: 1px solid rgba(185, 137, 83, 0.2);
+        text-align: center;
+        margin-top: auto;
+      }
+
+      .footer p {
+        font-size: 14px;
+        color: var(--color-on-surface-variant);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-container">
+      <div class="header-section">
+        <h1 class="page-title">Finalizar Reserva</h1>
+        <p class="page-subtitle">
+          Completa los detalles para asegurar tu estadía en DepartamentosDimo.
+        </p>
+      </div>
+      <div class="layout-grid">
+        <!-- Left Column -->
+        <div class="left-column">
+          <!-- Datos Section -->
+          <section class="card-section">
+            <h2 class="section-title">
+              <span class="material-symbols-rounded">person</span>
+              Tus Datos
+            </h2>
+            <div class="user-data-grid">
+              <div class="data-item">
+                <span class="data-label">Nombre Completo</span>
+                <span class="data-value">María Laura Gómez</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Email</span>
+                <span class="data-value">maria.gomez@ejemplo.com</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">DNI</span>
+                <span class="data-value">32.456.789</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Ubicación</span>
+                <span class="data-value">CABA, Buenos Aires</span>
+              </div>
+            </div>
+          </section>
+          <!-- Metodo Pago Section -->
+          <section class="card-section">
+            <h2 class="section-title">
+              <span class="material-symbols-rounded">payment</span>
+              Método de Pago
+            </h2>
+            <div class="tabs-container">
+              <button
+                class="tab-btn active"
+                data-target="form-card"
+                data-type="credit"
+              >
+                <span class="material-symbols-rounded">credit_card</span>
+                Tarjeta de crédito
+              </button>
+              <button class="tab-btn" data-target="form-card" data-type="debit">
+                <span class="material-symbols-rounded">credit_card</span>
+                Tarjeta de débito
+              </button>
+              <button
+                class="tab-btn"
+                data-target="form-transfer"
+                data-type="transfer"
+              >
+                <span class="material-symbols-rounded">account_balance</span>
+                Transferencia
+              </button>
+            </div>
+            <div class="form-container">
+              <!-- Card Form (used for both Credit and Debit) -->
+              <div class="form-content active" id="form-card">
+                <div class="form-grid">
+                  <div class="input-group col-span-2">
+                    <label class="input-label">Número de Tarjeta</label>
+                    <div class="input-wrapper">
+                      <span class="material-symbols-rounded input-icon"
+                        >credit_card</span
+                      >
+                      <input
+                        class="input-field"
+                        placeholder="0000 0000 0000 0000"
+                        type="text"
+                      />
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Vencimiento</label>
+                    <input
+                      class="input-field"
+                      placeholder="MM/AA"
+                      type="text"
+                    />
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">CVV</label>
+                    <input class="input-field" placeholder="123" type="text" />
+                  </div>
+                  <div class="input-group col-span-2">
+                    <label class="input-label">Nombre en la Tarjeta</label>
+                    <input
+                      class="input-field"
+                      placeholder="Como aparece en la tarjeta"
+                      type="text"
+                    />
+                  </div>
+                  <div class="input-group col-span-2" id="container-cuotas">
+                    <label class="input-label">Cuotas</label>
+                    <select class="input-field select-field">
+                      <option>1 Pago de $150.000</option>
+                      <option>3 Pagos de $50.000 (Sin interés)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <!-- Transfer Form -->
+              <div class="form-content" id="form-transfer">
+                <div class="form-grid">
+                  <div class="input-group">
+                    <label class="input-label">CBU / CVU</label>
+                    <div class="static-value">0000003100054321678901</div>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Alias</label>
+                    <div class="static-value">DIMO.PLAYA.RESERVA</div>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Titular</label>
+                    <div class="static-value">DepartamentosDimo SRL</div>
+                  </div>
+                  <div class="info-box col-span-2">
+                    <p class="info-text">
+                      Una vez realizada la transferencia, el equipo confirmará
+                      tu pago en las próximas 24 horas hábiles.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <!-- Right Column -->
+        <div class="right-column">
+          <div class="summary-card">
+            <div class="property-image">
+              <img
+                alt="Dimo Playa Apartment"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd6Ns8q3Kcv5i8MouOBZdfZSfpGG5Phz6L90MLtReIglsIUX_NOxk1azn8iQ1zaZAf-smZdCTqU4Cm2saO8K8HN1FPP-51L22n4CqtLz0GJvJL_x2mqbwQzdbIDB9poce8UXmSpz2m8JgpY_rKsnAZbOOVIGkr870lq3f41ghsCsL61jBaYKhVo7sOsCVZ_vGNdAdoL7FEjE7IjGzOEmZlAIDcQnfjMv40Acr0Lxle0Eh_PeLVK8ZPrg"
+              />
+            </div>
+            <h3 class="property-title">Dimo Playa</h3>
+            <p class="property-dates">
+              <span class="material-symbols-rounded">calendar_today</span>
+              15 Ene - 20 Ene (5 noches)
+            </p>
+            <div class="price-breakdown">
+              <div class="price-row">
+                <span>Precio por noche</span>
+                <span>$30.000</span>
+              </div>
+              <div class="price-row">
+                <span>Noches</span>
+                <span>x 5</span>
+              </div>
+              <div class="price-row">
+                <span>Check-in</span>
+                <span>15 Ene, 2026</span>
+              </div>
+              <div class="price-row">
+                <span>Check-out</span>
+                <span>20 Ene, 2026</span>
+              </div>
+              <div class="price-row">
+                <span>Tasa de limpieza</span>
+                <span>$10.000</span>
+              </div>
+            </div>
+            <div class="total-row">
+              <span>Total</span>
+              <span>$160.000</span>
+            </div>
+            <button class="submit-btn">
+              <span class="material-symbols-rounded">lock</span>
+              Confirmar y Pagar
+            </button>
+            <div class="info-box mt-lg">
+              <h4 class="info-title">
+                <span class="material-symbols-rounded">info</span>
+                Importante
+              </h4>
+              <ul class="info-list">
+                <li>El horario de check-in es a partir de las 15:00 hs.</li>
+                <li>
+                  No se admiten mascotas en las instalaciones (Política
+                  Pet-Free).
+                </li>
+                <li>Cancelación gratuita hasta 7 días antes del ingreso.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer class="footer">
+      <p>
+        © 2024 DepartamentosDimo San Bernardo. Tu refugio frente al mar. (Pago
+        Seguro)
+      </p>
+    </footer>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const tabs = document.querySelectorAll(".tab-btn");
+        const contents = document.querySelectorAll(".form-content");
+        const cuotasContainer = document.getElementById("container-cuotas");
+        let activeContent = document.getElementById("form-card");
+
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            if (tab.classList.contains("active")) return;
+
+            // Update Tab Styles
+            tabs.forEach((t) => t.classList.remove("active"));
+            tab.classList.add("active");
+
+            const targetId = tab.getAttribute("data-target");
+            const paymentType = tab.getAttribute("data-type");
+            const targetContent = document.getElementById(targetId);
+
+            // Handle Cuotas visibility for Card Form
+            if (targetId === "form-card") {
+              if (paymentType === "credit") {
+                cuotasContainer.style.display = "flex"; // It's in a grid, but flex acts block-like for the group
+              } else {
+                cuotasContainer.style.display = "none";
+              }
+            }
+
+            if (targetContent !== activeContent) {
+              // GSAP Animation for smooth transition
+              gsap.to(activeContent, {
+                opacity: 0,
+                y: 10,
+                duration: 0.2,
+                onComplete: () => {
+                  activeContent.classList.remove("active");
+                  targetContent.classList.add("active");
+                  gsap.fromTo(
+                    targetContent,
+                    { opacity: 0, y: -10 },
+                    { opacity: 1, y: 0, duration: 0.3 },
+                  );
+                  activeContent = targetContent;
+                },
+              });
+            }
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
