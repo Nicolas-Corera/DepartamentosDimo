@@ -25,7 +25,13 @@
 
 import { leerConfig } from "./_lib/env.js";
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
-import { buscarReserva, guardarPago, tienePagoAprobado, confirmarReserva } from "./_lib/supabase.js";
+import {
+  buscarReserva,
+  guardarPago,
+  tienePagoAprobado,
+  confirmarReserva,
+  buscarTarifasEspeciales,
+} from "./_lib/supabase.js";
 import { calcularPrecio } from "./_lib/precios.js";
 import {
   crearPago,
@@ -109,7 +115,8 @@ export default async function handler(req, res) {
 
     const datos = validarFormData(body.formData, config.mp.maxCuotas);
     const reserva = await buscarReserva(ref);
-    const precio = calcularPrecio(reserva, config.precios);
+    const tarifas = await buscarTarifasEspeciales(reserva.check_in, reserva.check_out);
+    const precio = calcularPrecio(reserva, config.precios, tarifas);
 
     // Freno contra el doble cobro por vías distintas (dos pestañas, dos
     // tarjetas). La idempotencia de MercadoPago cubre el reintento del MISMO

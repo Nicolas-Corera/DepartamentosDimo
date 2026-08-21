@@ -233,16 +233,20 @@
   ];
   const DIAS = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
 
-  // Fechas de ejemplo ya reservadas (simulación de disponibilidad)
-  const bookedDates = new Set([
-    "2026-12-24",
-    "2026-12-25",
-    "2026-12-31",
-    "2027-01-01",
-    "2027-01-15",
-    "2027-01-16",
-    "2027-01-17",
-  ]);
+  /* ==========================================================
+     DÍAS OCUPADOS
+
+     Arranca vacío y se llena solo, desde la base, en
+     cargarFechasOcupadas(). Antes acá había una lista escrita a mano:
+     eso se desactualiza el mismo día que entra una reserva, y no hay
+     forma de que alguien se acuerde de mantenerla.
+
+     De dónde salen: la vista `fechas_ocupadas` de Supabase, que expone
+     ÚNICAMENTE check_in y check_out de las reservas confirmadas. Ni
+     nombre, ni mail, ni DNI: la tabla `booking_requests` sigue siendo
+     ilegible desde el navegador. Ver pago/sql/tarifas-y-ocupacion.sql.
+  =========================================================== */
+  const bookedDates = new Set();
 
   function fmtKey(y, m, d) {
     return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -304,12 +308,34 @@
     return base;
   }
 
+  /* ¿Hay alguna noche ocupada entre estas dos fechas?
+
+     Se miran las NOCHES, no los días: una estadía del 12 al 18 son las
+     noches del 12 al 17. La del 18 no cuenta, porque esa mañana se van
+     y el departamento queda libre para quien entre ese mismo día. */
+  function hayOcupadasEntre(desdeKey, hastaKey) {
+    const cursor = keyADate(desdeKey);
+    const fin = keyADate(hastaKey);
+    while (cursor < fin) {
+      const key = fmtKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+      if (bookedDates.has(key)) return true;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return false;
+  }
+
+  /* Todos los calendarios vivos, para repintarlos cuando lleguen las
+     fechas ocupadas (la consulta a la base termina después del primer
+     render). */
+  const calendarios = [];
+
   function createCalendar(container, { onRangeChange } = {}) {
     const today = new Date();
     let viewYear = today.getFullYear();
     let viewMonth = today.getMonth();
     let rangeStart = null,
       rangeEnd = null;
+    let avisoRango = "";
 
     function render() {
       container.innerHTML = "";
@@ -395,8 +421,34 @@
             if (!rangeStart || (rangeStart && rangeEnd)) {
               rangeStart = key;
               rangeEnd = null;
+              avisoRango = "";
             } else {
-              if (keyADate(key) < keyADate(rangeStart)) {
+              const nuevoInicio = keyADate(key) < keyADate(rangeStart);
+              const desde = nuevoInicio ? key : rangeStart;
+              const hasta = nuevoInicio ? rangeStart : key;
+
+              /* Bloquear el día ocupado no alcanza: sin esto se puede
+                 elegir el 12 y el 18 con el 15 ya reservado, y la
+                 estadía "salta por arriba" de una reserva existente.
+                 El rango completo tiene que estar libre.
+
+                 Cuando el rango no sirve, la selección ARRANCA DE NUEVO
+                 desde el día que se acaba de tocar. Si solo se rechazara
+                 el clic, la entrada vieja quedaría fija y cualquier día
+                 posterior a la reserva seguiría cruzándola: la persona
+                 quedaría trabada sin entender por qué. */
+              if (hayOcupadasEntre(desde, hasta)) {
+                rangeStart = key;
+                rangeEnd = null;
+                avisoRango =
+                  "Entre esas dos fechas hay días ya reservados. Empezamos de nuevo desde el día que elegiste: marcá la salida antes de la próxima reserva.";
+                render();
+                if (onRangeChange) onRangeChange(rangeStart, rangeEnd);
+                return;
+              }
+
+              avisoRango = "";
+              if (nuevoInicio) {
                 rangeStart = key;
               } else {
                 rangeEnd = key;
@@ -409,6 +461,16 @@
         grid.appendChild(btn);
       }
       container.appendChild(grid);
+
+      /* Por qué no se pudo elegir ese rango. Se limpia al primer clic
+         siguiente, así no queda un cartel viejo colgado. */
+      if (avisoRango) {
+        const aviso = document.createElement("p");
+        aviso.className = "cal-note cal-note-cerrado";
+        aviso.setAttribute("role", "status");
+        aviso.textContent = avisoRango;
+        container.appendChild(aviso);
+      }
 
       /* La aclaración del horario solo tiene sentido mirando el mes en
          curso: en marzo del año que viene no aporta nada. */
@@ -440,17 +502,69 @@
       });
     }
     render();
-    return {
+    const api = {
       getRange: () => ({ start: rangeStart, end: rangeEnd }),
       reset: () => {
         rangeStart = null;
         rangeEnd = null;
+        avisoRango = "";
         render();
       },
       // Repinta con la hora de AHORA. Se llama al abrir cada modal para
       // que el corte de las 09:00 valga aunque la página lleve horas abierta.
       refresh: render,
     };
+    calendarios.push(api);
+    return api;
+  }
+
+  /* ==========================================================
+     TRAER LOS DÍAS OCUPADOS
+
+     Lee la vista `fechas_ocupadas`, que solo tiene check_in y
+     check_out de las reservas confirmadas. Cada reserva se expande a
+     las NOCHES que ocupa: del 10 al 14 son el 10, 11, 12 y 13. El
+     check-out no se marca, porque esa mañana se van y el
+     departamento queda disponible para quien entre ese día.
+
+     Si querés que el día de salida también quede bloqueado (para
+     tener margen de limpieza), cambiá el `<` por un `<=` en el while.
+
+     Si la consulta falla, el calendario queda como estaba: todos los
+     días libres. Es lo mismo que pasaba antes de tener esto, y es
+     preferible a no mostrar calendario.
+  =========================================================== */
+  async function cargarFechasOcupadas() {
+    if (typeof window.db === "undefined") {
+      console.warn("[disponibilidad] Supabase no está cargado; el calendario queda sin ocupación.");
+      return;
+    }
+
+    const { data, error } = await window.db
+      .from("fechas_ocupadas")
+      .select("check_in, check_out");
+
+    if (error) {
+      console.error("[disponibilidad] no se pudieron traer las fechas ocupadas:", error.message);
+      return;
+    }
+
+    for (const reserva of data || []) {
+      const cursor = keyADate(reserva.check_in);
+      const salida = keyADate(reserva.check_out);
+      // Tope de seguridad: una fila con fechas corruptas no puede colgar
+      // el navegador en un while infinito.
+      let vueltas = 0;
+      while (cursor < salida && vueltas++ < 400) {
+        bookedDates.add(
+          fmtKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()),
+        );
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    // La consulta termina después del primer render, así que hay que repintar.
+    calendarios.forEach((c) => c.refresh());
   }
 
   // Calendario del modal "Ver disponibilidad"
@@ -462,6 +576,10 @@
   const fechasInput = document.getElementById("fechasInput");
   const fechasLabel = document.getElementById("fechasLabel");
   const formCalendar = createCalendar(document.getElementById("calFormulario"));
+
+  // Ya están los dos calendarios creados: se piden las fechas ocupadas y, al
+  // llegar, se repintan solos.
+  cargarFechasOcupadas();
 
   function fmtDisplay(key) {
     const [y, m, d] = key.split("-");

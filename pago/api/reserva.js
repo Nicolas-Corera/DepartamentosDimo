@@ -15,7 +15,7 @@
 
 import { leerConfig } from "./_lib/env.js";
 import { exigirMetodo, json, manejarError, ErrorVisible } from "./_lib/http.js";
-import { buscarReserva, tienePagoAprobado } from "./_lib/supabase.js";
+import { buscarReserva, tienePagoAprobado, buscarTarifasEspeciales } from "./_lib/supabase.js";
 import { calcularPrecio } from "./_lib/precios.js";
 import { log } from "./_lib/log.js";
 
@@ -42,13 +42,16 @@ export default async function handler(req, res) {
 
     const config = leerConfig();
     const reserva = await buscarReserva(ref);
-    const precio = calcularPrecio(reserva, config.precios);
+    const tarifas = await buscarTarifasEspeciales(reserva.check_in, reserva.check_out);
+    const precio = calcularPrecio(reserva, config.precios, tarifas);
     const pagoAprobado = await tienePagoAprobado(reserva.id);
 
     log.info("reserva.consultada", {
       ref: reserva.id,
-      noches: precio.noches,
+      noches: precio.cantidadNoches,
       monto: precio.aCobrar,
+      tarifa_uniforme: precio.tarifaUniforme,
+      especiales: precio.noches.filter((n) => n.motivo).length,
       ya_pagada: Boolean(pagoAprobado),
     });
 
