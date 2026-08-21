@@ -521,11 +521,16 @@
   /* ==========================================================
      TRAER LOS DÍAS OCUPADOS
 
-     Lee la vista `fechas_ocupadas`, que solo tiene check_in y
-     check_out de las reservas confirmadas. Cada reserva se expande a
-     las NOCHES que ocupa: del 10 al 14 son el 10, 11, 12 y 13. El
-     check-out no se marca, porque esa mañana se van y el
+     Llama a la función `fechas_ocupadas()`, que solo devuelve
+     check_in y check_out de las reservas confirmadas. Cada reserva se
+     expande a las NOCHES que ocupa: del 10 al 14 son el 10, 11, 12 y
+     13. El check-out no se marca, porque esa mañana se van y el
      departamento queda disponible para quien entre ese día.
+
+     Es una función y no una vista a propósito: una vista sobre
+     booking_requests necesita correr con los privilegios de su dueño,
+     y el Security Advisor de Supabase desactiva eso. El detalle está
+     en pago/sql/tarifas-y-ocupacion.sql.
 
      Si querés que el día de salida también quede bloqueado (para
      tener margen de limpieza), cambiá el `<` por un `<=` en el while.
@@ -540,9 +545,7 @@
       return;
     }
 
-    const { data, error } = await window.db
-      .from("fechas_ocupadas")
-      .select("check_in, check_out");
+    const { data, error } = await window.db.rpc("fechas_ocupadas");
 
     if (error) {
       console.error("[disponibilidad] no se pudieron traer las fechas ocupadas:", error.message);

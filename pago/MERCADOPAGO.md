@@ -277,9 +277,20 @@ lee como un error de cálculo.
 ## 5. El calendario y los días ocupados
 
 El calendario del sitio principal marca como ocupados los días ya reservados. Los
-lee de la vista **`fechas_ocupadas`**, que expone *únicamente* `check_in` y
-`check_out`. Ni nombre, ni mail, ni DNI: `booking_requests` sigue siendo
-ilegible desde el navegador.
+pide con `db.rpc("fechas_ocupadas")`, una función que devuelve *únicamente*
+`check_in` y `check_out`. Ni nombre, ni mail, ni DNI: `booking_requests` sigue
+siendo ilegible desde el navegador (401), y `anon` no tiene ni un permiso sobre
+esa tabla.
+
+> **Por qué una función y no una vista.** La primera versión era una vista. El
+> Security Advisor de Supabase la marcó como *security definer view* y le activó
+> `security_invoker=on`; con esa opción la vista pasa a correr con los permisos
+> de quien la llama —  el navegador — y el calendario empezó a fallar con
+> `permission denied for table booking_requests`. Volver a ponerla en `off` es
+> pelearse con el advisor: la marca de nuevo y el próximo que entre al panel la
+> "arregla" otra vez. Una función `security definer` con `search_path` fijado es
+> el patrón que Supabase sí recomienda, y encima es más ajustado: la única
+> puerta a la tabla es esa función.
 
 **Qué cuenta como ocupado:** solo las reservas en estado `confirmada`.
 

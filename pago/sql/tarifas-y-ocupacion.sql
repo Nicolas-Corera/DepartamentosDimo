@@ -125,16 +125,48 @@ where not exists (
 --   a la lista del `where` de abajo y volvé a correr el script.
 -- ---------------------------------------------------------------------------
 
-create or replace view public.fechas_ocupadas as
-  select check_in, check_out
-    from public.booking_requests
-   where estado in ('confirmada');
+-- Por qué una FUNCIÓN y no una vista:
+--
+--   La primera versión de esto era una vista. Funcionaba, hasta que el
+--   Security Advisor de Supabase la marcó como "security definer view" (un
+--   error en su listado) y le activó `security_invoker=on`. Con esa opción la
+--   vista deja de correr con los privilegios de su dueño y pasa a correr con
+--   los de quien la llama: el navegador, que es `anon` y no puede leer
+--   booking_requests. Resultado: el calendario dejó de mostrar la ocupación
+--   con un 401 "permission denied for table booking_requests".
+--
+--   Volver a poner `security_invoker=off` sería pelearse con el advisor: lo
+--   marcaría de nuevo y el próximo que entre al panel lo "arregla" otra vez.
+--
+--   Una función `security definer` con el `search_path` fijado es el patrón
+--   que Supabase sí recomienda para esto, y no dispara ninguna advertencia.
+--   Además es más ajustado: no hay que darle a `anon` ni un permiso sobre
+--   booking_requests. La única puerta es esta función, y devuelve exactamente
+--   dos columnas.
+drop view if exists public.fechas_ocupadas;
 
-comment on view public.fechas_ocupadas is
-  'Solo las fechas de las reservas confirmadas. Sin datos personales. La lee el calendario del sitio con la clave anon.';
+create or replace function public.fechas_ocupadas()
+returns table (check_in date, check_out date)
+language sql
+stable
+security definer
+-- search_path vacío: con security definer, un search_path heredado deja que
+-- alguien anteponga un esquema propio y haga que "booking_requests" apunte a
+-- una tabla suya. Por eso adentro todo va calificado con public.
+set search_path = ''
+as $$
+  select b.check_in, b.check_out
+    from public.booking_requests b
+   where b.estado in ('confirmada')
+$$;
 
--- Esta sí la lee el navegador: es la única cosa de booking_requests que sale.
-grant select on public.fechas_ocupadas to anon, authenticated;
+comment on function public.fechas_ocupadas() is
+  'Fechas de las reservas confirmadas, sin datos personales. La llama el calendario del sitio con la clave anon.';
+
+-- Las funciones son ejecutables por PUBLIC por defecto: se revoca y se da
+-- explícitamente, para que quede escrito quién puede llamarla.
+revoke all on function public.fechas_ocupadas() from public;
+grant execute on function public.fechas_ocupadas() to anon, authenticated;
 
 
 -- ---------------------------------------------------------------------------
