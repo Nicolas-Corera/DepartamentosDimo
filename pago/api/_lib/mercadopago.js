@@ -288,13 +288,25 @@ let catalogoMedios = null;
  * genera el Brick contra los servidores de MercadoPago, así que preguntarle a
  * MercadoPago qué es `visa` o `debvisa` cierra el agujero.
  *
- * GET /v1/payment_methods devuelve el catálogo entero (unas 50 filas). Se
- * cachea en memoria: cambia cada varios meses, y en el peor caso el proceso
- * serverless se recicla y se vuelve a pedir.
+ * GET /v1/payment_methods devuelve el catálogo entero. Se cachea en memoria:
+ * cambia cada varios meses, y en el peor caso el proceso serverless se recicla
+ * y se vuelve a pedir.
+ *
+ * OJO CON LOS IDS REPETIDOS — es donde esto se rompió la primera vez. El
+ * catálogo NO trae un `payment_type_id` por id: `visa`, `master` y `cabal`
+ * vienen DOS veces, una como `credit_card` y otra como `prepaid_card`. Con un
+ * `Map` de id -> tipo gana el último que llegue, y en el orden actual de la
+ * respuesta eso dejaba a `visa` clasificada como prepaga: le cobrábamos el
+ * recargo de débito a una tarjeta de crédito. Por eso acá se junta el CONJUNTO
+ * de tipos de cada id y se decide con una prioridad fija.
+ *
+ * Ante la duda gana el crédito. Es el recargo más alto, y equivocarse para
+ * arriba se corrige con una devolución, mientras que equivocarse para abajo es
+ * plata que no se cobró y que nadie va a venir a reclamar.
  *
  * Si la consulta falla se cae al prefijo del id (`debvisa`, `debmaster`,
- * `maestro`…). Es el mismo criterio que usa el propio panel de MercadoPago para
- * nombrarlos, y es preferible a cortar el pago por no poder clasificar.
+ * `maestro`…). Es el mismo criterio con el que los nombra el propio panel de
+ * MercadoPago, y es preferible a cortar el pago por no poder clasificar.
  */
 export async function tipoDeTarjeta(paymentMethodId) {
   const id = String(paymentMethodId || "").trim().toLowerCase();
@@ -308,15 +320,24 @@ export async function tipoDeTarjeta(paymentMethodId) {
         signal: AbortSignal.timeout(8000),
       });
       if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
       const filas = await respuesta.json();
-      catalogoMedios = new Map(
-        (Array.isArray(filas) ? filas : []).map((f) => [String(f.id).toLowerCase(), f.payment_type_id]),
-      );
+      catalogoMedios = new Map();
+
+      for (const fila of Array.isArray(filas) ? filas : []) {
+        const clave = String(fila.id).toLowerCase();
+        if (!catalogoMedios.has(clave)) catalogoMedios.set(clave, new Set());
+        catalogoMedios.get(clave).add(fila.payment_type_id);
+      }
     }
 
-    const tipo = catalogoMedios.get(id);
-    if (tipo === "debit_card" || tipo === "prepaid_card") return "debito";
-    if (tipo === "credit_card") return "credito";
+    const tipos = catalogoMedios.get(id);
+    if (tipos?.size) {
+      // El orden manda: un id que es crédito y prepaga a la vez es crédito.
+      if (tipos.has("credit_card")) return "credito";
+      // Débito y prepaga se cobran igual: siempre en un pago.
+      if (tipos.has("debit_card") || tipos.has("prepaid_card")) return "debito";
+    }
   } catch (error) {
     log.warn("mp.catalogoMedios.falló", { motivo: error?.message || String(error) });
   }
