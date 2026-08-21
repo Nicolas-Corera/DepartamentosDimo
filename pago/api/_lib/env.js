@@ -182,12 +182,6 @@ export function leerConfig() {
         media: entero("PRECIO_TEMPORADA_MEDIA_ARS", { min: 1, max: 100_000_000 }),
         baja: entero("PRECIO_TEMPORADA_BAJA_ARS", { min: 1, max: 100_000_000 }),
       },
-      limpieza: entero("TASA_LIMPIEZA_ARS", { min: 0, max: 100_000_000 }),
-      porcentajeACobrar: entero("PORCENTAJE_A_COBRAR", {
-        min: 1,
-        max: 100,
-        porDefecto: 100,
-      }),
       moneda: "ARS",
     },
     confirmarReservaAlAprobar: booleana("CONFIRMAR_RESERVA_AL_APROBAR", true),
@@ -224,8 +218,6 @@ if (process.argv[1] && process.argv[1].endsWith("env.js")) {
     console.log(`      temporada alta         $${c.precios.porTemporada.alta.toLocaleString("es-AR")}  (15/12 al 31/01)`);
     console.log(`      temporada media        $${c.precios.porTemporada.media.toLocaleString("es-AR")}  (01/02 al 15/02)`);
     console.log(`      temporada baja         $${c.precios.porTemporada.baja.toLocaleString("es-AR")}  (16/02 al 14/12)`);
-    console.log(`      tasa de limpieza       $${c.precios.limpieza.toLocaleString("es-AR")}`);
-    console.log(`      se cobra               ${c.precios.porcentajeACobrar}% del total`);
     console.log(`      max. cuotas            ${c.mp.maxCuotas}\n`);
   } catch (e) {
     console.error(`\n  ERROR  ${e.message}\n`);

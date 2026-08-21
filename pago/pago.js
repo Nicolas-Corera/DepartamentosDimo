@@ -197,20 +197,9 @@ function pintarResumen({ reserva, precio }) {
 
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);
   $("resumen-checkout").textContent = fechaLarga(reserva.checkOut);
-  $("resumen-limpieza").textContent = pesos.format(precio.limpieza);
   $("resumen-total").textContent = pesos.format(precio.total);
   $("transfer-monto").textContent = pesos.format(precio.aCobrar);
   $("btn-pagar-texto").textContent = `Pagar ${pesos.format(precio.aCobrar)}`;
-
-  // Si se cobra una seña, el total y lo que se paga ahora son distintos:
-  // decirlo explícito evita el reclamo posterior.
-  if (precio.esSenia) {
-    $("resumen-total-label").textContent = "Total de la estadía";
-    $("nota-senia").hidden = false;
-    $("nota-senia").textContent =
-      `Ahora pagás una seña del ${precio.porcentajeACobrar}%: ` +
-      `${pesos.format(precio.aCobrar)}. El resto se abona al llegar.`;
-  }
 }
 
 /**

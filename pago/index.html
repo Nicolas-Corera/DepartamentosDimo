@@ -519,12 +519,6 @@
         margin-bottom: 8px;
       }
 
-      .nota-senia {
-        font-size: 13px;
-        color: var(--color-on-surface-variant);
-        margin-bottom: 24px;
-      }
-
       /* Nota de la pestaña activa: "en crédito podés pagar en cuotas", etc. */
       .nota-metodo {
         font-size: 14px;
@@ -1004,10 +998,6 @@
                 <span>Check-out</span>
                 <span id="resumen-checkout">—</span>
               </div>
-              <div class="price-row">
-                <span>Tasa de limpieza</span>
-                <span id="resumen-limpieza">—</span>
-              </div>
 
               <!-- Se llena cuando el Brick reconoce la tarjeta y hay cuotas -->
               <div class="price-row price-row--cuotas" id="fila-cuotas" hidden>
@@ -1017,10 +1007,9 @@
             </div>
 
             <div class="total-row">
-              <span id="resumen-total-label">Total</span>
+              <span>Total</span>
               <span id="resumen-total">—</span>
             </div>
-            <p class="nota-senia" id="nota-senia" hidden></p>
 
             <!--
               EL ÚNICO botón de pago. El del Brick se oculta con

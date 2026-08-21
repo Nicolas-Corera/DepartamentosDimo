@@ -263,9 +263,7 @@ Güemes:
   Lun 21 Jun   $ 90.000     [Güemes]
   Mar 22 Jun   $ 80.000     baja
   ─────────────────────────
-  Alojamiento  $ 600.000
-  Limpieza     $  10.000
-  TOTAL        $ 610.000
+  TOTAL        $ 600.000
 ```
 
 Cuando las noches no valen todas lo mismo, el resumen del checkout muestra un
@@ -527,7 +525,7 @@ npm run env:check
 | El webhook devuelve 401 siempre | `MP_WEBHOOK_SECRET` no coincide con la clave del panel, o se cambió en el panel y no se volvió a deployar |
 | Los pagos se cobran pero `payments` queda vacía | Falta correr `sql/payments.sql`, o `SUPABASE_SERVICE_ROLE_KEY` tiene la clave `anon` |
 | *"No encontramos esa reserva"* con un uuid que existe | El backend está apuntando a otro proyecto de Supabase (`SUPABASE_URL`), o la clave no es `service_role` |
-| El monto que se cobra no es el que se muestra | `PRECIO_NOCHE_ARS` / `TASA_LIMPIEZA_ARS` distintos entre ambientes de Vercel |
+| El monto que se cobra no es el que se muestra | `PRECIO_TEMPORADA_*_ARS` distintos entre ambientes de Vercel |
 | El pago sale $0 o falla con `transaction_amount` | Las fechas de la reserva no cierran (`check_out` <= `check_in`) |
 
 ---

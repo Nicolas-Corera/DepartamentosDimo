@@ -100,10 +100,10 @@ function tarifaEspecialDe(fechaISO, tarifas) {
  * Devuelve el desglose completo, noche por noche.
  *
  * `total` es lo que sale la estadía; `aCobrar` es lo que efectivamente va a
- * MercadoPago (puede ser una seña, según PORCENTAJE_A_COBRAR).
+ * MercadoPago. Hoy son el mismo número: se cobra el 100%.
  *
  * @param reserva  fila de booking_requests (usa check_in y check_out)
- * @param precios  config.precios (importes por temporada, limpieza, %)
+ * @param precios  config.precios (importes por temporada)
  * @param tarifas  filas de tarifas_especiales que tocan el rango (puede ir [])
  */
 export function calcularPrecio(reserva, precios, tarifas = []) {
@@ -125,11 +125,13 @@ export function calcularPrecio(reserva, precios, tarifas = []) {
   });
 
   const alojamiento = noches.reduce((suma, n) => suma + n.precio, 0);
-  const total = alojamiento + precios.limpieza;
+  const total = alojamiento;
 
-  // Redondeo al peso: MercadoPago acepta decimales, pero en ARS los centavos
-  // solo generan diferencias raras entre lo que se muestra y lo que se cobra.
-  const aCobrar = Math.round((total * precios.porcentajeACobrar) / 100);
+  // Hoy se cobra el total de la estadía. El porcentaje a cobrar (seña) va a
+  // volver desde el dashboard, y ahí va a ser distinto según el medio de pago
+  // (transferencia vs. tarjeta): por eso `aCobrar` sigue siendo un campo
+  // aparte de `total` y no se colapsan en uno solo.
+  const aCobrar = total;
 
   const importes = noches.map((n) => n.precio);
   const minimo = Math.min(...importes);
@@ -145,11 +147,8 @@ export function calcularPrecio(reserva, precios, tarifas = []) {
     precioMinimo: minimo,
     precioMaximo: maximo,
     alojamiento,
-    limpieza: precios.limpieza,
     total,
-    porcentajeACobrar: precios.porcentajeACobrar,
     aCobrar,
-    esSenia: precios.porcentajeACobrar < 100,
     moneda: precios.moneda,
   };
 }
