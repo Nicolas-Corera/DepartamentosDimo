@@ -1,0 +1,14 @@
+{
+  "name": "departamentos-dimo-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Panel de administración de Departamentos Dimo — tarifas, alquileres y reseñas",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env scripts/dev-server.mjs",
+    "env:check": "node --env-file=.env api/_lib/env.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

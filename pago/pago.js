@@ -78,14 +78,54 @@ const estado = {
   procesando: false,
 
   metodo: "credito", // credito | debito | transferencia
-
-  // Planes de cuotas que devuelve MercadoPago para la tarjeta que se está
-  // tipeando. Se piden en onBinChange y sirven para mostrar los importes en el
-  // resumen.
-  planes: [],
-  cuotas: 1,
-  textoCuotas: "", // lo que dice la opción elegida en el formulario del Brick
+  cuotas: 1,         // la que eligió la persona en NUESTRO selector
 };
+
+/* ===========================================================================
+   Precios: qué se cobra según la pestaña y las cuotas elegidas
+   ---------------------------------------------------------------------------
+   `/api/reserva` devuelve el precio base de la estadía y, por cada medio de
+   pago habilitado, el total ya con su recargo — y en el crédito, el total de
+   cada plan de cuotas. Así el resumen puede cambiar de pestaña sin volver a
+   preguntarle nada al servidor.
+
+   Lo que se muestra acá es SOLO para mostrar: el monto que se cobra lo vuelve
+   a calcular /api/pagos con los mismos datos, del lado del servidor.
+   =========================================================================== */
+
+/** La configuración del medio activo, tal como vino del backend. */
+function medioActual() {
+  return (estado.datos?.medios || []).find((m) => m.clave === estado.metodo) || null;
+}
+
+/** Qué se cobra ahora mismo: total, recargo y cuotas. */
+function cobroActual() {
+  const medio = medioActual();
+  const base = estado.datos?.precio?.total || 0;
+
+  if (!medio) {
+    return { total: base, recargo: 0, recargoPorcentaje: 0, cuotas: 1, valorCuota: base };
+  }
+
+  const plan = (medio.planes || []).find((p) => p.cuotas === estado.cuotas);
+  if (plan) {
+    return {
+      total: plan.total,
+      recargo: plan.recargo,
+      recargoPorcentaje: plan.recargoPorcentaje,
+      cuotas: plan.cuotas,
+      valorCuota: plan.valorCuota,
+    };
+  }
+
+  return {
+    total: medio.total,
+    recargo: medio.recargo,
+    recargoPorcentaje: medio.recargoPorcentaje,
+    cuotas: 1,
+    valorCuota: medio.total,
+  };
+}
 
 /* ===========================================================================
    1. Cargar la reserva
@@ -142,6 +182,7 @@ async function cargarReserva() {
   }
 
   estado.datos = cuerpo;
+  aplicarMediosHabilitados();
   pintarResumen(cuerpo);
 
   // Reserva ya paga: no se monta el Brick. Es el freno más importante contra
@@ -197,9 +238,70 @@ function pintarResumen({ reserva, precio }) {
 
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);
   $("resumen-checkout").textContent = fechaLarga(reserva.checkOut);
-  $("resumen-total").textContent = pesos.format(precio.total);
-  $("transfer-monto").textContent = pesos.format(precio.aCobrar);
-  $("btn-pagar-texto").textContent = `Pagar ${pesos.format(precio.aCobrar)}`;
+
+  actualizarTotales();
+}
+
+/**
+ * Las filas del resumen que cambian con la pestaña y las cuotas: recargo,
+ * cuotas, total y el texto del botón. Se llama cada vez que se toca algo.
+ */
+function actualizarTotales() {
+  const base = estado.datos?.precio?.total || 0;
+  const cobro = cobroActual();
+  const medio = medioActual();
+
+  // Recargo del medio + el del plan de cuotas, en una sola fila. Sin recargo
+  // la fila no aparece: no tiene sentido mostrar "Recargo $0".
+  const filaRecargo = $("fila-recargo");
+  if (cobro.recargo > 0) {
+    const nombre = medio?.nombre || "";
+    const detalle = cobro.cuotas > 1 ? `${nombre}, ${cobro.cuotas} cuotas` : nombre;
+    $("resumen-recargo-label").textContent =
+      `Recargo (${detalle} +${formatearPorcentaje(cobro.recargoPorcentaje)}%)`;
+    $("resumen-recargo").textContent = pesos.format(cobro.recargo);
+    filaRecargo.hidden = false;
+  } else {
+    filaRecargo.hidden = true;
+  }
+
+  // Cuántas cuotas y de cuánto. El importe es el total dividido por la
+  // cantidad: como el recargo lo ponemos nosotros y no hay interés de por
+  // medio, la división da exacta salvo el redondeo al peso.
+  const filaCuotas = $("fila-cuotas");
+  if (cobro.cuotas > 1) {
+    $("resumen-cuotas").textContent =
+      `${cobro.cuotas} x ${pesos.format(cobro.valorCuota)}`;
+    filaCuotas.hidden = false;
+  } else {
+    filaCuotas.hidden = true;
+  }
+
+  $("resumen-total").textContent = pesos.format(cobro.total);
+  $("btn-pagar-texto").textContent = `Pagar ${pesos.format(cobro.total)}`;
+
+  // La transferencia siempre muestra SU total, esté o no en esa pestaña: es el
+  // dato que la persona compara para decidir con qué pagar.
+  const transferencia = (estado.datos?.medios || []).find((m) => m.clave === "transferencia");
+  $("transfer-monto").textContent = pesos.format(transferencia?.total ?? base);
+
+  // Con recargo, el total de arriba deja de ser "lo que sale la estadía".
+  // Decirlo explícito evita el reclamo de "me cobraron más que el precio".
+  const nota = $("nota-total");
+  if (cobro.recargo > 0) {
+    nota.textContent =
+      `El precio de la estadía es ${pesos.format(base)}. ` +
+      `El total incluye el recargo por pagar con ${(medio?.nombre || "este medio").toLowerCase()}.`;
+    nota.hidden = false;
+  } else {
+    nota.hidden = true;
+  }
+}
+
+/** 15 -> "15", 7.5 -> "7,5". Sin decimales de adorno. */
+function formatearPorcentaje(n) {
+  const num = Number(n) || 0;
+  return Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/0+$/, "").replace(".", ",");
 }
 
 /**
@@ -256,25 +358,20 @@ function pintarDetalleDeNoches(precio) {
 const METODOS = {
   credito: {
     excluidos: ["debit_card"],
-    nota: "Con tarjeta de crédito podés pagar en cuotas. Elegí la cantidad en el formulario y vas a ver el detalle en el resumen.",
-    conCuotas: true,
+    nota: "Con tarjeta de crédito podés pagar en cuotas. Elegí la cantidad acá arriba y vas a ver el detalle en el resumen.",
   },
   debito: {
     excluidos: ["credit_card"],
     nota: "Con tarjeta de débito el cobro es siempre en un solo pago. Si querés cuotas, usá la pestaña de crédito.",
-    conCuotas: false,
   },
   transferencia: {
     nota: null,
-    conCuotas: false,
   },
 };
 
 async function aplicarMetodo(metodo) {
   estado.metodo = metodo;
-  estado.planes = [];
   estado.cuotas = 1;
-  estado.textoCuotas = "";
 
   const esTarjeta = metodo === "credito" || metodo === "debito";
 
@@ -286,12 +383,38 @@ async function aplicarMetodo(metodo) {
   $("nota-metodo").textContent = METODOS[metodo].nota || "";
   $("nota-metodo").hidden = !METODOS[metodo].nota;
 
-  actualizarFilaDeCuotas();
+  // El selector primero: fija estado.cuotas, y de eso depende el total que
+  // muestra el resumen y el monto con el que se monta el Brick.
+  construirSelectorDeCuotas();
+  actualizarTotales();
 
   if (esTarjeta) {
     await montarBrick();
   } else {
     await desmontarBrick();
+  }
+}
+
+/**
+ * Esconde las pestañas de los medios que estén deshabilitados en el dashboard,
+ * y si la que venía activa es una de esas, se pasa a la primera que quede.
+ */
+function aplicarMediosHabilitados() {
+  const habilitados = new Set((estado.datos?.medios || []).map((m) => m.clave));
+  let primera = null;
+
+  for (const boton of document.querySelectorAll(".tab-btn[data-metodo]")) {
+    const clave = boton.dataset.metodo;
+    const ok = habilitados.has(clave);
+    boton.hidden = !ok;
+    if (ok && !primera) primera = clave;
+  }
+
+  if (!habilitados.has(estado.metodo) && primera) {
+    estado.metodo = primera;
+    for (const boton of document.querySelectorAll(".tab-btn[data-metodo]")) {
+      boton.classList.toggle("active", boton.dataset.metodo === primera);
+    }
   }
 }
 
@@ -331,8 +454,9 @@ const ESTILO_BRICK = {
 };
 
 async function montarBrick() {
-  const { publicKey, maxCuotas, reserva, precio } = estado.datos;
+  const { publicKey, reserva } = estado.datos;
   const config = METODOS[estado.metodo];
+  const cobro = cobroActual();
 
   // Por si quedó una instancia de un montaje anterior. Dos Bricks sobre el
   // mismo contenedor se pisan y el segundo no dispara onReady.
@@ -367,7 +491,9 @@ async function montarBrick() {
   const settings = {
     initialization: {
       // Solo para mostrar. El backend recalcula el monto y usa el suyo.
-      amount: precio.aCobrar,
+      // Es el total del plan elegido: si acá fuera el precio base, el Brick le
+      // mostraría a la persona un importe distinto del que se le va a cobrar.
+      amount: cobro.total,
       payer: { email: reserva.email },
     },
     customization: {
@@ -381,9 +507,11 @@ async function montarBrick() {
         hideFormTitle: true,
       },
       paymentMethods: {
-        minInstallments: 1,
-        // En débito, un solo pago. En crédito, hasta el tope configurado.
-        maxInstallments: config.conCuotas ? maxCuotas : 1,
+        // Fijas, no un rango: la cantidad ya se eligió en nuestro selector y el
+        // monto del Brick corresponde a ESE plan. Dejarle elegir otra adentro
+        // del formulario mostraría cuotas de un total que no es el que se cobra.
+        minInstallments: cobro.cuotas,
+        maxInstallments: cobro.cuotas,
         types: { excluded: config.excluidos },
       },
     },
@@ -392,15 +520,6 @@ async function montarBrick() {
         clearTimeout(vigia);
         $("brick-cargando").hidden = true;
         anunciar("Formulario de pago listo.");
-      },
-
-      /**
-       * Se dispara con cada cambio en los primeros dígitos de la tarjeta. Es el
-       * único momento en que sabemos QUÉ tarjeta es, y por lo tanto qué planes
-       * de cuotas ofrece y a qué importe.
-       */
-      onBinChange: (bin) => {
-        if (config.conCuotas) cargarPlanesDeCuotas(bin);
       },
 
       onSubmit: () => {
@@ -424,7 +543,6 @@ async function montarBrick() {
   // siempre en "Cargando el formulario seguro…", sin decir por qué.
   try {
     estado.brick = await bricks.create("cardPayment", "cardPaymentBrick_container", settings);
-    vigilarSelectorDeCuotas();
   } catch (error) {
     clearTimeout(vigia);
     fallaAlCargarElBrick(error);
@@ -465,141 +583,82 @@ async function desmontarBrick() {
 }
 
 /* ===========================================================================
-   5. Cuotas — mantener el resumen en sincronía
+   5. Cuotas — nuestro selector, no el del Brick
+   ---------------------------------------------------------------------------
+   El recargo de cada plan lo definimos nosotros desde el dashboard, así que la
+   cantidad de cuotas cambia el importe que se cobra. El Brick recibe el monto
+   al montarse y no lo recalcula solo, de modo que si las cuotas se eligieran
+   adentro del formulario mostraría el importe de otro plan.
+
+   Por eso el selector vive acá arriba, se elige antes de cargar la tarjeta, y
+   cada cambio vuelve a montar el Brick con el monto definitivo y con esa
+   cantidad de cuotas fija (min = max = la elegida).
+
+   Esto también saca de encima el hack anterior, que leía el <select> del Brick
+   desde el DOM con un MutationObserver y lo identificaba por el texto de sus
+   opciones. Funcionaba, pero dependía de que MercadoPago no cambiara nada del
+   markup que su propia documentación pide no tocar.
    =========================================================================== */
 
-/**
- * Los planes de cuotas de la tarjeta que se está tipeando, con sus importes
- * reales (incluido el interés, si lo hay).
- */
-async function cargarPlanesDeCuotas(bin) {
-  if (!bin || bin.length < 6) {
-    estado.planes = [];
-    actualizarFilaDeCuotas();
+/** Arma el <select> de cuotas con los planes que devolvió el backend. */
+function construirSelectorDeCuotas() {
+  const contenedor = $("cuotas-selector");
+  const selector = $("selector-cuotas");
+  const medio = medioActual();
+  const planes = medio?.planes || [];
+
+  // Sin planes (débito, transferencia) o con uno solo, no hay nada que elegir.
+  if (planes.length <= 1) {
+    contenedor.hidden = true;
+    selector.replaceChildren();
+    estado.cuotas = 1;
     return;
   }
 
-  try {
-    const respuesta = await mp.getInstallments({
-      amount: String(estado.datos.precio.aCobrar),
-      bin,
-      paymentTypeId: "credit_card",
-    });
-    estado.planes = respuesta?.[0]?.payer_costs || [];
-  } catch (error) {
-    // No es grave: sin esto el resumen muestra la cantidad de cuotas sin el
-    // importe de cada una. El cobro no depende de esta llamada.
-    console.warn("[cuotas] no se pudieron traer los planes:", error?.message || error);
-    estado.planes = [];
-  }
-  actualizarFilaDeCuotas();
+  selector.replaceChildren(
+    ...planes.map((plan) => {
+      const opcion = document.createElement("option");
+      opcion.value = String(plan.cuotas);
+      opcion.textContent =
+        plan.cuotas === 1
+          ? `1 pago de ${pesos.format(plan.total)}`
+          : `${plan.cuotas} cuotas de ${pesos.format(plan.valorCuota)} — total ${pesos.format(plan.total)}`;
+      return opcion;
+    }),
+  );
+
+  // Si la cantidad que estaba elegida ya no existe en este medio, se vuelve a
+  // la primera opción en vez de dejar el selector en un estado imposible.
+  const sigueDisponible = planes.some((p) => p.cuotas === estado.cuotas);
+  estado.cuotas = sigueDisponible ? estado.cuotas : planes[0].cuotas;
+  selector.value = String(estado.cuotas);
+
+  contenedor.hidden = false;
 }
 
 /**
- * El Brick no avisa cuando cambian las cuotas: no existe un
- * `onInstallmentsChange`.
+ * Cambio de cuotas: se actualiza el resumen y se vuelve a montar el Brick con
+ * el monto nuevo.
  *
- * Pero el selector de cuotas SÍ vive en el DOM de esta página (solo el número
- * de tarjeta, el vencimiento y el código de seguridad son iframes de
- * MercadoPago). Así que se lo escucha directamente:
- *
- *   - un listener de `change` delegado en el contenedor, para cuando la persona
- *     elige otra cantidad;
- *   - un MutationObserver, porque el selector no existe hasta que se reconoce
- *     la tarjeta, y cuando aparece ya trae una opción elegida que hay que leer.
- *
- * El selector se identifica por lo que dicen sus opciones ("N cuotas de $X"),
- * no por sus clases ni sus ids: la documentación de MercadoPago pide
- * expresamente no depender de esos nombres porque los cambian.
- *
- * Si algo de esto falla, el resumen simplemente no muestra la fila de cuotas.
- * El cobro sigue funcionando igual: la cantidad de cuotas que se cobra sale de
- * getFormData(), no de acá.
+ * Remontar borra lo que haya tipeado en la tarjeta. Es aceptable porque el
+ * selector está ARRIBA del formulario: en el orden natural de lectura las
+ * cuotas se eligen antes de sacar la tarjeta del bolsillo. Y si alguien vuelve
+ * a cambiarlas después, perder los datos es mejor que cobrarle un importe
+ * distinto del que está viendo.
  */
-function vigilarSelectorDeCuotas() {
-  const contenedor = $("cardPaymentBrick_container");
-
-  const observer = new MutationObserver(() => sincronizarCuotasDesdeElFormulario());
-  observer.observe(contenedor, { childList: true, subtree: true });
-
-  contenedor.addEventListener("change", (evento) => {
-    if (esSelectorDeCuotas(evento.target)) sincronizarCuotasDesdeElFormulario();
-  });
-}
-
-function esSelectorDeCuotas(elemento) {
-  return (
-    elemento instanceof HTMLSelectElement &&
-    Array.from(elemento.options).some((o) => /cuota/i.test(o.textContent || ""))
-  );
-}
-
-function sincronizarCuotasDesdeElFormulario() {
-  const selector = Array.from(
-    $("cardPaymentBrick_container").querySelectorAll("select"),
-  ).find(esSelectorDeCuotas);
-
-  const cuotas = selector ? leerCantidadDeCuotas(selector) : 1;
-
-  // El texto de la opción elegida ES el importe que MercadoPago le está
-  // mostrando a la persona, ya con el interés y ya formateado. Guardarlo evita
-  // tener que recalcularlo — y evita el riesgo de recalcularlo mal.
-  const textoOficial = selector
-    ? (selector.options[selector.selectedIndex]?.textContent || "").trim()
-    : "";
-
-  if (cuotas === estado.cuotas && textoOficial === estado.textoCuotas) return;
+async function alCambiarLasCuotas(evento) {
+  const cuotas = Number(evento.target.value) || 1;
+  if (cuotas === estado.cuotas) return;
 
   estado.cuotas = cuotas;
-  estado.textoCuotas = textoOficial;
-  actualizarFilaDeCuotas();
-}
+  actualizarTotales();
+  anunciar(`Cuotas actualizadas: ${$("resumen-cuotas").textContent}`);
 
-/** El `value` suele ser el número; si no, se saca del texto ("3 cuotas de …"). */
-function leerCantidadDeCuotas(selector) {
-  const porValor = parseInt(selector.value, 10);
-  if (Number.isInteger(porValor) && porValor >= 1 && porValor <= 24) return porValor;
-
-  const texto = selector.options[selector.selectedIndex]?.textContent || "";
-  const m = /(\d+)\s*cuota/i.exec(texto);
-  return m ? Number(m[1]) : 1;
-}
-
-function actualizarFilaDeCuotas() {
-  const fila = $("fila-cuotas");
-  const conCuotas = METODOS[estado.metodo]?.conCuotas;
-
-  if (!conCuotas || estado.cuotas <= 1) {
-    fila.hidden = true;
-    return;
+  if (estado.metodo === "credito" || estado.metodo === "debito") {
+    await montarBrick();
   }
-
-  const plan = estado.planes.find((p) => p.installments === estado.cuotas);
-
-  /**
-   * De dónde sale el importe, en orden de preferencia:
-   *
-   *   1. `recommended_message` de getInstallments — ya armado y localizado por
-   *      MercadoPago: "3 cuotas de $ 23.333,33 ($ 70.000,00)".
-   *   2. El texto de la opción elegida en el formulario, que dice exactamente
-   *      lo mismo.
-   *   3. Solo "N cuotas", sin importe.
-   *
-   * El paso 3 NO calcula nada. Es tentador dividir el total por la cantidad de
-   * cuotas, pero cuando las cuotas tienen interés esa división da MENOS que lo
-   * que la persona va a pagar de verdad: le estaríamos mostrando un precio más
-   * barato que el real en la pantalla donde decide pagar. Mejor no decir el
-   * importe que decirlo mal — el formulario, al lado, lo tiene bien.
-   */
-  const texto =
-    plan?.recommended_message ||
-    estado.textoCuotas ||
-    `${estado.cuotas} cuotas`;
-
-  $("resumen-cuotas").textContent = texto;
-  fila.hidden = false;
-  anunciar(`Cuotas actualizadas: ${texto}`);
 }
+
 
 /* ===========================================================================
    6. Cobrar
@@ -851,5 +910,6 @@ document.addEventListener("DOMContentLoaded", () => {
   activarTabs();
   $("error-reintentar").addEventListener("click", () => cargarReserva());
   $("btn-pagar").addEventListener("click", pagar);
+  $("selector-cuotas").addEventListener("change", alCambiarLasCuotas);
   cargarReserva();
 });

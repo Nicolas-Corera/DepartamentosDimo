@@ -27,22 +27,6 @@ function requerida(nombre, pista) {
   return valor;
 }
 
-function entero(nombre, { min, max, porDefecto }) {
-  const crudo = (process.env[nombre] || "").trim();
-  if (!crudo) {
-    if (porDefecto !== undefined) return porDefecto;
-    throw new ErrorDeConfig(`Falta la variable de entorno ${nombre}.`);
-  }
-  const n = Number(crudo);
-  if (!Number.isInteger(n) || n < min || n > max) {
-    throw new ErrorDeConfig(
-      `${nombre} tiene que ser un número entero entre ${min} y ${max} (recibí: "${crudo}").`,
-      "Sin puntos de miles ni comas: 30000, no 30.000.",
-    );
-  }
-  return n;
-}
-
 function booleana(nombre, porDefecto) {
   const crudo = (process.env[nombre] || "").trim().toLowerCase();
   if (!crudo) return porDefecto;
@@ -165,25 +149,14 @@ export function leerConfig() {
       statementDescriptor: (process.env.MP_STATEMENT_DESCRIPTOR || "DIMO")
         .trim()
         .slice(0, 13),
-      maxCuotas: entero("MP_MAX_CUOTAS", { min: 1, max: 24, porDefecto: 6 }),
       ambiente: ambToken,
     },
     supabase: { url: supabaseUrl, serviceRoleKey },
-    precios: {
-      // Un importe por temporada. Qué fecha cae en cuál lo decide
-      // temporadaDe() en precios.js:
-      //   alta  15/12 al 31/01
-      //   media 01/02 al 15/02
-      //   baja  16/02 al 14/12
-      // Los fines de semana largo no están acá: son filas de la tabla
-      // `tarifas_especiales`, que pisa a la temporada.
-      porTemporada: {
-        alta: entero("PRECIO_TEMPORADA_ALTA_ARS", { min: 1, max: 100_000_000 }),
-        media: entero("PRECIO_TEMPORADA_MEDIA_ARS", { min: 1, max: 100_000_000 }),
-        baja: entero("PRECIO_TEMPORADA_BAJA_ARS", { min: 1, max: 100_000_000 }),
-      },
-      moneda: "ARS",
-    },
+    // Los precios NO están acá. Viven en las tablas `temporadas`,
+    // `medios_pago` y `planes_cuotas` de Supabase, y se editan desde el
+    // dashboard: cambiar un precio no puede depender de un redeploy de Vercel.
+    // Las lee leerConfigTarifas() en supabase.js.
+    moneda: "ARS",
     confirmarReservaAlAprobar: booleana("CONFIRMAR_RESERVA_AL_APROBAR", true),
     entorno: entornoVercel,
   };
@@ -215,10 +188,8 @@ if (process.argv[1] && process.argv[1].endsWith("env.js")) {
     console.log("\n  OK  configuración válida");
     console.log(`      ambiente MercadoPago   ${c.mp.ambiente}`);
     console.log(`      entorno                ${c.entorno}`);
-    console.log(`      temporada alta         $${c.precios.porTemporada.alta.toLocaleString("es-AR")}  (15/12 al 31/01)`);
-    console.log(`      temporada media        $${c.precios.porTemporada.media.toLocaleString("es-AR")}  (01/02 al 15/02)`);
-    console.log(`      temporada baja         $${c.precios.porTemporada.baja.toLocaleString("es-AR")}  (16/02 al 14/12)`);
-    console.log(`      max. cuotas            ${c.mp.maxCuotas}\n`);
+    console.log(`      supabase               ${c.supabase.url}`);
+    console.log(`      precios                en la base (temporadas / medios_pago / planes_cuotas)\n`);
   } catch (e) {
     console.error(`\n  ERROR  ${e.message}\n`);
     process.exit(1);

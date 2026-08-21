@@ -16,6 +16,15 @@
       rel="stylesheet"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!--
+      jsPDF + autotable arman el PDF del registro de alquileres en el navegador.
+      Se hace acá y no en el servidor porque los datos ya están cargados en la
+      pantalla: generarlo del lado del servidor sería volver a pedir todo,
+      montar una función serverless con una dependencia pesada y devolver un
+      archivo — para producir exactamente la misma tabla que ya se está viendo.
+    -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -184,13 +193,16 @@
     </aside>
     <div class="main-wrapper">
       <main class="container">
-        <!-- Tarifas View (Current) -->
+        <!-- ================================================================
+             TARIFAS
+             ================================================================ -->
         <div class="tab-content active" id="tarifas">
           <div class="header-section">
             <div>
               <h1 class="headline-lg">Configuración de Tarifas</h1>
               <p class="body-lg">
-                Gestiona los precios por noche según la temporada.
+                Los precios por noche, los recargos por medio de pago y las
+                fechas especiales. Lo que guardes acá se cobra en el próximo pago.
               </p>
             </div>
             <div class="rate-summary">
@@ -200,190 +212,232 @@
               <div>
                 <p class="eyebrow rate-summary-text-light">Tarifa Activa Hoy</p>
                 <p class="rate-summary-price">
-                  $45,000 / noche
-                  <span class="rate-summary-note">(Temp. Baja)</span>
+                  <span id="tarifa-hoy-precio">—</span>
+                  <span class="rate-summary-note" id="tarifa-hoy-nota"></span>
                 </p>
               </div>
             </div>
           </div>
-          <form class="form-grid" id="tarifas-form">
-            <!-- Temporada Alta -->
-            <div class="card">
+
+          <!--
+            Los rangos de temporada son absolutos, con año: cuando se vence un
+            ciclo dejan de cubrir el calendario y las noches huérfanas se cobran
+            al precio de temporada baja. Eso pasa en silencio, así que el aviso
+            es lo único que evita cobrar barato durante meses sin enterarse.
+          -->
+          <div class="aviso-huecos" id="aviso-huecos" hidden>
+            <span class="material-symbols-outlined">warning</span>
+            <div>
+              <p class="aviso-huecos-titulo">Hay fechas sin temporada asignada</p>
+              <p class="aviso-huecos-detalle" id="aviso-huecos-detalle"></p>
+            </div>
+          </div>
+
+          <div class="cargando-bloque" id="tarifas-cargando">
+            <span class="material-symbols-outlined spin">progress_activity</span>
+            Cargando la configuración…
+          </div>
+
+          <form class="form-grid" id="tarifas-form" hidden>
+            <!-- ---------------------------------------------------------- -->
+            <!-- Temporada Alta                                             -->
+            <!-- ---------------------------------------------------------- -->
+            <div class="card" data-temporada="alta">
               <div class="card-header">
                 <div class="card-icon icon-alta">
-                  <span
-                    class="material-symbols-outlined"
-                    style="font-variation-settings: &quot;FILL&quot; 1"
-                    >wb_sunny</span
-                  >
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">wb_sunny</span>
                 </div>
                 <h2 class="headline-md card-title">Temporada Alta</h2>
               </div>
               <div>
                 <div class="input-row">
                   <div>
-                    <label class="label-md">Desde</label>
-                    <input
-                      class="date-desde"
-                      required=""
-                      type="date"
-                      value="2024-12-15"
-                    />
+                    <label class="label-md" for="alta-desde">Desde</label>
+                    <input class="date-desde" id="alta-desde" required type="date" />
                   </div>
                   <div>
-                    <label class="label-md">Hasta</label>
-                    <input
-                      class="date-hasta"
-                      required=""
-                      type="date"
-                      value="2025-03-15"
-                    />
+                    <label class="label-md" for="alta-hasta">Hasta</label>
+                    <input class="date-hasta" id="alta-hasta" required type="date" />
                   </div>
                 </div>
                 <div class="input-group">
-                  <label class="label-md">Precio por noche ($)</label>
-                  <input min="0" required="" type="number" value="75000" />
+                  <label class="label-md" for="alta-precio">Precio por noche ($)</label>
+                  <input class="precio-temporada" id="alta-precio" min="1" required type="number" />
                 </div>
               </div>
             </div>
-            <!-- Temporada Media -->
-            <div class="card">
+
+            <!-- ---------------------------------------------------------- -->
+            <!-- Temporada Media                                            -->
+            <!-- ---------------------------------------------------------- -->
+            <div class="card" data-temporada="media">
               <div class="card-header">
                 <div class="card-icon icon-media">
-                  <span
-                    class="material-symbols-outlined"
-                    style="font-variation-settings: &quot;FILL&quot; 1"
-                    >eco</span
-                  >
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">eco</span>
                 </div>
                 <h2 class="headline-md card-title">Temporada Media</h2>
               </div>
               <div>
                 <div class="input-row">
                   <div>
-                    <label class="label-md">Desde</label>
-                    <input
-                      class="date-desde"
-                      required=""
-                      type="date"
-                      value="2024-11-01"
-                    />
+                    <label class="label-md" for="media-desde">Desde</label>
+                    <input class="date-desde" id="media-desde" required type="date" />
                   </div>
                   <div>
-                    <label class="label-md">Hasta</label>
-                    <input
-                      class="date-hasta"
-                      required=""
-                      type="date"
-                      value="2024-12-14"
-                    />
+                    <label class="label-md" for="media-hasta">Hasta</label>
+                    <input class="date-hasta" id="media-hasta" required type="date" />
                   </div>
                 </div>
                 <div class="input-group">
-                  <label class="label-md">Precio por noche ($)</label>
-                  <input min="0" required="" type="number" value="55000" />
+                  <label class="label-md" for="media-precio">Precio por noche ($)</label>
+                  <input class="precio-temporada" id="media-precio" min="1" required type="number" />
                 </div>
               </div>
             </div>
-            <!-- Temporada Baja -->
-            <div class="card">
+
+            <!-- ---------------------------------------------------------- -->
+            <!-- Temporada Baja                                             -->
+            <!-- ---------------------------------------------------------- -->
+            <div class="card" data-temporada="baja">
               <div class="card-header">
                 <div class="card-icon icon-baja">
-                  <span
-                    class="material-symbols-outlined"
-                    style="font-variation-settings: &quot;FILL&quot; 1"
-                    >ac_unit</span
-                  >
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">ac_unit</span>
                 </div>
                 <h2 class="headline-md card-title">Temporada Baja</h2>
               </div>
               <div>
                 <div class="input-row">
                   <div>
-                    <label class="label-md">Desde</label>
-                    <input
-                      class="date-desde"
-                      required=""
-                      type="date"
-                      value="2024-03-16"
-                    />
+                    <label class="label-md" for="baja-desde">Desde</label>
+                    <input class="date-desde" id="baja-desde" required type="date" />
                   </div>
                   <div>
-                    <label class="label-md">Hasta</label>
-                    <input
-                      class="date-hasta"
-                      required=""
-                      type="date"
-                      value="2024-10-31"
-                    />
+                    <label class="label-md" for="baja-hasta">Hasta</label>
+                    <input class="date-hasta" id="baja-hasta" required type="date" />
                   </div>
                 </div>
                 <div class="input-group">
-                  <label class="label-md">Precio por noche ($)</label>
-                  <input min="0" required="" type="number" value="45000" />
+                  <label class="label-md" for="baja-precio">Precio por noche ($)</label>
+                  <input class="precio-temporada" id="baja-precio" min="1" required type="number" />
                 </div>
+                <p class="nota-card">
+                  Es también el precio de respaldo: las noches que no caigan en
+                  ningún rango se cobran a este valor.
+                </p>
               </div>
             </div>
-            <!-- Fechas Especiales -->
+
+            <!-- ---------------------------------------------------------- -->
+            <!-- Fechas Especiales                                          -->
+            <!-- ---------------------------------------------------------- -->
             <div class="card special_card">
               <div class="special-dates-header">
                 <div class="card-header" style="margin-bottom: 0">
                   <div class="card-icon icon-especial">
-                    <span
-                      class="material-symbols-outlined"
-                      style="font-variation-settings: &quot;FILL&quot; 1"
-                      >celebration</span
-                    >
+                    <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">celebration</span>
                   </div>
                   <h2 class="headline-md card-title">Fechas Especiales</h2>
                 </div>
                 <button class="btn-text add-special-date-btn" type="button">
-                  <span
-                    class="material-symbols-outlined"
-                    style="font-size: 20px"
-                    >add_circle</span
-                  >
+                  <span class="material-symbols-outlined" style="font-size: 20px">add_circle</span>
                   Añadir otra
                 </button>
               </div>
               <div>
-                <div class="carousel-container special-dates-carousel">
-                  <div class="carousel-card special-date-card">
-                    <div class="input-row">
-                      <div>
-                        <label class="label-md">Desde</label>
-                        <input class="date-desde" required="" type="date" />
-                      </div>
-                      <div>
-                        <label class="label-md">Hasta</label>
-                        <input class="date-hasta" required="" type="date" />
-                      </div>
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0">
-                      <label class="label-md">Precio por noche ($)</label>
-                      <div class="price-input-wrapper">
-                        <input
-                          min="0"
-                          placeholder="Ej: 90000"
-                          required=""
-                          type="number"
-                        />
-                        <button
-                          class="btn-delete delete-special-date-btn"
-                          type="button"
-                        >
-                          <span class="material-symbols-outlined">delete</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="carousel-dots">
-                  <!-- Dots populated by JS -->
-                </div>
+                <p class="nota-card">
+                  Pisan al precio de la temporada. Fines de semana largo, feriados, eventos.
+                </p>
+                <div class="carousel-container special-dates-carousel"></div>
+                <div class="carousel-dots"></div>
+                <p class="vacio-inline" id="especiales-vacio" hidden>
+                  No hay fechas especiales cargadas.
+                </p>
               </div>
             </div>
-            <!-- Global Action -->
+
+            <!-- ---------------------------------------------------------- -->
+            <!-- Medios de pago y cuotas                                    -->
+            <!-- ---------------------------------------------------------- -->
+            <div class="card card-ancho">
+              <div class="card-header">
+                <div class="card-icon icon-medios">
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">credit_card</span>
+                </div>
+                <h2 class="headline-md card-title">Medios de pago y cuotas</h2>
+              </div>
+
+              <p class="nota-card">
+                El precio por noche de las temporadas es el de
+                <strong>transferencia</strong>: el de contado. Sobre ese total se
+                suma el recargo del medio de pago y, en crédito, el del plan de
+                cuotas. Los dos porcentajes se suman entre sí.
+              </p>
+
+              <div class="medios-grid" id="medios-grid">
+                <!-- Lo pinta pintarMedios() -->
+              </div>
+
+              <div class="separador"></div>
+
+              <div class="cuotas-header">
+                <h3 class="headline-md card-subtitle">Cuotas</h3>
+                <div class="input-group" style="margin-bottom: 0">
+                  <label class="label-md" for="max-cuotas">Máximo de cuotas</label>
+                  <input id="max-cuotas" max="24" min="1" required type="number" />
+                </div>
+              </div>
+
+              <p class="nota-card">
+                El recargo de cada plan se suma al del crédito. Con crédito en
+                +8% y 3 cuotas en +15%, esa compra sale +23% sobre el precio base.
+              </p>
+
+              <div class="cuotas-grid" id="cuotas-grid">
+                <!-- Lo pinta pintarCuotas(), una fila por cuota hasta el máximo -->
+              </div>
+            </div>
+
+            <!-- ---------------------------------------------------------- -->
+            <!-- Calculadora                                                -->
+            <!-- ---------------------------------------------------------- -->
+            <div class="card card-ancho">
+              <div class="card-header">
+                <div class="card-icon icon-calc">
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">calculate</span>
+                </div>
+                <h2 class="headline-md card-title">Calculadora</h2>
+              </div>
+
+              <p class="nota-card">
+                Usa los valores que tenés en pantalla, guardados o no. Sirve para
+                ver cuánto queda un cambio antes de aplicarlo.
+              </p>
+
+              <div class="calc-entradas">
+                <div class="input-group">
+                  <label class="label-md" for="calc-checkin">Check-in</label>
+                  <input id="calc-checkin" type="date" />
+                </div>
+                <div class="input-group">
+                  <label class="label-md" for="calc-checkout">Check-out</label>
+                  <input id="calc-checkout" type="date" />
+                </div>
+                <div class="input-group">
+                  <label class="label-md" for="calc-medio">Medio de pago</label>
+                  <select id="calc-medio"></select>
+                </div>
+                <div class="input-group">
+                  <label class="label-md" for="calc-cuotas">Cuotas</label>
+                  <select id="calc-cuotas"></select>
+                </div>
+              </div>
+
+              <div class="calc-resultado" id="calc-resultado">
+                <p class="vacio-inline">Elegí las fechas para ver el cálculo.</p>
+              </div>
+            </div>
+
+            <!-- Guardar -->
             <div class="action-container">
               <button class="btn-primary save-btn" type="submit">
                 <span class="material-symbols-outlined icon-save">save</span>
@@ -392,117 +446,104 @@
             </div>
           </form>
         </div>
-        <!-- Alquileres View -->
+
+        <!-- ================================================================
+             ALQUILERES
+             ================================================================ -->
         <div class="tab-content" id="alquileres">
           <div class="header-section">
             <div>
               <h1 class="headline-lg">Registro de Alquileres</h1>
-              <p class="body-lg">Historial y estado de las reservas.</p>
+              <p class="body-lg">
+                Las reservas que se pagaron, de la más reciente a la más vieja.
+              </p>
             </div>
-            <button class="btn-primary">
-              <span class="material-symbols-outlined icon-download"
-                >download</span
-              >
+            <button class="btn-primary" id="btn-reporte" type="button">
+              <span class="material-symbols-outlined icon-download">download</span>
               <span class="btn-text-content">Descargar registro</span>
             </button>
           </div>
-          <div class="table-container">
+
+          <div class="totales-fila" id="alquileres-totales" hidden>
+            <div class="total-chip">
+              <span class="eyebrow">Reservas</span>
+              <strong id="total-cantidad">—</strong>
+            </div>
+            <div class="total-chip">
+              <span class="eyebrow">Cobrado</span>
+              <strong id="total-cobrado">—</strong>
+            </div>
+            <div class="total-chip">
+              <span class="eyebrow">Devuelto</span>
+              <strong id="total-devuelto">—</strong>
+            </div>
+            <div class="total-chip total-chip--fuerte">
+              <span class="eyebrow">Neto</span>
+              <strong id="total-neto">—</strong>
+            </div>
+          </div>
+
+          <div class="cargando-bloque" id="alquileres-cargando">
+            <span class="material-symbols-outlined spin">progress_activity</span>
+            Cargando el registro…
+          </div>
+
+          <div class="table-container" id="alquileres-tabla" hidden>
             <table>
               <thead>
                 <tr>
+                  <th>Pago</th>
                   <th>Huésped</th>
                   <th>Fechas</th>
                   <th>Personas</th>
+                  <th>Medio</th>
+                  <th>Monto</th>
                   <th>Estado</th>
+                  <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td>Juan Pérez</td>
-                  <td>15/01/2025 - 22/01/2025</td>
-                  <td>4</td>
-                  <td>
-                    <span class="status-badge status-confirmado"
-                      >Confirmado</span
-                    >
-                  </td>
-                </tr>
-                <tr>
-                  <td>María Gómez</td>
-                  <td>01/02/2025 - 10/02/2025</td>
-                  <td>2</td>
-                  <td>
-                    <span class="status-badge status-confirmado"
-                      >Confirmado</span
-                    >
-                  </td>
-                </tr>
-                <tr>
-                  <td>Carlos Ruiz</td>
-                  <td>15/02/2025 - 20/02/2025</td>
-                  <td>5</td>
-                  <td>
-                    <span class="status-badge status-pendiente">Pendiente</span>
-                  </td>
-                </tr>
-              </tbody>
+              <tbody id="alquileres-cuerpo"></tbody>
             </table>
           </div>
+
+          <p class="vacio-bloque" id="alquileres-vacio" hidden>
+            Todavía no hay ninguna reserva paga.
+          </p>
         </div>
-        <!-- Reseñas View -->
+
+        <!-- ================================================================
+             RESEÑAS
+             ================================================================ -->
         <div class="tab-content" id="resenas">
           <div class="header-section">
             <div>
               <h1 class="headline-lg">Gestión de Reseñas</h1>
-              <p class="body-lg">Modera los comentarios de los huéspedes.</p>
-            </div>
-          </div>
-          <div class="reviews-grid">
-            <!-- Review 1 -->
-            <div class="review-card">
-              <div class="review-header">
-                <div class="reviewer-name">Laura Torres</div>
-                <div class="stars">
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                </div>
-              </div>
-              <p class="review-text">
-                "Excelente departamento, muy cómodo y con una vista increíble.
-                Ideal para descansar."
+              <p class="body-lg">
+                Las reseñas nuevas no se publican solas: aparecen acá y salen al
+                sitio recién cuando las aprobás.
               </p>
-              <div class="review-actions">
-                <button class="btn-action btn-action-delete" title="Eliminar">
-                  <span class="material-symbols-outlined">delete</span>
-                </button>
-              </div>
             </div>
-            <!-- Review 2 -->
-            <div class="review-card">
-              <div class="review-header">
-                <div class="reviewer-name">Martín Silva</div>
-                <div class="stars">
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star</span>
-                  <span class="material-symbols-outlined">star_half</span>
-                </div>
+            <div class="rate-summary" id="resenas-pendientes-chip" hidden>
+              <div class="rate-summary-icon">
+                <span class="material-symbols-outlined">pending</span>
               </div>
-              <p class="review-text">
-                "Muy buena atención. El lugar estaba limpio y ordenado.
-                Volveremos el próximo año."
-              </p>
-              <div class="review-actions">
-                <button class="btn-action btn-action-delete" title="Eliminar">
-                  <span class="material-symbols-outlined">delete</span>
-                </button>
+              <div>
+                <p class="eyebrow rate-summary-text-light">Sin aprobar</p>
+                <p class="rate-summary-price" id="resenas-pendientes">—</p>
               </div>
             </div>
           </div>
+
+          <div class="cargando-bloque" id="resenas-cargando">
+            <span class="material-symbols-outlined spin">progress_activity</span>
+            Cargando las reseñas…
+          </div>
+
+          <div class="reviews-grid" id="resenas-grid"></div>
+
+          <p class="vacio-bloque" id="resenas-vacio" hidden>
+            Todavía no hay reseñas.
+          </p>
         </div>
       </main>
       <!-- Footer -->
@@ -532,6 +573,59 @@
         </button>
       </div>
     </nav>
+    <!--
+      Diálogo de cancelación. Es la única pantalla del panel que mueve plata de
+      verdad y no se puede deshacer, así que muestra el monto exacto y obliga a
+      leerlo antes de confirmar.
+    -->
+    <div class="modal-fondo" id="modal-cancelar" hidden>
+      <div aria-labelledby="modal-titulo" aria-modal="true" class="modal" role="dialog">
+        <h2 class="headline-md" id="modal-titulo">Cancelar reserva</h2>
+        <p class="modal-detalle" id="modal-detalle"></p>
+
+        <div class="modal-opciones">
+          <label class="radio-linea">
+            <input checked name="modo-cancelacion" type="radio" value="total" />
+            <span>
+              <strong>Devolver todo</strong>
+              <em id="modal-monto-total"></em>
+            </span>
+          </label>
+          <label class="radio-linea">
+            <input name="modo-cancelacion" type="radio" value="parcial" />
+            <span>
+              <strong>Devolver una parte</strong>
+              <em>Por ejemplo, reteniendo la seña.</em>
+            </span>
+          </label>
+          <div class="input-group modal-parcial" id="modal-parcial" hidden>
+            <label class="label-md" for="modal-monto">Monto a devolver ($)</label>
+            <input id="modal-monto" min="1" step="1" type="number" />
+          </div>
+          <label class="radio-linea">
+            <input name="modo-cancelacion" type="radio" value="ninguna" />
+            <span>
+              <strong>No devolver nada</strong>
+              <em>Solo cancela la reserva y libera las fechas.</em>
+            </span>
+          </label>
+        </div>
+
+        <p class="modal-aviso">
+          <span class="material-symbols-outlined">warning</span>
+          Una devolución en MercadoPago no se puede revertir.
+        </p>
+
+        <div class="modal-acciones">
+          <button class="btn-text" id="modal-volver" type="button">Volver</button>
+          <button class="btn-primary btn-peligro" id="modal-confirmar" type="button">
+            <span class="material-symbols-outlined icon-confirmar">check</span>
+            <span class="btn-text-content">Confirmar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast-stack" id="toastStack" aria-live="polite"></div>
     <script src="scripts.js"></script>
   </body>

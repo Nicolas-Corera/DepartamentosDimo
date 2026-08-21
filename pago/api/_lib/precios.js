@@ -12,19 +12,26 @@
  * ---------------------------------------------------------------------------
  * CÓMO SE ARMA EL PRECIO
  *
- * Noche por noche, no con un precio único por estadía. Dos pasos:
+ * En dos etapas: primero el precio base de la estadía, después el recargo del
+ * medio de pago.
  *
- *   1. TEMPORADA — según en qué parte del año cae esa noche:
+ * ETAPA 1 — BASE. Noche por noche, no con un precio único por estadía:
  *
- *        15/12 al 31/01   alta
- *        01/02 al 15/02   media
- *        16/02 al 14/12   baja
+ *   a. TEMPORADA — el rango de `public.temporadas` en el que cae esa noche.
+ *      Son rangos absolutos, con año, y se editan desde el dashboard. Si dos
+ *      se solapan gana el más caro; si la noche no cae en ninguno, se cobra al
+ *      precio de la temporada baja (el fallback).
  *
- *      Los importes de cada temporada están en variables de entorno.
- *
- *   2. TARIFA ESPECIAL — si la noche cae dentro de un rango cargado en la
- *      tabla `tarifas_especiales`, ese precio pisa al de la temporada. Ahí
+ *   b. TARIFA ESPECIAL — si la noche cae dentro de un rango cargado en
+ *      `public.tarifas_especiales`, ese precio pisa al de la temporada. Ahí
  *      viven los fines de semana largo (y cualquier otra excepción).
+ *
+ * El total de esta etapa es el precio DE TRANSFERENCIA: el de contado.
+ *
+ * ETAPA 2 — RECARGO. Sobre ese total se suma el recargo del medio de pago
+ * (`public.medios_pago`) y, si es crédito en cuotas, el del plan elegido
+ * (`public.planes_cuotas`). Los dos porcentajes se suman entre sí: un crédito
+ * con +8% pagado en 3 cuotas con un plan de +15% termina en +23% sobre la base.
  *
  * Una "noche" se identifica por la fecha en la que se duerme: una estadía del
  * 10 al 14 son las noches del 10, 11, 12 y 13. La del 14 no se cobra porque esa
@@ -52,25 +59,6 @@ export function calcularNoches(checkIn, checkOut) {
   return Math.round((b - a) / UN_DIA);
 }
 
-/**
- * En qué temporada cae una fecha. Se mira solo el día y el mes: las temporadas
- * se repiten todos los años.
- *
- * Ojo con la temporada alta, que cruza el año: arranca el 15/12 y termina el
- * 31/01. Por eso son dos condiciones y no un rango.
- */
-export function temporadaDe(fechaISO) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(fechaISO));
-  if (!m) return "baja";
-
-  const mes = Number(m[2]);
-  const dia = Number(m[3]);
-
-  if ((mes === 12 && dia >= 15) || mes === 1) return "alta";
-  if (mes === 2 && dia <= 15) return "media";
-  return "baja";
-}
-
 /** Las noches de una estadía, como fechas ISO. */
 export function nochesDe(checkIn, checkOut) {
   const cantidad = calcularNoches(checkIn, checkOut);
@@ -81,10 +69,52 @@ export function nochesDe(checkIn, checkOut) {
 }
 
 /**
+ * La temporada en la que cae una fecha.
+ *
+ * Los rangos son absolutos y los carga una persona desde el dashboard, así que
+ * hay que contemplar los dos accidentes posibles:
+ *
+ *   - Se SOLAPAN dos rangos: gana el más caro. Es la interpretación
+ *     conservadora — mejor cobrar de más y que el cliente reclame, que cobrar
+ *     de menos y comerse la diferencia.
+ *
+ *   - No la cubre NINGUNO (típico: se venció el ciclo y nadie corrió las
+ *     fechas): devuelve null y el que llama usa el fallback. Nunca tira un
+ *     error, porque eso dejaría al cliente sin poder pagar por un descuido de
+ *     configuración.
+ */
+export function temporadaDe(fechaISO, temporadas = []) {
+  let elegida = null;
+  for (const t of temporadas) {
+    if (fechaISO >= t.fecha_desde && fechaISO <= t.fecha_hasta) {
+      if (!elegida || t.precio_por_noche > elegida.precio_por_noche) elegida = t;
+    }
+  }
+  return elegida;
+}
+
+/**
+ * El precio de las noches huérfanas: las que no caen en ninguna temporada.
+ *
+ * Es el de la temporada baja. Si tampoco existiera esa fila, la más barata de
+ * las que haya. Solo si la tabla está vacía se levanta la mano y se corta, que
+ * es el único caso en el que inventar un número sería peor que fallar.
+ */
+export function precioDeFallback(temporadas = []) {
+  const baja = temporadas.find((t) => t.clave === "baja");
+  if (baja) return baja.precio_por_noche;
+
+  const precios = temporadas.map((t) => t.precio_por_noche).filter(Number.isFinite);
+  if (precios.length) return Math.min(...precios);
+
+  throw new Error(
+    "No hay ninguna temporada cargada en la tabla `temporadas`: no se puede calcular el precio.",
+  );
+}
+
+/**
  * Busca si una fecha cae en alguna tarifa especial.
- * Si se solapan dos rangos (no debería, pero puede pasar cargando a mano),
- * gana el más caro: es la interpretación conservadora — mejor cobrar de más y
- * que el cliente reclame, que cobrar de menos y comerse la diferencia.
+ * Mismo criterio que las temporadas ante un solapamiento: gana la más cara.
  */
 function tarifaEspecialDe(fechaISO, tarifas) {
   let elegida = null;
@@ -97,16 +127,17 @@ function tarifaEspecialDe(fechaISO, tarifas) {
 }
 
 /**
- * Devuelve el desglose completo, noche por noche.
+ * ETAPA 1: el desglose base, noche por noche.
  *
- * `total` es lo que sale la estadía; `aCobrar` es lo que efectivamente va a
- * MercadoPago. Hoy son el mismo número: se cobra el 100%.
+ * `total` es lo que sale la estadía pagada por transferencia. El recargo del
+ * medio de pago lo agrega `calcularRecargo()`, que se llama después — cuando ya
+ * se sabe con qué va a pagar.
  *
- * @param reserva  fila de booking_requests (usa check_in y check_out)
- * @param precios  config.precios (importes por temporada)
- * @param tarifas  filas de tarifas_especiales que tocan el rango (puede ir [])
+ * @param reserva     fila de booking_requests (usa check_in y check_out)
+ * @param temporadas  filas de `temporadas`
+ * @param especiales  filas de `tarifas_especiales` que tocan el rango (puede ir [])
  */
-export function calcularPrecio(reserva, precios, tarifas = []) {
+export function calcularPrecio(reserva, temporadas = [], especiales = []) {
   const fechas = nochesDe(reserva.check_in, reserva.check_out);
 
   if (fechas.length === 0) {
@@ -115,23 +146,30 @@ export function calcularPrecio(reserva, precios, tarifas = []) {
     );
   }
 
-  const noches = fechas.map((fecha) => {
-    const temporada = temporadaDe(fecha);
-    const especial = tarifaEspecialDe(fecha, tarifas);
+  const fallback = precioDeFallback(temporadas);
 
-    return especial
-      ? { fecha, precio: especial.precio_por_noche, temporada, motivo: especial.motivo }
-      : { fecha, precio: precios.porTemporada[temporada], temporada, motivo: null };
+  const noches = fechas.map((fecha) => {
+    const temporada = temporadaDe(fecha, temporadas);
+    const especial = tarifaEspecialDe(fecha, especiales);
+
+    if (especial) {
+      return {
+        fecha,
+        precio: especial.precio_por_noche,
+        temporada: temporada?.clave || null,
+        motivo: especial.motivo,
+      };
+    }
+
+    return {
+      fecha,
+      precio: temporada ? temporada.precio_por_noche : fallback,
+      temporada: temporada?.clave || null,
+      motivo: null,
+    };
   });
 
   const alojamiento = noches.reduce((suma, n) => suma + n.precio, 0);
-  const total = alojamiento;
-
-  // Hoy se cobra el total de la estadía. El porcentaje a cobrar (seña) va a
-  // volver desde el dashboard, y ahí va a ser distinto según el medio de pago
-  // (transferencia vs. tarjeta): por eso `aCobrar` sigue siendo un campo
-  // aparte de `total` y no se colapsan en uno solo.
-  const aCobrar = total;
 
   const importes = noches.map((n) => n.precio);
   const minimo = Math.min(...importes);
@@ -147,8 +185,67 @@ export function calcularPrecio(reserva, precios, tarifas = []) {
     precioMinimo: minimo,
     precioMaximo: maximo,
     alojamiento,
+    // Sin recargo: es el precio de transferencia.
+    total: alojamiento,
+    // Cuántas noches se cobraron con el fallback. Cero es lo normal; cualquier
+    // otro número significa que hay un hueco en las temporadas y se está
+    // cobrando por defecto. Va al log para que se pueda detectar.
+    nochesSinTemporada: noches.filter((n) => !n.temporada && !n.motivo).length,
+    moneda: "ARS",
+  };
+}
+
+/** El plan de cuotas habilitado para esa cantidad, o null. */
+export function planDeCuotas(cuotas, planes = []) {
+  return planes.find((p) => p.habilitado && Number(p.cuotas) === Number(cuotas)) || null;
+}
+
+/** La mayor cantidad de cuotas habilitada. 1 si no hay ninguna. */
+export function maximoDeCuotas(planes = []) {
+  const habilitados = planes.filter((p) => p.habilitado).map((p) => Number(p.cuotas));
+  return habilitados.length ? Math.max(...habilitados) : 1;
+}
+
+/** El medio de pago habilitado con esa clave, o null. */
+export function medioDePago(clave, medios = []) {
+  return medios.find((m) => m.habilitado && m.clave === clave) || null;
+}
+
+/**
+ * ETAPA 2: el recargo del medio de pago sobre el total base.
+ *
+ * Los dos porcentajes se SUMAN, no se componen. Un +8% de crédito y un +15% de
+ * plan dan +23% sobre la base, no +24,2%. Es la cuenta que hace cualquiera con
+ * una calculadora mirando el resumen, y coincidir con eso vale más que la
+ * precisión financiera de componerlos.
+ *
+ * @param totalBase  el `total` que devolvió calcularPrecio()
+ * @param medio      fila de `medios_pago`
+ * @param plan       fila de `planes_cuotas`, o null para un pago sin cuotas
+ */
+export function calcularRecargo(totalBase, medio, plan = null) {
+  const recargoMedio = Number(medio?.recargo_porcentaje || 0);
+  const recargoCuotas = Number(plan?.recargo_porcentaje || 0);
+  const recargoPorcentaje = recargoMedio + recargoCuotas;
+
+  // Redondeo al peso: MercadoPago acepta decimales, pero en ARS los centavos
+  // solo generan diferencias raras entre lo que se muestra y lo que se cobra.
+  const total = Math.round(totalBase * (1 + recargoPorcentaje / 100));
+  const recargo = total - totalBase;
+  const cuotas = Number(plan?.cuotas || 1);
+
+  return {
+    medio: medio?.clave || null,
+    cuotas,
+    recargoMedio,
+    recargoCuotas,
+    recargoPorcentaje,
+    recargo,
+    totalBase,
     total,
-    aCobrar,
-    moneda: precios.moneda,
+    // Solo para mostrar. La división puede no dar exacta; el importe real de
+    // cada cuota lo define MercadoPago.
+    valorCuota: cuotas > 1 ? Math.round(total / cuotas) : total,
+    hayRecargo: recargoPorcentaje > 0,
   };
 }

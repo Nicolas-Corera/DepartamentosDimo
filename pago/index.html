@@ -519,6 +519,35 @@
         margin-bottom: 8px;
       }
 
+      .nota-total {
+        font-size: 13px;
+        color: var(--color-on-surface-variant);
+        margin-bottom: 24px;
+      }
+
+      /* Selector de cuotas propio, arriba del formulario de tarjeta. */
+      .cuotas-selector {
+        margin-bottom: 20px;
+      }
+
+      .cuotas-selector select {
+        width: 100%;
+        margin-top: 6px;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 15px;
+        color: var(--color-tinta);
+        background-color: var(--color-blanco);
+        border: 1px solid var(--color-surface-variant);
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .cuotas-selector select:focus-visible {
+        outline: 2px solid var(--color-turquesa);
+        outline-offset: 1px;
+      }
+
       /* Nota de la pestaña activa: "en crédito podés pagar en cuotas", etc. */
       .nota-metodo {
         font-size: 14px;
@@ -918,6 +947,23 @@
               -->
               <div class="form-content active" id="form-card">
                 <p class="nota-metodo" id="nota-metodo"></p>
+
+                <!--
+                  El selector de cuotas es NUESTRO, no el del Brick.
+
+                  El recargo de cada plan lo definimos nosotros desde el
+                  dashboard, así que el importe que se cobra cambia con la
+                  cantidad de cuotas. El Brick recibe el monto en el momento de
+                  montarse y no lo recalcula: si la persona eligiera las cuotas
+                  adentro del formulario, el importe que le mostraría sería el
+                  de otro plan. Eligiéndolas acá, arriba y antes de cargar la
+                  tarjeta, el Brick se monta ya con el monto definitivo.
+                -->
+                <div class="cuotas-selector" id="cuotas-selector" hidden>
+                  <label class="input-label" for="selector-cuotas">Cantidad de cuotas</label>
+                  <select id="selector-cuotas"></select>
+                </div>
+
                 <div class="brick-wrapper" id="brick-wrapper">
                   <div class="brick-cargando" id="brick-cargando">
                     <div class="spinner"></div>
@@ -999,7 +1045,13 @@
                 <span id="resumen-checkout">—</span>
               </div>
 
-              <!-- Se llena cuando el Brick reconoce la tarjeta y hay cuotas -->
+              <!-- Recargo del medio de pago elegido. Sin recargo no aparece. -->
+              <div class="price-row price-row--cuotas" id="fila-recargo" hidden>
+                <span id="resumen-recargo-label">Recargo</span>
+                <span id="resumen-recargo">—</span>
+              </div>
+
+              <!-- Cuántas cuotas y de cuánto. Solo en crédito con más de una. -->
               <div class="price-row price-row--cuotas" id="fila-cuotas" hidden>
                 <span>Cuotas</span>
                 <span id="resumen-cuotas">—</span>
@@ -1007,9 +1059,10 @@
             </div>
 
             <div class="total-row">
-              <span>Total</span>
+              <span id="resumen-total-label">Total</span>
               <span id="resumen-total">—</span>
             </div>
+            <p class="nota-total" id="nota-total" hidden></p>
 
             <!--
               EL ÚNICO botón de pago. El del Brick se oculta con

@@ -133,9 +133,10 @@ De Supabase (Project Settings → API):
 
 ### Dónde se cargan
 
-**Local:** el `pago/.env` **ya existe**, con la parte de Supabase y los precios
-completos. Faltan solo las tres variables de MercadoPago, que están al principio
-del archivo y vacías. Abrilo, pegá los valores del panel y verificá:
+**Local:** el `pago/.env` **ya existe**, con la parte de Supabase completa. Los
+precios ya no van acá (están en la base, ver la sección 4). Faltan solo las tres
+variables de MercadoPago, que están al principio del archivo y vacías. Abrilo,
+pegá los valores del panel y verificá:
 
 ```bash
 cd pago
@@ -210,44 +211,73 @@ Si preferís confirmarlas a mano desde el panel, poné
 
 ## 4. Cómo se arma el precio
 
-El precio se calcula **noche por noche**, no con una tarifa única por estadía.
-Una estadía del 10 al 14 son las noches del 10, 11, 12 y 13: la del 14 no se
-cobra porque esa mañana se van.
+En dos etapas: primero el precio base de la estadía, después el recargo del medio
+de pago.
 
-### Paso 1 — la temporada
+> **Dónde se configura todo esto.** En el
+> [dashboard](https://dash.departamentosdimo.com.ar), pestaña *Tarifas*. Los
+> precios ya **no** están en variables de entorno de Vercel: viven en cuatro
+> tablas de Supabase (`temporadas`, `medios_pago`, `planes_cuotas` y
+> `tarifas_especiales`) y tienen efecto en el próximo pago, sin redeploy. Para
+> crearlas, correr [`sql/configuracion-tarifas.sql`](sql/configuracion-tarifas.sql).
 
-| Período | Temporada | Variable |
-| --- | --- | --- |
-| 15/12 al 31/01 | alta | `PRECIO_TEMPORADA_ALTA_ARS` |
-| 01/02 al 15/02 | media | `PRECIO_TEMPORADA_MEDIA_ARS` |
-| 16/02 al 14/12 | baja | `PRECIO_TEMPORADA_BAJA_ARS` |
+### Etapa 1 — el precio base
 
-Se mira solo el día y el mes, así que valen para cualquier año. La temporada
-alta cruza el año (arranca el 15/12 y termina el 31/01), por eso en el código
-son dos condiciones y no un rango.
+Se calcula **noche por noche**, no con una tarifa única por estadía. Una estadía
+del 10 al 14 son las noches del 10, 11, 12 y 13: la del 14 no se cobra porque esa
+mañana se van.
 
-### Paso 2 — las tarifas especiales
+**a. La temporada.** Cada noche cae en el rango de `temporadas` que la contenga.
+Son rangos **absolutos, con año** (`2026-12-15` al `2027-01-31`), no día y mes:
+cuando se termina un ciclo hay que correr las fechas desde el dashboard.
 
-Cualquier noche que caiga dentro de un rango de la tabla
-**`tarifas_especiales`** se cobra a ese precio, sin importar la temporada. Ahí
-viven los fines de semana largo.
-
-Es una tabla y no una lista en el código a propósito: los feriados cambian todos
-los años y los *feriados con fines turísticos* (los puentes) los decreta el
-gobierno cuando quiere. Se editan desde **Supabase → Table Editor →
-`tarifas_especiales`** y tienen efecto en el próximo pago, sin tocar código ni
-esperar un deploy.
-
-| Columna | Qué es |
+| Si… | Entonces… |
 | --- | --- |
-| `fecha_desde` / `fecha_hasta` | Rango inclusivo. Cada fecha es una **noche** que se cobra a ese precio |
-| `precio_por_noche` | El importe |
-| `motivo` | "Carnaval", "Semana Santa"… Se le muestra al cliente en el desglose |
+| Dos rangos se solapan | Gana el **más caro**. Mejor cobrar de más y que el cliente reclame, que cobrar de menos y comerse la diferencia. |
+| La noche no cae en **ninguno** | Se cobra al precio de la **temporada baja**. Nunca falla el pago por un descuido de configuración. |
 
-> ⚠️ **Los fines de semana largo cargados hay que revisarlos.** Están derivados
-> de los feriados nacionales 2027, pero qué noches cobrás caras en cada uno es
-> una decisión comercial, no del calendario — y los puentes turísticos de 2027
-> todavía pueden agregarse. Es un `UPDATE` en Table Editor.
+El fallback es silencioso, así que el dashboard muestra un aviso arriba de todo
+con los tramos del próximo año que quedaron sin cubrir. Es lo único que evita
+cobrar barato durante meses sin enterarse.
+
+**b. Las tarifas especiales.** Cualquier noche que caiga dentro de un rango de
+`tarifas_especiales` se cobra a ese precio, **pisando** a la temporada. Ahí viven
+los fines de semana largo. Mismo criterio ante un solapamiento: gana la más cara.
+
+El total de esta etapa es el **precio de transferencia**: el de contado.
+
+### Etapa 2 — el recargo del medio de pago
+
+Sobre ese total se suma el recargo de `medios_pago` y, si es crédito en cuotas,
+el de `planes_cuotas`:
+
+| Medio | Recargo |
+| --- | --- |
+| Transferencia | Es la base. Normalmente 0%. |
+| Débito | El de su fila. Siempre en un pago. |
+| Crédito | El de su fila **más** el del plan de cuotas elegido. |
+
+Los dos porcentajes se **suman**, no se componen: un crédito en +8% pagado en 3
+cuotas con un plan de +15% termina en **+23%** sobre la base, no en +24,2%. Es la
+cuenta que hace cualquiera con una calculadora mirando el resumen, y coincidir
+con eso vale más que la precisión financiera de componerlos.
+
+**El medio lo determina el servidor, no el navegador.** Si el front pudiera
+elegirlo, alcanzaría con mandar `"debito"` desde la consola y pagar con una
+tarjeta de crédito para ahorrarse el recargo. `tipoDeTarjeta()` le pregunta a
+MercadoPago qué es el `payment_method_id` que generó el Brick (`GET
+/v1/payment_methods`), que sí es confiable.
+
+### Las cuotas se eligen antes de cargar la tarjeta
+
+El selector de cuotas del checkout es **nuestro**, no el del Brick.
+
+El recargo de cada plan lo definimos nosotros, así que la cantidad de cuotas
+cambia el importe que se cobra. El Brick recibe el monto al montarse y no lo
+recalcula solo: si las cuotas se eligieran adentro de su formulario, mostraría el
+importe de otro plan. Por eso el selector va arriba, se elige primero, y cada
+cambio remonta el Brick con `minInstallments = maxInstallments = la elegida` y el
+monto definitivo.
 
 ### Ejemplo real
 
@@ -525,7 +555,7 @@ npm run env:check
 | El webhook devuelve 401 siempre | `MP_WEBHOOK_SECRET` no coincide con la clave del panel, o se cambió en el panel y no se volvió a deployar |
 | Los pagos se cobran pero `payments` queda vacía | Falta correr `sql/payments.sql`, o `SUPABASE_SERVICE_ROLE_KEY` tiene la clave `anon` |
 | *"No encontramos esa reserva"* con un uuid que existe | El backend está apuntando a otro proyecto de Supabase (`SUPABASE_URL`), o la clave no es `service_role` |
-| El monto que se cobra no es el que se muestra | `PRECIO_TEMPORADA_*_ARS` distintos entre ambientes de Vercel |
+| El monto que se cobra no es el que se muestra | El navegador tiene la config vieja en pantalla: recargá. El monto lo recalcula siempre `/api/pagos` con lo que hay en la base |
 | El pago sale $0 o falla con `transaction_amount` | Las fechas de la reserva no cierran (`check_out` <= `check_in`) |
 
 ---
@@ -543,8 +573,9 @@ pago/
 ├── scripts/
 │   └── dev-server.mjs      servidor local (solo desarrollo, no se despliega)
 ├── sql/
-│   ├── payments.sql             la tabla de pagos, con RLS cerrado
-│   └── tarifas-y-ocupacion.sql  tarifas especiales + vista fechas_ocupadas
+│   ├── payments.sql                 la tabla de pagos, con RLS cerrado
+│   ├── tarifas-y-ocupacion.sql      tarifas especiales + función fechas_ocupadas
+│   └── configuracion-tarifas.sql    temporadas, medios de pago y planes de cuotas
 └── api/
     ├── reserva.js          GET  — resumen + monto + public key
     ├── pagos.js            POST — crea el pago (Checkout API)
@@ -555,6 +586,6 @@ pago/
         ├── log.js          logs con redacción de datos sensibles
         ├── mercadopago.js  SDK, idempotencia y firma del webhook
         ├── mensajes.js     status_detail -> mensaje para una persona
-        ├── precios.js      cálculo del monto (fuente de verdad)
+        ├── precios.js      cálculo del monto y del recargo (fuente de verdad)
         └── supabase.js     cliente service_role y queries
 ```
