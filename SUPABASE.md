@@ -731,12 +731,22 @@ alter table public.booking_requests enable row level security;
 
 -- Alta publica, y nada mas. Sin politica de select: la tabla no se lee desde
 -- el sitio. El "estado = 'nueva'" evita que alguien inserte una consulta ya
--- confirmada desde la consola del navegador.
+-- confirmada desde la consola del navegador, y la ultima condicion repite la
+-- regla del calendario: el mismo dia se reserva hasta las 09:00.
 create policy "alta publica de consultas"
   on public.booking_requests
   for insert
   to anon, authenticated
-  with check (estado = 'nueva' and check_out > check_in);
+  with check (
+    estado = 'nueva'
+    and check_out > check_in
+    and check_in >= case
+      when (now() at time zone 'America/Argentina/Buenos_Aires')::time
+           < time '09:00'
+        then (now() at time zone 'America/Argentina/Buenos_Aires')::date
+      else (now() at time zone 'America/Argentina/Buenos_Aires')::date + 1
+    end
+  );
 
 grant insert on public.booking_requests to anon, authenticated;
 revoke select, update, delete, truncate, references, trigger
@@ -750,6 +760,48 @@ revoke select, update, delete, truncate, references, trigger
 Después de crearla, el **Security Advisor sigue en 0 avisos**: la policy de
 `insert` no es un `with check (true)`, que es lo que dispara el aviso *RLS Policy
 Always True*.
+
+### Hasta cuándo se puede reservar para hoy
+
+**El mismo día se puede reservar hasta las 09:00.** Pasada esa hora, el día
+de hoy queda bloqueado en el calendario y la estadía tiene que arrancar al
+día siguiente. Antes de las 09:00, hoy sigue disponible.
+
+La hora se mide **siempre en la zona del departamento**
+(`America/Argentina/Buenos_Aires`), nunca en la del visitante: si alguien
+consulta desde España a las 03:00 de su reloj, lo que decide es qué hora es
+en San Bernardo. Eso lo resuelve `ahoraEnDestino()` en [script.js](script.js),
+con `Intl.DateTimeFormat` — no hay librería de fechas de por medio.
+
+Cómo se ve, en los dos calendarios (el del formulario y el de *Ver
+disponibilidad*):
+
+- El día de hoy queda apagado **igual que un día ya pasado**, sin marca
+  propia.
+- Debajo de la grilla aparece la aclaración: *"Hoy ya no se puede reservar:
+  las reservas para el mismo día cierran a las 09:00"*. Antes de esa hora la
+  nota dice lo contrario: *"Podés reservar para hoy mismo hasta las 09:00"*.
+  La nota solo se muestra en el mes en curso.
+
+**La hora se recalcula en cada `render()`**, y los dos modales llaman a
+`refresh()` al abrirse. Así una pestaña abierta desde las 08:00 se corrige
+sola cuando el visitante vuelve: si en el medio pasaron las 09:00, el día de
+hoy se bloquea y, si ya lo había elegido, la selección se limpia (calendario,
+etiqueta del botón y campo oculto).
+
+**La misma regla está en la policy de `insert`**, no solo en el front. El
+reloj del visitante puede estar mal o atrasado, así que la base vuelve a
+chequearlo con su propia hora. Va en la policy y no en un `check` porque un
+`check` tiene que ser inmutable y `now()` no lo es; las policies, en cambio,
+se evalúan fila por fila en el momento del `insert`.
+
+Si ese rechazo llega igual (el caso real: eligió las fechas a las 08:58 y
+apretó enviar a las 09:01), el front lo reconoce por el código `42501` y
+muestra *"Las reservas para el mismo día cierran a las 09:00. Volvé a elegir
+las fechas"* en vez del error genérico.
+
+Para cambiar el horario de corte: `HORA_CIERRE` en [script.js](script.js) y
+el `time '09:00'` de la policy. Son los dos únicos lugares.
 
 ### Agregar un campo nuevo al formulario
 

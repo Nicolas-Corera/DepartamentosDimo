@@ -1503,6 +1503,21 @@ p {
   background: rgba(63, 167, 199, 0.22);
 }
 
+/* Aclaracion del horario de corte, debajo de la grilla. */
+.cal-note {
+  margin: 12px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #5b7278;
+  text-align: center;
+}
+.cal-note-cerrado {
+  color: #b8623c;
+  background: rgba(232, 98, 58, 0.1);
+  border-radius: var(--radius-soft);
+  padding: 10px 12px;
+}
+
 /* Lightbox */
 .lightbox-overlay {
   background: rgba(10, 25, 28, 0.92);
