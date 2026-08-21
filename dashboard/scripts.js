@@ -382,19 +382,59 @@ function agregarEspecial() {
   $("especiales-vacio").hidden = true;
   actualizarPuntos();
 
-  gsap.fromTo(tarjeta, { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" });
+  // Solo opacidad, sin `x`. Un transform sobre una tarjeta que vive DENTRO del
+  // contenedor con scroll-snap le mueve la geometría al scroller mientras dura
+  // la animación, y el navegador vuelve a snapear en el medio del scroll que
+  // acabamos de pedir.
+  gsap.fromTo(tarjeta, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
 
+  // Primero el scroll, y el foco SIN scroll automático: si se le deja hacer el
+  // suyo, el navegador acomoda el input con el mínimo desplazamiento posible y
+  // pisa el scrollTo de arriba — que es lo que dejaba el carrusel frenado entre
+  // dos tarjetas.
   setTimeout(() => {
-    carrusel.scrollTo({ left: tarjeta.offsetLeft - carrusel.offsetLeft, behavior: "smooth" });
-    tarjeta.querySelector(".date-desde").focus();
+    irATarjeta(tarjeta);
+    tarjeta.querySelector(".date-desde").focus({ preventScroll: true });
   }, 60);
+}
+
+/**
+ * El paso real del carrusel.
+ *
+ * NO es `carrusel.offsetWidth`: el contenedor es un flex con `gap: 16px`, así
+ * que entre el borde de una tarjeta y el de la siguiente hay ancho + gap. Usar
+ * el ancho pelado acumula 16px de error por tarjeta, y a partir de la tercera o
+ * cuarta el carrusel queda parado en el medio de dos.
+ */
+function pasoDelCarrusel(carrusel) {
+  const tarjetas = carrusel.querySelectorAll(".special-date-card");
+  if (tarjetas.length > 1) return tarjetas[1].offsetLeft - tarjetas[0].offsetLeft;
+  return carrusel.offsetWidth;
+}
+
+/**
+ * Deja una tarjeta encuadrada, sin restos de la anterior.
+ *
+ * Se mide con getBoundingClientRect y no con `indice * paso`: los anchos reales
+ * son fraccionarios (418,33px y no 418), así que multiplicar un paso entero por
+ * el índice acumula el redondeo y deja el carrusel un pixel corrido en cada
+ * tarjeta. Restar rectángulos da la posición exacta de ESTA tarjeta, sin
+ * arrastrar el error de las anteriores.
+ */
+function irATarjeta(tarjeta, comportamiento = "smooth") {
+  const carrusel = tarjeta.parentElement;
+  if (!carrusel) return;
+  const izquierda =
+    tarjeta.getBoundingClientRect().left -
+    carrusel.getBoundingClientRect().left +
+    carrusel.scrollLeft;
+  carrusel.scrollTo({ left: izquierda, behavior: comportamiento });
 }
 
 function eliminarEspecial(tarjeta) {
   gsap.to(tarjeta, {
     opacity: 0,
-    x: 40,
-    duration: 0.3,
+    duration: 0.25,
     ease: "power2.out",
     onComplete: () => {
       tarjeta.remove();
@@ -421,9 +461,7 @@ function actualizarPuntos() {
       if (i === 0) punto.classList.add("active");
       // En escritorio no hay swipe: el punto navega con un clic. En mobile el
       // swipe sigue funcionando igual y el clic no molesta.
-      punto.addEventListener("click", () => {
-        carrusel.scrollTo({ left: tarjeta.offsetLeft - carrusel.offsetLeft, behavior: "smooth" });
-      });
+      punto.addEventListener("click", () => irATarjeta(tarjeta));
       return punto;
     }),
   );
@@ -435,7 +473,7 @@ function marcarPuntoActivo() {
   const puntos = document.querySelectorAll(".carousel-dots .dot");
   if (!carrusel || !puntos.length) return;
 
-  let i = Math.round(carrusel.scrollLeft / carrusel.offsetWidth);
+  let i = Math.round(carrusel.scrollLeft / pasoDelCarrusel(carrusel));
   if (i >= puntos.length) i = puntos.length - 1;
   puntos.forEach((p, j) => p.classList.toggle("active", j === i));
 }
