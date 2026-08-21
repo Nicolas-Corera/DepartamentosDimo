@@ -7,24 +7,14 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/",
+      "source": "/(.*)",
       "has": [
         {
           "type": "host",
           "value": "pago.departamentosdimo.com.ar"
         }
       ],
-      "destination": "/pago/index.html"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "pago.departamentosdimo.com.ar"
-        }
-      ],
-      "destination": "/pago/:path*"
+      "destination": "/pago/$1"
     }
   ]
 }
