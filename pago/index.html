@@ -525,6 +525,100 @@
         margin-bottom: 24px;
       }
 
+      /* Nota de la pestaña activa: "en crédito podés pagar en cuotas", etc. */
+      .nota-metodo {
+        font-size: 14px;
+        color: var(--color-on-surface-variant);
+        margin-bottom: 16px;
+        padding-left: 26px;
+        position: relative;
+      }
+
+      .nota-metodo::before {
+        content: "info";
+        font-family: "Material Symbols Rounded";
+        font-size: 18px;
+        position: absolute;
+        left: 0;
+        top: 1px;
+        color: var(--color-madera);
+      }
+
+      /* Desglose noche por noche */
+      .detalle-noches {
+        font-size: 13px;
+        color: var(--color-on-surface-variant);
+        margin-top: -4px;
+      }
+
+      .detalle-noches summary {
+        cursor: pointer;
+        color: var(--color-primary);
+        font-weight: 600;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .detalle-noches summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .detalle-noches summary::after {
+        content: "expand_more";
+        font-family: "Material Symbols Rounded";
+        font-size: 18px;
+        transition: transform 0.2s ease;
+      }
+
+      .detalle-noches[open] summary::after {
+        transform: rotate(180deg);
+      }
+
+      .detalle-noches-lista {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-left: 2px;
+      }
+
+      .noche-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .noche-motivo {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-tertiary);
+        background-color: var(--color-coral-subtle);
+        border-radius: 999px;
+        padding: 1px 8px;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+
+      /* La fila de cuotas cambia con lo que elige la persona en el formulario */
+      .price-row--cuotas {
+        font-weight: 600;
+        color: var(--color-primary);
+      }
+
+      .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .submit-btn:disabled:hover {
+        background-color: var(--color-tinta);
+      }
+
       .submit-btn {
         width: 100%;
         background-color: var(--color-tinta);
@@ -801,20 +895,35 @@
               </div>
             </div>
 
+            <!--
+              Tres pestañas, no dos: crédito y débito comparten formulario pero
+              NO condiciones. En crédito se ofrecen cuotas; en débito el cobro
+              es siempre en un pago. Separarlas evita que alguien entre con la
+              débito esperando cuotas.
+            -->
             <div class="tabs-container">
-              <button class="tab-btn active" data-target="form-card" type="button">
+              <button class="tab-btn active" data-metodo="credito" type="button">
                 <span class="material-symbols-rounded">credit_card</span>
-                Tarjeta de crédito o débito
+                Tarjeta de crédito
               </button>
-              <button class="tab-btn" data-target="form-transfer" type="button">
+              <button class="tab-btn" data-metodo="debito" type="button">
+                <span class="material-symbols-rounded">credit_card</span>
+                Tarjeta de débito
+              </button>
+              <button class="tab-btn" data-metodo="transferencia" type="button">
                 <span class="material-symbols-rounded">account_balance</span>
                 Transferencia
               </button>
             </div>
 
             <div class="form-container">
-              <!-- Tarjeta: acá se monta el Card Payment Brick -->
+              <!--
+                Un solo Brick para las dos pestañas de tarjeta: al cambiar de
+                pestaña se vuelve a montar con otra configuración de cuotas y
+                de tipos de tarjeta permitidos.
+              -->
               <div class="form-content active" id="form-card">
+                <p class="nota-metodo" id="nota-metodo"></p>
                 <div class="brick-wrapper" id="brick-wrapper">
                   <div class="brick-cargando" id="brick-cargando">
                     <div class="spinner"></div>
@@ -872,13 +981,21 @@
             </p>
             <div class="price-breakdown">
               <div class="price-row">
-                <span>Precio por noche</span>
-                <span id="resumen-por-noche">—</span>
+                <span id="resumen-alojamiento-label">Alojamiento</span>
+                <span id="resumen-alojamiento">—</span>
               </div>
-              <div class="price-row">
-                <span>Noches</span>
-                <span id="resumen-noches">—</span>
-              </div>
+
+              <!--
+                Las noches ya no valen todas lo mismo: hay temporada alta, media
+                y baja, y los fines de semana largo tienen su propia tarifa. Si
+                la estadía cruza tarifas distintas, el desglose noche por noche
+                es lo único que explica de dónde sale el total.
+              -->
+              <details class="detalle-noches" id="detalle-noches" hidden>
+                <summary>Ver detalle por noche</summary>
+                <div id="detalle-noches-lista"></div>
+              </details>
+
               <div class="price-row">
                 <span>Check-in</span>
                 <span id="resumen-checkin">—</span>
@@ -891,15 +1008,28 @@
                 <span>Tasa de limpieza</span>
                 <span id="resumen-limpieza">—</span>
               </div>
+
+              <!-- Se llena cuando el Brick reconoce la tarjeta y hay cuotas -->
+              <div class="price-row price-row--cuotas" id="fila-cuotas" hidden>
+                <span>Cuotas</span>
+                <span id="resumen-cuotas">—</span>
+              </div>
             </div>
+
             <div class="total-row">
               <span id="resumen-total-label">Total</span>
               <span id="resumen-total">—</span>
             </div>
             <p class="nota-senia" id="nota-senia" hidden></p>
-            <button class="submit-btn" type="button" id="btn-ir-al-pago">
+
+            <!--
+              EL ÚNICO botón de pago. El del Brick se oculta con
+              hidePaymentButton y el envío se dispara desde acá con
+              getFormData(), así no hay dos botones que hagan lo mismo.
+            -->
+            <button class="submit-btn" type="button" id="btn-pagar">
               <span class="material-symbols-rounded">lock</span>
-              Ir al pago
+              <span id="btn-pagar-texto">Confirmar y Pagar</span>
             </button>
             <p class="nota-segura">
               <span class="material-symbols-rounded">verified_user</span>

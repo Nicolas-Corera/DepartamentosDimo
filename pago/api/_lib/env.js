@@ -170,7 +170,18 @@ export function leerConfig() {
     },
     supabase: { url: supabaseUrl, serviceRoleKey },
     precios: {
-      porNoche: entero("PRECIO_NOCHE_ARS", { min: 1, max: 100_000_000 }),
+      // Un importe por temporada. Qué fecha cae en cuál lo decide
+      // temporadaDe() en precios.js:
+      //   alta  15/12 al 31/01
+      //   media 01/02 al 15/02
+      //   baja  16/02 al 14/12
+      // Los fines de semana largo no están acá: son filas de la tabla
+      // `tarifas_especiales`, que pisa a la temporada.
+      porTemporada: {
+        alta: entero("PRECIO_TEMPORADA_ALTA_ARS", { min: 1, max: 100_000_000 }),
+        media: entero("PRECIO_TEMPORADA_MEDIA_ARS", { min: 1, max: 100_000_000 }),
+        baja: entero("PRECIO_TEMPORADA_BAJA_ARS", { min: 1, max: 100_000_000 }),
+      },
       limpieza: entero("TASA_LIMPIEZA_ARS", { min: 0, max: 100_000_000 }),
       porcentajeACobrar: entero("PORCENTAJE_A_COBRAR", {
         min: 1,
@@ -210,7 +221,9 @@ if (process.argv[1] && process.argv[1].endsWith("env.js")) {
     console.log("\n  OK  configuración válida");
     console.log(`      ambiente MercadoPago   ${c.mp.ambiente}`);
     console.log(`      entorno                ${c.entorno}`);
-    console.log(`      precio por noche       $${c.precios.porNoche.toLocaleString("es-AR")}`);
+    console.log(`      temporada alta         $${c.precios.porTemporada.alta.toLocaleString("es-AR")}  (15/12 al 31/01)`);
+    console.log(`      temporada media        $${c.precios.porTemporada.media.toLocaleString("es-AR")}  (01/02 al 15/02)`);
+    console.log(`      temporada baja         $${c.precios.porTemporada.baja.toLocaleString("es-AR")}  (16/02 al 14/12)`);
     console.log(`      tasa de limpieza       $${c.precios.limpieza.toLocaleString("es-AR")}`);
     console.log(`      se cobra               ${c.precios.porcentajeACobrar}% del total`);
     console.log(`      max. cuotas            ${c.mp.maxCuotas}\n`);

@@ -64,6 +64,31 @@ export async function buscarReserva(id) {
 }
 
 /**
+ * Las tarifas especiales que se solapan con el rango de la estadía.
+ *
+ * Se filtra en la base y no en memoria: la tabla puede tener años de fines de
+ * semana largo cargados y a una reserva de 5 noches le tocan una o ninguna.
+ *
+ * El solapamiento es la condición clásica de dos rangos: empieza antes de que
+ * termine la estadía Y termina después de que empiece.
+ */
+export async function buscarTarifasEspeciales(checkIn, checkOut) {
+  const { data, error } = await db()
+    .from("tarifas_especiales")
+    .select("fecha_desde, fecha_hasta, precio_por_noche, motivo")
+    .lte("fecha_desde", checkOut)
+    .gte("fecha_hasta", checkIn);
+
+  if (error) {
+    // No es fatal: sin tarifas especiales el precio sale por temporada. Pero se
+    // grita en el log, porque significa cobrar un fin de semana largo barato.
+    log.error("supabase.buscarTarifasEspeciales", error, { checkIn, checkOut });
+    return [];
+  }
+  return data || [];
+}
+
+/**
  * Guarda o actualiza el pago. Es idempotente por `mp_payment_id`: el webhook
  * puede llegar varias veces (MercadoPago reintenta) y siempre termina en la
  * misma fila. El último estado consultado a la API pisa al anterior.

@@ -47,7 +47,7 @@ borrables cuando no hagan falta.
 
 ### Falta
 
-1. **Configurar el webhook en el panel de MercadoPago** (sección 5). Es lo único
+1. **Configurar el webhook en el panel de MercadoPago** (sección 7). Es lo único
    que no se pudo hacer por API: URL `https://pago.departamentosdimo.com.ar/api/webhook`
    y la clave secreta tiene que coincidir con `MP_WEBHOOK_SECRET`.
 2. **Pasar a producción**: commitear, pushear a `main` y Vercel deploya solo.
@@ -86,10 +86,10 @@ borrables cuando no hagan falta.
 
 **1. El monto lo calcula el servidor, siempre.**
 El navegador manda el código de reserva y nada más. `POST /api/pagos` vuelve a
-leer las fechas de `booking_requests` y recalcula el importe con
-`PRECIO_NOCHE_ARS` y `TASA_LIMPIEZA_ARS`. El `transaction_amount` que viene en
-el `formData` del Brick se **descarta**. Si el front pudiera elegir el importe,
-cualquiera abre la consola, lo cambia por `1` y se lleva la estadía por un peso.
+leer las fechas de `booking_requests` y recalcula el importe noche por noche
+(ver sección 3). El `transaction_amount` que viene en el `formData` del Brick se
+**descarta**. Si el front pudiera elegir el importe, cualquiera abre la consola,
+lo cambia por `1` y se lleva la estadía por un peso.
 
 **2. Los datos de tarjeta nunca tocan este sitio.**
 Los campos del Brick son iframes servidos por MercadoPago. El SDK los cambia por
@@ -208,7 +208,98 @@ Si preferís confirmarlas a mano desde el panel, poné
 
 ---
 
-## 4. Los endpoints
+## 4. Cómo se arma el precio
+
+El precio se calcula **noche por noche**, no con una tarifa única por estadía.
+Una estadía del 10 al 14 son las noches del 10, 11, 12 y 13: la del 14 no se
+cobra porque esa mañana se van.
+
+### Paso 1 — la temporada
+
+| Período | Temporada | Variable |
+| --- | --- | --- |
+| 15/12 al 31/01 | alta | `PRECIO_TEMPORADA_ALTA_ARS` |
+| 01/02 al 15/02 | media | `PRECIO_TEMPORADA_MEDIA_ARS` |
+| 16/02 al 14/12 | baja | `PRECIO_TEMPORADA_BAJA_ARS` |
+
+Se mira solo el día y el mes, así que valen para cualquier año. La temporada
+alta cruza el año (arranca el 15/12 y termina el 31/01), por eso en el código
+son dos condiciones y no un rango.
+
+### Paso 2 — las tarifas especiales
+
+Cualquier noche que caiga dentro de un rango de la tabla
+**`tarifas_especiales`** se cobra a ese precio, sin importar la temporada. Ahí
+viven los fines de semana largo.
+
+Es una tabla y no una lista en el código a propósito: los feriados cambian todos
+los años y los *feriados con fines turísticos* (los puentes) los decreta el
+gobierno cuando quiere. Se editan desde **Supabase → Table Editor →
+`tarifas_especiales`** y tienen efecto en el próximo pago, sin tocar código ni
+esperar un deploy.
+
+| Columna | Qué es |
+| --- | --- |
+| `fecha_desde` / `fecha_hasta` | Rango inclusivo. Cada fecha es una **noche** que se cobra a ese precio |
+| `precio_por_noche` | El importe |
+| `motivo` | "Carnaval", "Semana Santa"… Se le muestra al cliente en el desglose |
+
+> ⚠️ **Los fines de semana largo cargados hay que revisarlos.** Están derivados
+> de los feriados nacionales 2027, pero qué noches cobrás caras en cada uno es
+> una decisión comercial, no del calendario — y los puentes turísticos de 2027
+> todavía pueden agregarse. Es un `UPDATE` en Table Editor.
+
+### Ejemplo real
+
+Una estadía del 16 al 23 de junio de 2027, que cruza el fin de semana largo de
+Güemes:
+
+```
+  Mié 16 Jun   $ 80.000     baja
+  Jue 17 Jun   $ 80.000     baja
+  Vie 18 Jun   $ 90.000     [Güemes]
+  Sáb 19 Jun   $ 90.000     [Güemes]
+  Dom 20 Jun   $ 90.000     [Güemes]
+  Lun 21 Jun   $ 90.000     [Güemes]
+  Mar 22 Jun   $ 80.000     baja
+  ─────────────────────────
+  Alojamiento  $ 600.000
+  Limpieza     $  10.000
+  TOTAL        $ 610.000
+```
+
+Cuando las noches no valen todas lo mismo, el resumen del checkout muestra un
+desplegable con este detalle. Sin eso, un total que no es "noches × precio" se
+lee como un error de cálculo.
+
+---
+
+## 5. El calendario y los días ocupados
+
+El calendario del sitio principal marca como ocupados los días ya reservados. Los
+lee de la vista **`fechas_ocupadas`**, que expone *únicamente* `check_in` y
+`check_out`. Ni nombre, ni mail, ni DNI: `booking_requests` sigue siendo
+ilegible desde el navegador.
+
+**Qué cuenta como ocupado:** solo las reservas en estado `confirmada`.
+
+Es a propósito. Si contaran también las consultas en estado `nueva`, cualquiera
+podría bloquear el calendario entero mandando el formulario con fechas
+inventadas — sin pagar y sin dar un dato real. `confirmada` la ponés vos, o la
+pone un pago aprobado. Si preferís que las consultas sin pagar también bloqueen,
+es agregar el estado al `where` de la vista en
+[`sql/tarifas-y-ocupacion.sql`](sql/tarifas-y-ocupacion.sql) y volver a correrlo.
+
+**El día de salida queda libre:** una reserva del 10 al 14 ocupa las noches 10,
+11, 12 y 13. El 14 puede ser el check-in de otra persona. Si querés margen de
+limpieza, está marcado en el código dónde cambiarlo.
+
+Además, el calendario no deja elegir un rango que *cruce* días ocupados: sin eso
+se puede pedir del 8 al 16 con el 12 ya reservado, que es una reserva imposible.
+
+---
+
+## 6. Los endpoints
 
 Los tres viven en `pago/api/`. La lógica compartida está en `pago/api/_lib/`
 (Vercel ignora las carpetas que empiezan con `_`, así que no se publican como
@@ -293,7 +384,7 @@ migró a una versión de firma nueva y hay que actualizar `mercadopago`.
 
 ---
 
-## 5. Configurar el webhook en el panel
+## 7. Configurar el webhook en el panel
 
 Panel de MercadoPago → tu aplicación → **Webhooks** → Configurar notificaciones:
 
@@ -315,7 +406,7 @@ panel — o directamente probar contra un preview de Vercel.
 
 ---
 
-## 6. Probar
+## 8. Probar
 
 ### Con la página
 
@@ -382,7 +473,7 @@ reemplaza por `[oculto]` aunque estén anidados. Los mails se ofuscan
 
 ---
 
-## 7. Desarrollo local
+## 9. Desarrollo local
 
 ```bash
 cd pago
@@ -416,7 +507,7 @@ npm run env:check
 
 ---
 
-## 8. Problemas frecuentes
+## 10. Problemas frecuentes
 
 | Síntoma | Causa casi segura |
 | --- | --- |
@@ -430,7 +521,7 @@ npm run env:check
 
 ---
 
-## 9. Archivos
+## 11. Archivos
 
 ```
 pago/
@@ -443,7 +534,8 @@ pago/
 ├── scripts/
 │   └── dev-server.mjs      servidor local (solo desarrollo, no se despliega)
 ├── sql/
-│   └── payments.sql        la tabla, con RLS cerrado
+│   ├── payments.sql             la tabla de pagos, con RLS cerrado
+│   └── tarifas-y-ocupacion.sql  tarifas especiales + vista fechas_ocupadas
 └── api/
     ├── reserva.js          GET  — resumen + monto + public key
     ├── pagos.js            POST — crea el pago (Checkout API)

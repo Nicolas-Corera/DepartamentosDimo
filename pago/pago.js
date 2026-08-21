@@ -29,17 +29,30 @@ const MESES = [
   "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
 ];
 
-/** "2026-01-15" -> "15 Ene". Sin `new Date(iso)`, que resta un día por zona horaria. */
-function fechaCorta(iso) {
+const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+/** "2026-01-15" -> {y, m, d}. Sin `new Date(iso)`, que resta un día por zona horaria. */
+function partes(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
-  if (!m) return String(iso);
-  return `${Number(m[3])} ${MESES[Number(m[2]) - 1]}`;
+  return m ? { y: +m[1], m: +m[2], d: +m[3] } : null;
+}
+
+function fechaCorta(iso) {
+  const p = partes(iso);
+  return p ? `${p.d} ${MESES[p.m - 1]}` : String(iso);
 }
 
 function fechaLarga(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
-  if (!m) return String(iso);
-  return `${Number(m[3])} ${MESES[Number(m[2]) - 1]}, ${m[1]}`;
+  const p = partes(iso);
+  return p ? `${p.d} ${MESES[p.m - 1]}, ${p.y}` : String(iso);
+}
+
+/** "2027-01-15" -> "Vie 15 Ene". El día de la semana ayuda a leer el desglose. */
+function fechaConDia(iso) {
+  const p = partes(iso);
+  if (!p) return String(iso);
+  const dia = DIAS[new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay()];
+  return `${dia} ${p.d} ${MESES[p.m - 1]}`;
 }
 
 function anunciar(texto) {
@@ -60,9 +73,18 @@ function mostrarPantalla(cual) {
 const estado = {
   ref: null,
   datos: null, // respuesta de /api/reserva
-  brick: null, // controller del Brick, para poder desmontarlo
+  brick: null, // controller del Brick, para desmontarlo y para getFormData()
   brickFallo: false,
   procesando: false,
+
+  metodo: "credito", // credito | debito | transferencia
+
+  // Planes de cuotas que devuelve MercadoPago para la tarjeta que se está
+  // tipeando. Se piden en onBinChange y sirven para mostrar los importes en el
+  // resumen.
+  planes: [],
+  cuotas: 1,
+  textoCuotas: "", // lo que dice la opción elegida en el formulario del Brick
 };
 
 /* ===========================================================================
@@ -136,11 +158,11 @@ async function cargarReserva() {
   }
 
   mostrarPantalla("checkout");
-  await montarBrick();
+  await aplicarMetodo("credito");
 }
 
 /* ===========================================================================
-   2. Pintar el resumen
+   2. Resumen
    =========================================================================== */
 
 function pintarResumen({ reserva, precio }) {
@@ -148,22 +170,37 @@ function pintarResumen({ reserva, precio }) {
   $("dato-email").textContent = reserva.email;
   $("dato-dni").textContent = reserva.dni;
 
-  const partes = [`${reserva.personas} ${reserva.personas === 1 ? "persona" : "personas"}`];
+  const partesGrupo = [
+    `${reserva.personas} ${reserva.personas === 1 ? "persona" : "personas"}`,
+  ];
   if (reserva.ninos > 0) {
-    partes.push(`${reserva.adultos} ad. · ${reserva.ninos} ${reserva.ninos === 1 ? "niño" : "niños"}`);
+    partesGrupo.push(
+      `${reserva.adultos} ad. · ${reserva.ninos} ${reserva.ninos === 1 ? "niño" : "niños"}`,
+    );
   }
-  $("dato-huespedes").textContent = partes.join(" — ");
+  $("dato-huespedes").textContent = partesGrupo.join(" — ");
 
+  const n = precio.cantidadNoches;
   $("resumen-fechas").textContent =
     `${fechaCorta(reserva.checkIn)} - ${fechaCorta(reserva.checkOut)} ` +
-    `(${precio.noches} ${precio.noches === 1 ? "noche" : "noches"})`;
-  $("resumen-por-noche").textContent = pesos.format(precio.porNoche);
-  $("resumen-noches").textContent = `x ${precio.noches}`;
+    `(${n} ${n === 1 ? "noche" : "noches"})`;
+
+  // Cuando todas las noches valen igual alcanza con "N noches x $precio".
+  // Cuando no (temporadas distintas, un fin de semana largo en el medio), el
+  // encabezado solo puede decir el total: el detalle va en el desplegable.
+  $("resumen-alojamiento-label").textContent = precio.tarifaUniforme
+    ? `${n} ${n === 1 ? "noche" : "noches"} x ${pesos.format(precio.precioMinimo)}`
+    : `Alojamiento (${n} ${n === 1 ? "noche" : "noches"})`;
+  $("resumen-alojamiento").textContent = pesos.format(precio.alojamiento);
+
+  pintarDetalleDeNoches(precio);
+
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);
   $("resumen-checkout").textContent = fechaLarga(reserva.checkOut);
   $("resumen-limpieza").textContent = pesos.format(precio.limpieza);
   $("resumen-total").textContent = pesos.format(precio.total);
   $("transfer-monto").textContent = pesos.format(precio.aCobrar);
+  $("btn-pagar-texto").textContent = `Pagar ${pesos.format(precio.aCobrar)}`;
 
   // Si se cobra una seña, el total y lo que se paga ahora son distintos:
   // decirlo explícito evita el reclamo posterior.
@@ -176,8 +213,101 @@ function pintarResumen({ reserva, precio }) {
   }
 }
 
+/**
+ * El desglose noche por noche. Solo se ofrece cuando las noches no valen todas
+ * lo mismo — si son todas iguales, el encabezado ya lo dice y desplegar una
+ * lista de cinco filas idénticas es ruido.
+ */
+function pintarDetalleDeNoches(precio) {
+  const detalle = $("detalle-noches");
+  if (precio.tarifaUniforme) {
+    detalle.hidden = true;
+    return;
+  }
+
+  const lista = $("detalle-noches-lista");
+  lista.className = "detalle-noches-lista";
+  lista.replaceChildren(
+    ...precio.noches.map((noche) => {
+      const fila = document.createElement("div");
+      fila.className = "noche-row";
+
+      const izq = document.createElement("span");
+      izq.textContent = fechaConDia(noche.fecha);
+
+      // El motivo ("Carnaval", "Semana Santa") explica por qué esa noche sale
+      // más: sin eso, un precio distinto en el medio de la lista parece un error.
+      if (noche.motivo) {
+        const etiqueta = document.createElement("span");
+        etiqueta.className = "noche-motivo";
+        etiqueta.textContent = noche.motivo;
+        izq.appendChild(etiqueta);
+      }
+
+      const der = document.createElement("span");
+      der.textContent = pesos.format(noche.precio);
+
+      fila.append(izq, der);
+      return fila;
+    }),
+  );
+  detalle.hidden = false;
+}
+
 /* ===========================================================================
-   3. El Brick
+   3. Métodos de pago
+   =========================================================================== */
+
+/**
+ * Lo que cambia entre una pestaña y otra.
+ *
+ * `excluidos` se lo pasamos al Brick para que no acepte el tipo de tarjeta que
+ * no corresponde: en la pestaña de débito, una tarjeta de crédito no entra.
+ */
+const METODOS = {
+  credito: {
+    excluidos: ["debit_card"],
+    nota: "Con tarjeta de crédito podés pagar en cuotas. Elegí la cantidad en el formulario y vas a ver el detalle en el resumen.",
+    conCuotas: true,
+  },
+  debito: {
+    excluidos: ["credit_card"],
+    nota: "Con tarjeta de débito el cobro es siempre en un solo pago. Si querés cuotas, usá la pestaña de crédito.",
+    conCuotas: false,
+  },
+  transferencia: {
+    nota: null,
+    conCuotas: false,
+  },
+};
+
+async function aplicarMetodo(metodo) {
+  estado.metodo = metodo;
+  estado.planes = [];
+  estado.cuotas = 1;
+  estado.textoCuotas = "";
+
+  const esTarjeta = metodo === "credito" || metodo === "debito";
+
+  $("form-card").classList.toggle("active", esTarjeta);
+  $("form-transfer").classList.toggle("active", !esTarjeta);
+
+  // En transferencia no hay nada que enviar: el botón de pago no aplica.
+  $("btn-pagar").hidden = !esTarjeta;
+  $("nota-metodo").textContent = METODOS[metodo].nota || "";
+  $("nota-metodo").hidden = !METODOS[metodo].nota;
+
+  actualizarFilaDeCuotas();
+
+  if (esTarjeta) {
+    await montarBrick();
+  } else {
+    await desmontarBrick();
+  }
+}
+
+/* ===========================================================================
+   4. El Brick
    =========================================================================== */
 
 let mp = null;
@@ -213,6 +343,7 @@ const ESTILO_BRICK = {
 
 async function montarBrick() {
   const { publicKey, maxCuotas, reserva, precio } = estado.datos;
+  const config = METODOS[estado.metodo];
 
   // Por si quedó una instancia de un montaje anterior. Dos Bricks sobre el
   // mismo contenedor se pisan y el segundo no dispara onReady.
@@ -253,13 +384,18 @@ async function montarBrick() {
     customization: {
       visual: {
         style: ESTILO_BRICK,
-        texts: {
-          formSubmit: `Pagar ${pesos.format(precio.aCobrar)}`,
-        },
+        // El botón de pago vive en el resumen, no acá. Ver `pagar()`.
+        hidePaymentButton: true,
+        // El Brick titula su formulario "Tarjeta de crédito o débito", que
+        // contradice a la pestaña elegida: en la de débito diría que también
+        // acepta crédito. Las pestañas ya dicen de qué se trata.
+        hideFormTitle: true,
       },
       paymentMethods: {
         minInstallments: 1,
-        maxInstallments: maxCuotas,
+        // En débito, un solo pago. En crédito, hasta el tope configurado.
+        maxInstallments: config.conCuotas ? maxCuotas : 1,
+        types: { excluded: config.excluidos },
       },
     },
     callbacks: {
@@ -270,11 +406,19 @@ async function montarBrick() {
       },
 
       /**
-       * El Brick entrega `formData` con el token y el medio de pago, y espera
-       * una promesa. Mientras no se resuelva, mantiene su botón bloqueado —
-       * que es exactamente la protección que queremos contra el doble clic.
+       * Se dispara con cada cambio en los primeros dígitos de la tarjeta. Es el
+       * único momento en que sabemos QUÉ tarjeta es, y por lo tanto qué planes
+       * de cuotas ofrece y a qué importe.
        */
-      onSubmit: (formData) => enviarPago(formData),
+      onBinChange: (bin) => {
+        if (config.conCuotas) cargarPlanesDeCuotas(bin);
+      },
+
+      onSubmit: () => {
+        // El envío lo dispara el botón del resumen (`pagar()`), no el Brick.
+        // Este callback igual tiene que existir: el Brick lo exige.
+        return Promise.resolve();
+      },
 
       onError: (error) => {
         // Errores del propio Brick (validación, red, SDK). No traen datos de
@@ -291,6 +435,7 @@ async function montarBrick() {
   // siempre en "Cargando el formulario seguro…", sin decir por qué.
   try {
     estado.brick = await bricks.create("cardPayment", "cardPaymentBrick_container", settings);
+    vigilarSelectorDeCuotas();
   } catch (error) {
     clearTimeout(vigia);
     fallaAlCargarElBrick(error);
@@ -331,7 +476,144 @@ async function desmontarBrick() {
 }
 
 /* ===========================================================================
-   4. Cobrar
+   5. Cuotas — mantener el resumen en sincronía
+   =========================================================================== */
+
+/**
+ * Los planes de cuotas de la tarjeta que se está tipeando, con sus importes
+ * reales (incluido el interés, si lo hay).
+ */
+async function cargarPlanesDeCuotas(bin) {
+  if (!bin || bin.length < 6) {
+    estado.planes = [];
+    actualizarFilaDeCuotas();
+    return;
+  }
+
+  try {
+    const respuesta = await mp.getInstallments({
+      amount: String(estado.datos.precio.aCobrar),
+      bin,
+      paymentTypeId: "credit_card",
+    });
+    estado.planes = respuesta?.[0]?.payer_costs || [];
+  } catch (error) {
+    // No es grave: sin esto el resumen muestra la cantidad de cuotas sin el
+    // importe de cada una. El cobro no depende de esta llamada.
+    console.warn("[cuotas] no se pudieron traer los planes:", error?.message || error);
+    estado.planes = [];
+  }
+  actualizarFilaDeCuotas();
+}
+
+/**
+ * El Brick no avisa cuando cambian las cuotas: no existe un
+ * `onInstallmentsChange`.
+ *
+ * Pero el selector de cuotas SÍ vive en el DOM de esta página (solo el número
+ * de tarjeta, el vencimiento y el código de seguridad son iframes de
+ * MercadoPago). Así que se lo escucha directamente:
+ *
+ *   - un listener de `change` delegado en el contenedor, para cuando la persona
+ *     elige otra cantidad;
+ *   - un MutationObserver, porque el selector no existe hasta que se reconoce
+ *     la tarjeta, y cuando aparece ya trae una opción elegida que hay que leer.
+ *
+ * El selector se identifica por lo que dicen sus opciones ("N cuotas de $X"),
+ * no por sus clases ni sus ids: la documentación de MercadoPago pide
+ * expresamente no depender de esos nombres porque los cambian.
+ *
+ * Si algo de esto falla, el resumen simplemente no muestra la fila de cuotas.
+ * El cobro sigue funcionando igual: la cantidad de cuotas que se cobra sale de
+ * getFormData(), no de acá.
+ */
+function vigilarSelectorDeCuotas() {
+  const contenedor = $("cardPaymentBrick_container");
+
+  const observer = new MutationObserver(() => sincronizarCuotasDesdeElFormulario());
+  observer.observe(contenedor, { childList: true, subtree: true });
+
+  contenedor.addEventListener("change", (evento) => {
+    if (esSelectorDeCuotas(evento.target)) sincronizarCuotasDesdeElFormulario();
+  });
+}
+
+function esSelectorDeCuotas(elemento) {
+  return (
+    elemento instanceof HTMLSelectElement &&
+    Array.from(elemento.options).some((o) => /cuota/i.test(o.textContent || ""))
+  );
+}
+
+function sincronizarCuotasDesdeElFormulario() {
+  const selector = Array.from(
+    $("cardPaymentBrick_container").querySelectorAll("select"),
+  ).find(esSelectorDeCuotas);
+
+  const cuotas = selector ? leerCantidadDeCuotas(selector) : 1;
+
+  // El texto de la opción elegida ES el importe que MercadoPago le está
+  // mostrando a la persona, ya con el interés y ya formateado. Guardarlo evita
+  // tener que recalcularlo — y evita el riesgo de recalcularlo mal.
+  const textoOficial = selector
+    ? (selector.options[selector.selectedIndex]?.textContent || "").trim()
+    : "";
+
+  if (cuotas === estado.cuotas && textoOficial === estado.textoCuotas) return;
+
+  estado.cuotas = cuotas;
+  estado.textoCuotas = textoOficial;
+  actualizarFilaDeCuotas();
+}
+
+/** El `value` suele ser el número; si no, se saca del texto ("3 cuotas de …"). */
+function leerCantidadDeCuotas(selector) {
+  const porValor = parseInt(selector.value, 10);
+  if (Number.isInteger(porValor) && porValor >= 1 && porValor <= 24) return porValor;
+
+  const texto = selector.options[selector.selectedIndex]?.textContent || "";
+  const m = /(\d+)\s*cuota/i.exec(texto);
+  return m ? Number(m[1]) : 1;
+}
+
+function actualizarFilaDeCuotas() {
+  const fila = $("fila-cuotas");
+  const conCuotas = METODOS[estado.metodo]?.conCuotas;
+
+  if (!conCuotas || estado.cuotas <= 1) {
+    fila.hidden = true;
+    return;
+  }
+
+  const plan = estado.planes.find((p) => p.installments === estado.cuotas);
+
+  /**
+   * De dónde sale el importe, en orden de preferencia:
+   *
+   *   1. `recommended_message` de getInstallments — ya armado y localizado por
+   *      MercadoPago: "3 cuotas de $ 23.333,33 ($ 70.000,00)".
+   *   2. El texto de la opción elegida en el formulario, que dice exactamente
+   *      lo mismo.
+   *   3. Solo "N cuotas", sin importe.
+   *
+   * El paso 3 NO calcula nada. Es tentador dividir el total por la cantidad de
+   * cuotas, pero cuando las cuotas tienen interés esa división da MENOS que lo
+   * que la persona va a pagar de verdad: le estaríamos mostrando un precio más
+   * barato que el real en la pantalla donde decide pagar. Mejor no decir el
+   * importe que decirlo mal — el formulario, al lado, lo tiene bien.
+   */
+  const texto =
+    plan?.recommended_message ||
+    estado.textoCuotas ||
+    `${estado.cuotas} cuotas`;
+
+  $("resumen-cuotas").textContent = texto;
+  fila.hidden = false;
+  anunciar(`Cuotas actualizadas: ${texto}`);
+}
+
+/* ===========================================================================
+   6. Cobrar
    =========================================================================== */
 
 function mostrarVeloProcesando(visible) {
@@ -367,14 +649,33 @@ function ocultarAvisoDePago() {
 }
 
 /**
- * Manda el formulario al backend. Devuelve la promesa que espera el Brick:
- * se resuelve siempre (nunca rechaza), porque el resultado lo mostramos
- * nosotros — si la rechazáramos, el Brick pintaría su propio error encima
- * del nuestro y la persona vería dos mensajes distintos del mismo problema.
+ * El botón del resumen. Le pide al Brick los datos del formulario y, con eso,
+ * llama al backend.
+ *
+ * `getFormData()` valida el formulario primero: si falta algo o hay un campo
+ * mal, rechaza y el Brick marca los errores solo. Por eso el catch no muestra
+ * nada extra — sería un segundo mensaje diciendo lo mismo.
  */
+async function pagar() {
+  if (estado.procesando || !estado.brick) return;
+
+  let formData;
+  try {
+    formData = await estado.brick.getFormData();
+  } catch (error) {
+    console.warn("[pago] el formulario todavía no está completo:", error?.message || error);
+    anunciar("Revisá los datos de la tarjeta.");
+    return;
+  }
+  if (!formData) return;
+
+  await enviarPago(formData);
+}
+
+/** Manda el formulario al backend y muestra el resultado. */
 async function enviarPago(formData) {
-  if (estado.procesando) return;
   estado.procesando = true;
+  $("btn-pagar").disabled = true;
   ocultarAvisoDePago();
   mostrarVeloProcesando(true);
   anunciar("Procesando el pago. Esperá unos segundos.");
@@ -436,8 +737,6 @@ async function enviarPago(formData) {
       return;
     }
 
-    // Rechazado: se queda en el formulario con el motivo arriba, así puede
-    // corregir el dato o probar otra tarjeta sin volver a empezar.
     // Rechazado: el Brick se queda montado y con los datos cargados, así la
     // persona corrige el campo que falló y reenvía. Al reenviar, el SDK genera
     // un token nuevo (el anterior es de un solo uso), así que no hace falta
@@ -455,11 +754,12 @@ async function enviarPago(formData) {
     });
   } finally {
     estado.procesando = false;
+    $("btn-pagar").disabled = false;
   }
 }
 
 /* ===========================================================================
-   5. Pantalla final
+   7. Pantalla final
    =========================================================================== */
 
 const ICONOS = {
@@ -469,9 +769,9 @@ const ICONOS = {
 };
 
 function mostrarResultado(mensaje, pago) {
-  // Fuera del tick actual: esta función puede estar corriendo dentro del
-  // onSubmit del Brick, y desmontarlo mientras espera su propia promesa es
-  // pedirle que se saque la silla de abajo.
+  // Fuera del tick actual: esta función puede estar corriendo dentro de un
+  // callback del Brick, y desmontarlo en el medio es pedirle que se saque la
+  // silla de abajo.
   setTimeout(desmontarBrick, 0);
 
   const icono = ICONOS[mensaje.grupo] || ICONOS.rechazado;
@@ -527,43 +827,29 @@ function mostrarResultado(mensaje, pago) {
 }
 
 /* ===========================================================================
-   6. Tabs (tarjeta / transferencia)
+   8. Pestañas
    =========================================================================== */
 
 function activarTabs() {
   const tabs = document.querySelectorAll(".tab-btn");
-  let activo = $("form-card");
 
   tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      if (tab.classList.contains("active")) return;
+    tab.addEventListener("click", async () => {
+      if (tab.classList.contains("active") || estado.procesando) return;
 
       tabs.forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
+      ocultarAvisoDePago();
 
-      const destino = $(tab.dataset.target);
-      if (destino === activo) return;
-
-      const cambiar = () => {
-        activo.classList.remove("active");
-        destino.classList.add("active");
-        activo = destino;
-      };
+      const metodo = tab.dataset.metodo;
+      const destino = metodo === "transferencia" ? $("form-transfer") : $("form-card");
 
       // GSAP es opcional: si no cargó, el cambio es instantáneo igual.
       if (window.gsap) {
-        window.gsap.to(activo, {
-          opacity: 0,
-          y: 10,
-          duration: 0.2,
-          onComplete: () => {
-            cambiar();
-            window.gsap.fromTo(destino, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
-          },
-        });
-      } else {
-        cambiar();
+        window.gsap.fromTo(destino, { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.25 });
       }
+
+      await aplicarMetodo(metodo);
     });
   });
 }
@@ -574,13 +860,7 @@ function activarTabs() {
 
 document.addEventListener("DOMContentLoaded", () => {
   activarTabs();
-
   $("error-reintentar").addEventListener("click", () => cargarReserva());
-
-  $("btn-ir-al-pago").addEventListener("click", () => {
-    document.querySelector(".tab-btn").click();
-    $("seccion-pago").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-
+  $("btn-pagar").addEventListener("click", pagar);
   cargarReserva();
 });
