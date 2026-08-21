@@ -74,6 +74,26 @@ export function leerConfig() {
       "tablas con RLS cerrado; con la anon no puede hacer nada.",
   );
 
+  /**
+   * Freno de mano: si acá pegaron la clave PÚBLICA por error, el panel entra
+   * igual (el login solo necesita el código) y recién falla al pedir datos, con
+   * un "permission denied" de PostgREST que no dice nada de claves. Es el error
+   * más fácil de cometer y el más difícil de diagnosticar, así que se detecta
+   * al leer la configuración y se dice con todas las letras.
+   */
+  const pareceAnon =
+    serviceRoleKey.startsWith("sb_publishable_") ||
+    (serviceRoleKey.startsWith("eyJ") && /"role"\s*:\s*"anon"/.test(decodificarJwt(serviceRoleKey)));
+
+  if (pareceAnon) {
+    throw new ErrorDeConfig(
+      "SUPABASE_SERVICE_ROLE_KEY tiene una clave PÚBLICA (anon/publishable).",
+      "El panel necesita la service_role: todas las tablas que toca tienen RLS " +
+        "activo y ninguna política, así que con la clave pública no puede leer " +
+        "ni escribir nada. Supabase → Project Settings → API → service_role.",
+    );
+  }
+
   cache = {
     codigo,
     secreto,
@@ -91,6 +111,17 @@ export function leerConfig() {
   };
 
   return cache;
+}
+
+/** El payload de un JWT, sin validar la firma: solo para mirar el `role`. */
+function decodificarJwt(token) {
+  const partes = token.split(".");
+  if (partes.length !== 3) return "";
+  try {
+    return Buffer.from(partes[1], "base64url").toString("utf8");
+  } catch {
+    return "";
+  }
 }
 
 /* ---------------------------------------------------------------------------

@@ -51,9 +51,15 @@ export function leerBody(req) {
  * Política de errores del panel.
  *
  * A diferencia del checkout, del otro lado hay una sola persona y es la dueña
- * del sistema: acá el mensaje de error puede ser específico y decir qué falló,
- * porque no hay a quién filtrarle información. Lo único que nunca sale es el
- * texto de un ErrorDeConfig, que puede nombrar variables y credenciales.
+ * del sistema: acá el mensaje puede ser específico y decir qué falló, porque no
+ * hay a quién filtrarle información.
+ *
+ * Los ErrorDeConfig salen COMPLETOS, con el nombre de la variable y la pista de
+ * cómo arreglarla. Ninguno de esos mensajes contiene un valor —  nombran
+ * variables y dan instrucciones— y esconderlos solo lograba que un
+ * "SUPABASE_SERVICE_ROLE_KEY tiene una clave pública" llegara al panel como un
+ * "revisá las variables de entorno" que obliga a ir a buscar los logs de
+ * Vercel para enterarse de cuál.
  */
 export function manejarError(res, evento, error) {
   if (error instanceof ErrorVisible) {
@@ -63,10 +69,7 @@ export function manejarError(res, evento, error) {
 
   if (error?.name === "ErrorDeConfig") {
     console.error(`[${evento}] configuración:`, error.message);
-    return json(res, 500, {
-      error: "El panel no está configurado correctamente. Revisá las variables de entorno en Vercel.",
-      codigo: "config",
-    });
+    return json(res, 500, { error: error.message, codigo: "config" });
   }
 
   console.error(`[${evento}] error:`, error?.message || error);

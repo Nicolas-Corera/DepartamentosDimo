@@ -34,13 +34,36 @@ async function pedir(ruta, opciones = {}) {
 
   if (!respuesta.ok) {
     let detalle = texto;
+    let codigo = "";
     try {
       const j = JSON.parse(texto);
       detalle = j.message || j.error || j.hint || texto;
+      codigo = j.code || "";
     } catch {
       /* la respuesta no era JSON: se usa el texto crudo */
     }
-    throw new Error(`Supabase (${respuesta.status}): ${detalle}`);
+
+    /**
+     * Los mensajes de PostgREST son precisos pero no dicen qué hacer. Estos
+     * tres son los únicos que se ven en la práctica cuando el panel se acaba
+     * de configurar, y los tres tienen una causa concreta que conviene nombrar
+     * en vez de dejar al operador leyendo "permission denied for table".
+     */
+    let pista = "";
+    if (respuesta.status === 401 || respuesta.status === 403 || /permission denied/i.test(detalle)) {
+      pista =
+        " → Revisá SUPABASE_SERVICE_ROLE_KEY en Vercel: estas tablas tienen RLS " +
+        "activo y sin políticas, así que con la clave pública (anon) no se puede " +
+        "leer nada. Tiene que ser la service_role.";
+    } else if (codigo === "42P01" || /does not exist/i.test(detalle)) {
+      pista =
+        " → Falta correr pago/sql/configuracion-tarifas.sql en Supabase, o " +
+        "SUPABASE_URL apunta a otro proyecto.";
+    } else if (respuesta.status === 404) {
+      pista = " → Revisá que SUPABASE_URL sea la del proyecto correcto.";
+    }
+
+    throw new Error(`Supabase (${respuesta.status}): ${detalle}${pista}`);
   }
 
   if (!texto) return null;
