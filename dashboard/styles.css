@@ -475,7 +475,9 @@ h2 {
 }
 
 input[type="date"],
-input[type="number"] {
+input[type="number"],
+input[type="text"],
+select {
   width: 100%;
   background-color: var(--blanco);
   border: 1px solid var(--arena-deep);
@@ -484,7 +486,18 @@ input[type="number"] {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 16px;
   color: var(--on-surface);
-  transition: all 0.2s;
+  /**
+   * Solo lo del foco, no `all`.
+   *
+   * Con `transition: all` también se anima el `background-color`, y en un
+   * <select> que se habilita y se deshabilita por código (el de cuotas, que
+   * solo aplica en crédito) Chrome dejaba el valor pegado en el gris de
+   * :disabled: al volver a habilitarlo seguía viéndose apagado, como si no se
+   * pudiera tocar.
+   */
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 input[type="number"] {
@@ -493,7 +506,33 @@ input[type="number"] {
   color: var(--tinta);
 }
 
-input:focus {
+/**
+ * El <select> nativo ignora casi todo el estilo de la caja en Windows y
+ * Chrome —  incluidos el borde y el radio— salvo que se le saque el aspecto
+ * de sistema. Al sacarlo también desaparece la flecha, así que se dibuja una
+ * como fondo. Va en un data URI y no en un SVG aparte para no sumar un
+ * archivo y un pedido más por una flecha de doce bytes.
+ */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f484c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+select:disabled {
+  background-color: var(--surface-container);
+  color: var(--on-surface-variant);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+input:focus,
+select:focus {
   outline: none;
   border-color: var(--primary-container);
   box-shadow: 0 0 0 2px rgba(31, 111, 135, 0.2);
@@ -1026,9 +1065,15 @@ td {
   }
 
   input[type="date"],
-  input[type="number"] {
+  input[type="number"],
+  input[type="text"],
+  select {
     padding: 7px 10px;
     font-size: 15px;
+  }
+
+  select {
+    padding-right: 32px;
   }
 
   .special-dates-header {
