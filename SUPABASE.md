@@ -40,14 +40,16 @@ referencia de cómo está armado y cómo tocarlo, no una lista de pendientes.
 | Tabla `booking_requests` (formulario de reserva) | creada — ver sección 8 |
 | RLS | activo — lectura e inserción públicas, `update`/`delete` bloqueados |
 | Security Advisor | **0 avisos** (ver sección 2) |
-| Modo de publicación | **automática**, sin moderación (ver sección 2) |
+| Modo de publicación | **moderada** — nada sale al sitio sin aprobarlo en el panel (ver sección 2) |
 | `.env` local | completo, fuera del repo |
 | Variables en Vercel | `SUPABASE_URL` y `SUPABASE_ANON_KEY` |
 | `index.html` / `script.js` | cableados contra Supabase |
 
 Verificado de punta a punta contra la base real: alta de reseña desde el
-navegador, aparición inmediata en el carrusel, rechazo de duplicados, y
-confirmación de que un visitante **no** puede editar ni borrar filas ajenas.
+navegador, la reseña queda pendiente y **no** aparece en el carrusel, se ve en el
+panel para aprobar, aparece en el sitio recién después de aprobarla, rechazo de
+duplicados, y confirmación de que un visitante **no** puede leer las pendientes,
+auto-aprobarse, ni editar o borrar filas ajenas.
 
 El formulario de reserva guarda cada consulta en `booking_requests`, una tabla
 de **solo-alta** (tiene DNI, mail y teléfono: el sitio escribe pero no lee).
@@ -134,7 +136,7 @@ create policy "alta publica de reseñas sin aprobar"
   with check (approved = false);
 ```
 
-### Qué implica esto
+### Qué implica esto — ⚠️ ESTA ES LA CONFIGURACIÓN ACTIVA HOY
 
 - **Las reseñas nuevas no aparecen solas.** Entran con `approved = false` y quedan
   pendientes hasta que las aprobes a mano. Es lo que evita que cualquiera publique
@@ -152,7 +154,7 @@ y cómo se cerraron:
 
 | Aviso | Qué era | Cómo se resolvió |
 | --- | --- | --- |
-| *RLS Policy Always True* | La política de `insert` era `with check (true)` | Se acotó a `approved = true and created_at <= now()` (arriba) |
+| *RLS Policy Always True* | La política de `insert` era `with check (true)` | Se acotó a `approved = false and created_at <= now()` (arriba) |
 | *Public Can Execute SECURITY DEFINER Function* | `anon` tenía `EXECUTE` sobre `public.rls_auto_enable()` | `revoke execute ... from anon` |
 | *Signed-In Users Can Execute SECURITY DEFINER Function* | Lo mismo para `authenticated` | `revoke execute ... from authenticated` |
 
@@ -182,12 +184,15 @@ la fila que quieras publicar. También podés hacerlo por SQL:
 update public.reviews set approved = true where id = 'PEGAR-EL-UUID';
 ```
 
-### Publicación automática — ⚠️ ESTA ES LA CONFIGURACIÓN ACTIVA HOY
+### Publicación automática — variante alternativa, HOY NO ESTÁ ACTIVA
 
-**El proyecto está corriendo con esta variante, no con la moderada de arriba.**
-Es una decisión tomada a propósito: las reseñas se publican solas, sin revisión.
+**El proyecto NO está corriendo con esta variante.** Estuvo un tiempo, y el
+efecto secundario fue que el panel nunca tenía nada para aprobar: la columna
+`approved` arrancaba en `true`, así que toda reseña nacía publicada y la pestaña
+Reseñas del dash mostraba cero pendientes por diseño. Queda documentada por si
+alguna vez se quiere volver, pero la configuración vigente es la moderada.
 
-Lo que implica, para que no sorprenda:
+Lo que implicaría volver a este modo:
 
 - Cualquiera que entre al sitio puede publicar una reseña y aparece al instante.
 - No hay filtro de spam. La defensa que hay hoy es el índice `reviews_dedupe_idx`
@@ -197,8 +202,11 @@ Lo que implica, para que no sorprenda:
   justo para esto: es el interruptor manual para ocultar algo sin borrarlo.
 - Si aparece spam, la vuelta a moderación es correr el bloque de la sección
   anterior (default `false` + políticas restrictivas).
+- `createReview()` en [script.js](script.js) manda `approved: false` explícito.
+  Con estas políticas ese insert sería **rechazado**: habría que sacar esa línea
+  antes de correr el SQL de abajo.
 
-El SQL que produce esta configuración:
+El SQL que produciría esta configuración (⚠️ no correrlo si no es lo que querés):
 
 ```sql
 alter table public.reviews alter column approved set default true;
@@ -455,6 +463,7 @@ dejá las funciones así:
       name: review.name,
       rating: review.rating,
       text: review.text,
+      approved: false,
     });
 
     if (error) throw error;
@@ -464,21 +473,22 @@ dejá las funciones así:
 
 ### Detalle importante sobre `createReview`
 
-Con moderación activada (`approved = false` por defecto), la reseña recién enviada
-**no se va a ver en el carrusel** — eso es lo correcto, pero conviene avisarle a la
-persona. En [index.html](index.html), cambiá el texto del cartel de éxito
-(`#resenaSuccess`) por algo como:
+**`approved: false` va explícito y no es redundante.** El default de la columna ya
+es `false`, pero la política de `INSERT` es `with check (approved = false)`: es
+mandarlo lo que hace que el insert sea válido, y deja escrito en el único lugar
+donde el sitio da de alta reseñas que lo que se guarda nace sin publicar.
 
-```html
-<p class="form-success" id="resenaSuccess" hidden>
-  <svg class="ic-sm"><use href="#ic-check" /></svg> ¡Gracias! Tu reseña se
-  publica apenas la revisemos.
-</p>
-```
+**No encadenar `.select()`.** Sin `.select()`, supabase-js manda
+`Prefer: return=minimal` y el alta termina en 201. Si pidiera la fila de vuelta,
+el `INSERT ... RETURNING` tendría que pasar además por la política de `SELECT`
+(`approved = true`) — que la fila recién creada no cumple — y el alta fallaría
+con un `42501` / HTTP 401 que parece un problema de credenciales y no lo es.
 
-Si además querés que el carrusel se refresque después de enviar (útil solo en modo
-sin moderación), reemplazá la línea `renderReviews();` del handler del formulario
-por `await loadReviews();`.
+**No recargar el carrusel después de enviar.** La reseña entra sin aprobar y
+`fetchReviews()` filtra por `approved = true`, así que un `await loadReviews()`
+devolvería exactamente la misma lista de antes y quien acaba de escribirla vería
+que "no se guardó". El handler solo muestra un aviso que dice que quedó
+pendiente, y el botón del formulario dice **"Enviar reseña"**, no "Publicar".
 
 ---
 
@@ -569,7 +579,9 @@ db.channel("reviews-live")
 | `supabase is not defined` | El `<script>` del CDN falta o va después de `supabase-config.js`. |
 | `db.from is not a function` | El cliente se llamó `supabase` y pisó el namespace del UMD. Usá otro nombre. |
 | El `SELECT` devuelve `[]` sin error | No hay filas con `approved = true`. RLS filtra en silencio, no tira error. |
-| `new row violates row-level security policy` | Falta la política de `insert`, o se está mandando `approved: true` en el insert. |
+| `new row violates row-level security policy` (HTTP 401, `42501`) | Falta la política de `insert`, o se está mandando `approved: true` en el insert. También lo tira un `.select()` encadenado al insert: la fila nace con `approved = false` y no pasa la política de `SELECT`. |
+| HTTP 400 con código `23514` al publicar una reseña | `check_violation`: el largo quedó fuera de rango. `name` va de 2 a 40 caracteres y `text` de 5 a 180, **contados sobre el valor ya trimmeado**. Pasa con comentarios de prueba tipo `ok` o `test`. El formulario ahora lo valida antes de mandar. |
+| HTTP 409 con código `23505` al publicar una reseña | `unique_violation` del índice `reviews_dedupe_idx`: ya existe una reseña con el mismo nombre y el mismo comentario. |
 | Error de CORS | Se abrió el `index.html` con `file://`. Usá un servidor local. |
 | `db is not defined` | Falta el `<script src="supabase-config.js">` en el HTML, o el archivo nunca se generó. Corré `npm run config`. |
 | `ERROR Falta la variable SUPABASE_URL` | El `.env` no existe o la variable quedó vacía. `cp .env.example .env` y completá los dos valores. |

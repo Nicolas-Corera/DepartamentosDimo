@@ -220,8 +220,19 @@ service_role, que saltea RLS.
   desaparece: una vez aprobada solo queda el de eliminar.
 - **Eliminar** la borra de la base. Es definitivo y no hay papelera, así que
   pregunta antes.
-- Las pendientes se listan primero, y arriba a la derecha aparece cuántas hay
-  esperando.
+- Las pendientes se listan primero, y arriba a la derecha aparecen dos chips:
+  el **promedio** de puntaje (sobre todas las reseñas de la tabla, aprobadas y
+  pendientes) y cuántas hay **sin aprobar** esperando.
+
+Cada tarjeta muestra el puntaje dos veces a propósito: las cinco estrellas y el
+número (`4/5`) al lado. Cinco iconos chiquitos se cuentan mal de un vistazo, y
+acá el puntaje es justo el dato que se mira para decidir si algo se publica.
+
+Las estrellas usan siempre el glifo `star` de Material Symbols; lo que cambia
+entre encendida y apagada es el eje **FILL** (`1` / `0`), no el nombre del
+icono. Si alguna vez volvés a ver las cinco encendidas con cualquier puntaje,
+mirá si `.stars .material-symbols-outlined` está forzando `FILL 1` sobre todos
+los hijos y pisando la clase `.is-off`.
 
 El panel **no edita** el nombre, el puntaje ni el texto: son de quien los
 escribió. Modera, no reescribe.

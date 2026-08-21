@@ -22,6 +22,13 @@
 
 const $ = (id) => document.getElementById(id);
 
+// Un decimal fijo y coma como separador: "4,3". Fijo y no "el mínimo
+// necesario" para que el número del chip no cambie de ancho entre recargas.
+const puntajes = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
 const pesos = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
@@ -1187,7 +1194,62 @@ function pintarResenas(pendientes) {
   $("resenas-pendientes-chip").hidden = !pendientes;
   if (pendientes) $("resenas-pendientes").textContent = pendientes;
 
+  // Promedio sobre TODAS las reseñas de la tabla, aprobadas y pendientes: es
+  // el panel de moderación, así que interesa el pulso completo de lo que
+  // escribe la gente, no solo lo que ya se dejó salir al sitio.
+  $("resenas-promedio-chip").hidden = !hay;
+  if (hay) {
+    const suma = estado.resenas.reduce((acc, r) => acc + (Number(r.puntaje) || 0), 0);
+    $("resenas-promedio").textContent = puntajes.format(suma / estado.resenas.length);
+  }
+
   $("resenas-grid").replaceChildren(...estado.resenas.map(tarjetaDeResena));
+}
+
+/* Las cinco estrellas de una tarjeta, más el puntaje en texto.
+
+   Las cinco usan SIEMPRE el glifo `star`: lo que distingue una encendida de
+   una apagada es el eje FILL de Material Symbols, no el nombre del icono.
+   Antes las apagadas pedían `star_outline`, pero `.stars` forzaba
+   `font-variation-settings: "FILL" 1` sobre todos los hijos, así que ese glifo
+   salía relleno igual y las cinco se veían encendidas con cualquier puntaje.
+   Ahora el estado apagado es una clase (`is-off`) que pone FILL en 0.
+
+   El "4/5" al lado no es decorativo: cinco iconos chiquitos se cuentan mal de
+   un vistazo, y en el panel el puntaje es justamente el dato que se mira para
+   decidir si una reseña se publica. */
+function bloqueDePuntaje(valor) {
+  // La columna `rating` tiene un check de 1 a 5, pero la tarjeta se pinta con
+  // lo que devuelva la API: si algún día llega basura, se recorta acá y no
+  // rompe el layout con 40 estrellas.
+  const puntaje = Math.min(5, Math.max(0, Math.round(Number(valor) || 0)));
+
+  const bloque = document.createElement("div");
+  bloque.className = "review-rating";
+
+  const estrellas = document.createElement("div");
+  estrellas.className = "stars";
+  // Para un lector de pantalla las cinco estrellas son UNA sola cosa que dice
+  // el puntaje, no cinco palabras "star" seguidas.
+  estrellas.setAttribute("role", "img");
+  estrellas.setAttribute("aria-label", `${puntaje} de 5 estrellas`);
+
+  for (let i = 1; i <= 5; i++) {
+    const estrella = document.createElement("span");
+    estrella.className = "material-symbols-outlined";
+    if (i > puntaje) estrella.classList.add("is-off");
+    estrella.setAttribute("aria-hidden", "true");
+    estrella.textContent = "star";
+    estrellas.appendChild(estrella);
+  }
+
+  const texto = document.createElement("span");
+  texto.className = "rating-valor";
+  texto.setAttribute("aria-hidden", "true");
+  texto.textContent = `${puntaje}/5`;
+
+  bloque.append(estrellas, texto);
+  return bloque;
 }
 
 function tarjetaDeResena(r) {
@@ -1209,15 +1271,7 @@ function tarjetaDeResena(r) {
   nombre.className = "reviewer-name";
   nombre.textContent = r.nombre;
 
-  const estrellas = document.createElement("div");
-  estrellas.className = "stars";
-  for (let i = 1; i <= 5; i++) {
-    const estrella = document.createElement("span");
-    estrella.className = "material-symbols-outlined";
-    estrella.textContent = i <= r.puntaje ? "star" : "star_outline";
-    estrellas.appendChild(estrella);
-  }
-  cabecera.append(nombre, estrellas);
+  cabecera.append(nombre, bloqueDePuntaje(r.puntaje));
 
   const texto = document.createElement("p");
   texto.className = "review-text";

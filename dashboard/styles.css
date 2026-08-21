@@ -361,6 +361,14 @@ h2 {
   margin-bottom: var(--stack-lg);
 }
 
+/* Contenedor para cuando una cabecera tiene más de un chip de resumen. */
+.header-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .rate-summary {
   background-color: var(--primary-container);
   color: var(--blanco);
@@ -830,6 +838,14 @@ td {
   color: var(--tinta);
 }
 
+/* Puntaje de una reseña: las cinco estrellas + el "4/5" al lado. */
+.review-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .stars {
   color: var(--madera);
   display: flex;
@@ -839,6 +855,26 @@ td {
 .stars .material-symbols-outlined {
   font-size: 18px;
   font-variation-settings: "FILL" 1;
+}
+
+/* La estrella apagada. Es el mismo glifo `star` con el eje FILL en 0: queda
+   el contorno. Antes esto se intentaba cambiando el nombre del icono a
+   `star_outline`, y no funcionaba — la regla de arriba le seguía aplicando
+   FILL 1 y salía rellena igual, así que las cinco se veían encendidas
+   sin importar el puntaje. */
+.stars .material-symbols-outlined.is-off {
+  font-variation-settings: "FILL" 0;
+  opacity: 0.4;
+}
+
+.rating-valor {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--madera);
+  /* Cifras de ancho fijo: si no, el bloque se mueve entre un 1/5 y un 4/5. */
+  font-variant-numeric: tabular-nums;
 }
 
 .review-text {

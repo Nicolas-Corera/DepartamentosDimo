@@ -31,3 +31,6 @@ supabase-config.js
 
 # Link local del proyecto de Vercel (lo crea el CLI)
 .vercel/
+
+# Notas de trabajo locales — NO se suben al repo
+cosasparahacer.txt

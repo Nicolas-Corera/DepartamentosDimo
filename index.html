@@ -740,7 +740,17 @@
         <form id="resenaForm">
           <div class="field">
             <label for="resenaNombre">Tu nombre</label>
-            <input type="text" id="resenaNombre" maxlength="40" required />
+            <!-- minlength/maxlength espejan los `check` de la tabla reviews
+                 (name entre 2 y 40). El navegador frena antes de mandar; el JS
+                 vuelve a chequear sobre el valor YA trimmeado, que es lo que
+                 mira Postgres y lo que `minlength` por sí solo no ve. -->
+            <input
+              type="text"
+              id="resenaNombre"
+              minlength="2"
+              maxlength="40"
+              required
+            />
           </div>
           <div class="field">
             <label>Calificación</label>
@@ -789,9 +799,11 @@
           </div>
           <div class="field">
             <label for="resenaComentario">Comentario</label>
+            <!-- Igual que el nombre: reviews.text tiene check entre 5 y 180. -->
             <textarea
               id="resenaComentario"
               rows="3"
+              minlength="5"
               maxlength="180"
               required
             ></textarea>
@@ -810,13 +822,20 @@
               </span>
             </div>
           </div>
+          <!-- El texto del botón dice "Enviar" y no "Publicar" porque las
+               reseñas pasan por moderación: entran con approved = false y las
+               publica el panel. Prometer "publicar" acá hacía esperar que la
+               reseña apareciera en el carrusel al instante. -->
           <button
             type="submit"
             class="btn btn-primary btn-block"
             id="resenaSubmit"
           >
-            Publicar reseña
+            Enviar reseña
           </button>
+          <p class="field-hint">
+            Antes de salir en el sitio la revisamos. No es inmediato.
+          </p>
         </form>
       </div>
     </div>

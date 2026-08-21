@@ -981,6 +981,22 @@
   const REVIEW_MAX_WORDS = 35;
   const REVIEW_NAME_MAX = 40;
 
+  /* Los mínimos NO son un capricho de la interfaz: son los `check` que tiene
+     la tabla `reviews` en Postgres —
+
+       check (char_length(trim(name)) between 2 and 40)
+       check (char_length(trim(text)) between 5 and 180)
+
+     — y hasta ahora el formulario no los miraba. Solo exigía que los campos
+     no estuvieran vacíos, así que un comentario de prueba tipo "ok" pasaba el
+     control del navegador, la base lo rechazaba con 23514 y la persona veía
+     el mensaje genérico de "probá de nuevo en un momento". Probar de nuevo no
+     servía de nada: el texto iba a seguir siendo corto.
+
+     Si tocás estos números, tocá también los `check` de la tabla. */
+  const REVIEW_MIN_CHARS = 5;
+  const REVIEW_NAME_MIN = 2;
+
   function countWords(str) {
     const t = str.trim();
     return t ? t.split(/\s+/).length : 0;
@@ -999,10 +1015,21 @@
   }
 
   async function createReview(review) {
+    // `approved: false` va explícito a propósito. No alcanza con el default de
+    // la columna: la política de RLS de INSERT es `with check (approved =
+    // false)`, así que mandarlo es lo que hace que el insert sea válido — y
+    // deja escrito acá, en el único lugar donde el sitio da de alta reseñas,
+    // que lo que se guarda nace SIN publicar. La publica el panel.
+    //
+    // Ojo: sin `.select()` encadenado, supabase-js manda `Prefer:
+    // return=minimal`. Tiene que quedar así: si pidiera la fila de vuelta,
+    // el INSERT ... RETURNING chocaría contra la política de SELECT
+    // (`approved = true`) y el alta fallaría con un 401 engañoso.
     const { error } = await db.from("reviews").insert({
       name: review.name,
       rating: review.rating,
       text: review.text,
+      approved: false,
     });
 
     if (error) throw error;
@@ -1387,6 +1414,20 @@
       mostrarToast("Elegí una puntuación de 1 a 5 estrellas.", "error");
       return;
     }
+    if (nombre.length < REVIEW_NAME_MIN) {
+      mostrarToast(
+        `Escribí tu nombre completo: necesita al menos ${REVIEW_NAME_MIN} caracteres.`,
+        "error",
+      );
+      return;
+    }
+    if (comentario.length < REVIEW_MIN_CHARS) {
+      mostrarToast(
+        `Contanos un poco más: el comentario necesita al menos ${REVIEW_MIN_CHARS} caracteres.`,
+        "error",
+      );
+      return;
+    }
     if (nombre.length > REVIEW_NAME_MAX) {
       mostrarToast(
         `El nombre no puede superar los ${REVIEW_NAME_MAX} caracteres.`,
@@ -1416,23 +1457,36 @@
         rating: selectedStars,
         text: comentario,
       });
-      // Con publicación automática la reseña ya está visible en la base, así
-      // que se recarga la lista desde Supabase en vez de re-pintar la copia
-      // en memoria (que no la tiene y dejaba el carrusel igual que antes).
-      await loadReviews();
+      // No se recarga el carrusel: la reseña entra sin aprobar y el carrusel
+      // solo trae las aprobadas, así que un fetch acá devolvería exactamente
+      // la misma lista de antes. Peor todavía, quien la escribió vería que su
+      // reseña "no se guardó". Por eso el aviso dice que queda pendiente.
       resenaForm.reset();
       resetStars();
       updateContador();
-      mostrarToast("¡Gracias por dejar tu reseña!", "exito");
+      mostrarToast(
+        "¡Gracias! Tu reseña quedó pendiente de aprobación y se publica apenas la revisemos.",
+        "exito",
+      );
       closeModal(modalResena);
     } catch (err) {
       console.error("No se pudo publicar la reseña:", err);
-      // 23505 = unique_violation: lo tira el índice reviews_dedupe_idx cuando
-      // ya existe una reseña con el mismo nombre y el mismo comentario.
+      /* Los dos códigos que la base devuelve por algo que la persona SÍ puede
+         corregir. Sin este mapeo caían en el "probá de nuevo en un momento",
+         que es un mal consejo: volver a mandar lo mismo falla igual.
+
+           23505  unique_violation — el índice reviews_dedupe_idx: ya existe
+                  una reseña con el mismo nombre y el mismo comentario.
+           23514  check_violation  — largo fuera de rango. Las validaciones de
+                  arriba deberían atajarlo antes de llegar acá; esto es la red
+                  por si algún día los números del formulario y los `check` de
+                  la tabla dejan de coincidir. */
+      const AVISOS = {
+        23505: "Ya hay una reseña publicada con ese nombre y ese mismo comentario.",
+        23514: `Revisá el largo: el nombre va de ${REVIEW_NAME_MIN} a ${REVIEW_NAME_MAX} caracteres y el comentario de ${REVIEW_MIN_CHARS} a ${REVIEW_MAX_CHARS}.`,
+      };
       mostrarToast(
-        err?.code === "23505"
-          ? "Ya hay una reseña publicada con ese nombre y ese mismo comentario."
-          : "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
+        AVISOS[err?.code] || "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
         "error",
       );
     } finally {

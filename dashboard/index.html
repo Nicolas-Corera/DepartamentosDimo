@@ -523,13 +523,34 @@
                 sitio recién cuando las aprobás.
               </p>
             </div>
-            <div class="rate-summary" id="resenas-pendientes-chip" hidden>
-              <div class="rate-summary-icon">
-                <span class="material-symbols-outlined">pending</span>
+            <!-- Los dos chips van envueltos: `.header-section` es un flex con
+                 space-between, así que sueltos quedarían uno en cada punta con
+                 el título en el medio. -->
+            <div class="header-chips">
+              <div class="rate-summary" id="resenas-promedio-chip" hidden>
+                <div class="rate-summary-icon">
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >star</span
+                  >
+                </div>
+                <div>
+                  <p class="eyebrow rate-summary-text-light">Promedio</p>
+                  <p class="rate-summary-price">
+                    <span id="resenas-promedio">—</span
+                    ><span class="rate-summary-note">/5</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <p class="eyebrow rate-summary-text-light">Sin aprobar</p>
-                <p class="rate-summary-price" id="resenas-pendientes">—</p>
+              <div class="rate-summary" id="resenas-pendientes-chip" hidden>
+                <div class="rate-summary-icon">
+                  <span class="material-symbols-outlined">pending</span>
+                </div>
+                <div>
+                  <p class="eyebrow rate-summary-text-light">Sin aprobar</p>
+                  <p class="rate-summary-price" id="resenas-pendientes">—</p>
+                </div>
               </div>
             </div>
           </div>
