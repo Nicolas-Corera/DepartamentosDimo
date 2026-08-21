@@ -530,10 +530,16 @@
         margin-bottom: 20px;
       }
 
+      /**
+       * `appearance: none` no es cosmético: sin eso, Chrome en Windows ignora
+       * el borde y el radio del <select> y lo dibuja con el aspecto del
+       * sistema, que no se parece en nada al resto del formulario. Al sacarlo
+       * también desaparece la flecha, así que va dibujada de fondo.
+       */
       .cuotas-selector select {
         width: 100%;
         margin-top: 6px;
-        padding: 12px 14px;
+        padding: 12px 40px 12px 14px;
         font-family: inherit;
         font-size: 15px;
         color: var(--color-tinta);
@@ -541,6 +547,12 @@
         border: 1px solid var(--color-surface-variant);
         border-radius: 8px;
         cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f484c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        background-size: 16px;
       }
 
       .cuotas-selector select:focus-visible {

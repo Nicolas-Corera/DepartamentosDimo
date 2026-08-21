@@ -50,11 +50,20 @@ async function pedir(ruta, opciones = {}) {
      * en vez de dejar al operador leyendo "permission denied for table".
      */
     let pista = "";
-    if (respuesta.status === 401 || respuesta.status === 403 || /permission denied/i.test(detalle)) {
+    if (/permission denied/i.test(detalle) || codigo === "42501") {
+      // El caso concreto de la clave equivocada. Se detecta por el mensaje y no
+      // por el status: un 401 también lo devuelve una clave vencida o un reloj
+      // corrido, y mandar a cambiar la service_role por un problema de hora
+      // hace perder más tiempo del que ahorra.
       pista =
         " → Revisá SUPABASE_SERVICE_ROLE_KEY en Vercel: estas tablas tienen RLS " +
         "activo y sin políticas, así que con la clave pública (anon) no se puede " +
         "leer nada. Tiene que ser la service_role.";
+    } else if (respuesta.status === 401 || respuesta.status === 403) {
+      pista =
+        " → Supabase rechazó la credencial. Puede ser la clave (revisá " +
+        "SUPABASE_SERVICE_ROLE_KEY) o, si el mensaje habla del JWT y de fechas, " +
+        "el reloj del servidor corrido respecto del de Supabase.";
     } else if (codigo === "42P01" || /does not exist/i.test(detalle)) {
       pista =
         " → Falta correr pago/sql/configuracion-tarifas.sql en Supabase, o " +
