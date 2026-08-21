@@ -75,6 +75,25 @@
   padding: 0;
 }
 
+/**
+ * El atributo `hidden` gana siempre.
+ *
+ * La hoja del navegador lo aplica como `[hidden] { display: none }`, que es un
+ * selector de atributo: cualquier regla de CLASE que fije `display` le gana por
+ * especificidad. Y como acá casi todo lo que se muestra y se esconde es un flex
+ * o un grid (.cargando-bloque, .form-grid, .totales-fila, .rate-summary,
+ * .aviso-huecos), poner `elemento.hidden = true` no escondía nada: el
+ * "Cargando la configuración…" quedaba fijo en pantalla y el aviso de fechas
+ * sin temporada se veía aunque no hubiera ninguna.
+ *
+ * El `!important` es a propósito y es el patrón habitual para esto: `hidden`
+ * significa "esto no es relevante ahora", y no hay ningún caso en el que una
+ * regla de layout deba poder contradecirlo.
+ */
+[hidden] {
+  display: none !important;
+}
+
 body {
   background-color: var(--surface);
   color: var(--on-surface);
@@ -1517,10 +1536,6 @@ td {
   justify-content: center;
   padding: 20px;
   background-color: rgba(22, 50, 56, 0.45);
-}
-
-.modal-fondo[hidden] {
-  display: none;
 }
 
 .modal {
