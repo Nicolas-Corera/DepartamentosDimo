@@ -358,11 +358,11 @@ function pintarDetalleDeNoches(precio) {
 const METODOS = {
   credito: {
     excluidos: ["debit_card"],
-    nota: "Con tarjeta de crédito podés pagar en cuotas. Elegí la cantidad acá arriba y vas a ver el detalle en el resumen.",
+    nota: "Con tarjeta de crédito podés pagar en hasta 3 cuotas.",
   },
   debito: {
     excluidos: ["credit_card"],
-    nota: "Con tarjeta de débito el cobro es siempre en un solo pago. Si querés cuotas, usá la pestaña de crédito.",
+    nota: "Para poder pagar en hasta 3 cuotas utilizar una tarjeta de crédito (en el apartado de tarjeta de crédito).",
   },
   transferencia: {
     nota: null,
