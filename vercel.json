@@ -5,16 +5,17 @@
   "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [
+  "redirects": [
     {
-      "source": "/(.*)",
+      "source": "/",
       "has": [
         {
           "type": "host",
           "value": "pago.departamentosdimo.com.ar"
         }
       ],
-      "destination": "/pago/$1"
+      "destination": "/pago",
+      "permanent": false
     }
   ]
 }
