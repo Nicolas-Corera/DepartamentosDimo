@@ -8,7 +8,7 @@ encontró y qué quedó configurado. Se actualiza al cerrar cada parte.
 | **A** | Supabase: RLS, políticas, claves, storage, red y Auth | ✅ cerrada |
 | **B** | Vercel: variables, previews, sesión en las rutas y fugas de error | ✅ cerrada |
 | **C** | MercadoPago: firma, idempotencia y reintentos | ✅ cerrada |
-| D | — | pendiente |
+| **D** | GitHub: secret scanning, historial, accesos y Actions | ✅ cerrada |
 | E | — | pendiente |
 
 ---
@@ -498,6 +498,157 @@ para no perder lo que falle. Mientras tanto, sincrónico es más seguro.
 
 ---
 
+## Parte D — GitHub
+
+Repo `departamentosdimo/DepartamentosDimoWeb`: **privado**, de una cuenta
+personal en plan **free**, sin organización.
+
+Ese detalle decide media parte: varias de las protecciones que pedía el
+checklist son de pago o de repos públicos, así que hubo que reemplazarlas en vez
+de activarlas.
+
+### D.18 — Secret scanning y push protection
+
+**No se pueden activar.** La API contesta:
+
+```
+Secret scanning is not available for this repository.
+```
+
+El *secret scanning* de GitHub es gratis en repos **públicos**. En privados
+forma parte de *GitHub Advanced Security*, que se paga aparte. Hacer público el
+repo para conseguirlo sería cambiar un riesgo por otro peor.
+
+#### Lo que se hizo en su lugar
+
+Un hook de `pre-commit` propio, sin dependencias:
+[`tools/buscar-secretos.mjs`](../tools/buscar-secretos.mjs). Antes de cada commit
+revisa lo que está en el stage y **corta el commit** si encuentra:
+
+| Detecta | Formato |
+| --- | --- |
+| Clave secreta de Supabase | `sb_secret_…` |
+| Token de administración de Supabase | `sbp_…` |
+| JWT de Supabase (`service_role` o `anon` viejo) | `eyJhbGciOi….….…` |
+| Token de GitHub | `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_` |
+| Token de Vercel | `vcp_…` |
+| Clave de Resend | `re_…_…` |
+| Access token de MercadoPago | `APP_USR-…` y `TEST-…` |
+| Clave privada | `-----BEGIN … PRIVATE KEY-----` |
+
+Filtra placeholders (ceros, `xxxx`, `tu-`, `ejemplo`, `<…>`) para no molestar con
+los `.env.example`, y **no marca la `sb_publishable_`**, que es pública por
+diseño y está commiteada a propósito.
+
+Se instala solo: `npm install` en la raíz corre `prepare`, que apunta
+`core.hooksPath` a `.githooks/`. En un clon nuevo, `npm run hooks`.
+
+El hook vive **en el repo**, no en `.git/hooks/`, así que viaja con el clon.
+
+> No reemplaza al secret scanning de GitHub —el hook es local, y `--no-verify`
+> lo saltea— pero cubre el caso real que importa acá: pegar una clave en un
+> archivo sin darse cuenta, con un solo desarrollador que commitea desde su
+> máquina.
+
+El mismo script sirve para auditar a mano:
+
+```bash
+npm run secretos             # el repo como está hoy
+npm run secretos:historial   # los 454 blobs de todo el historial
+```
+
+Probado con seis credenciales falsas pero con formato real (una por proveedor):
+**las seis cortaron el commit.** Y con los `.env.example` y
+`supabase-config.js` en el stage: **ningún falso positivo.**
+
+### D.19 — Credenciales en el historial
+
+**Limpio. No hay nada que rotar.**
+
+Se revisaron los **452 blobs únicos** del historial (122 commits), no solo los
+archivos actuales — que es la diferencia entre buscar de verdad y mirar el
+último commit.
+
+Dos barridos independientes:
+
+1. **Por patrón**, sobre cada blob. Único resultado:
+   `sb_publishable_Wuk9GT…` en `supabase-config.js` — la clave pública, que va
+   commiteada a propósito.
+
+2. **Por valor exacto**: se tomaron los 15 valores reales de los `.env` locales
+   y se buscó cada uno en el historial completo. Es la prueba que no admite
+   dudas: si una clave estuvo commiteada alguna vez, aparece.
+
+| Valor | ¿En el historial? |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | ❌ no |
+| `MP_ACCESS_TOKEN` | ❌ no |
+| `MP_WEBHOOK_SECRET` | ❌ no |
+| `MP_PUBLIC_KEY` | ❌ no |
+| `RESEND_API_KEY` | ❌ no |
+| `PANEL_SESION_SECRET` | ❌ no |
+| `PANEL_CODIGO` | ❌ no (0 blobs) |
+| `SUPABASE_ACCESS_TOKEN` (`sbp_`) | ❌ no |
+| `GITHUB_ACCESS_TOKEN` | ❌ no |
+| `VERCEL_ACCESS_TOKEN` | ❌ no |
+| `SUPABASE_ANON_KEY` | ✅ sí — **es la clave pública** |
+| `SUPABASE_URL` | ✅ sí — la URL del proyecto, pública |
+| `SITIO_URL`, `PAGO_URL`, `PANEL_URL` | ✅ sí — son `http://localhost:8000/3000/3100` |
+
+Los cinco que aparecen no son secretos: tres son *localhost*, uno es la URL del
+proyecto y el otro la clave publishable.
+
+Y nunca se commiteó un `.env` real: los únicos archivos de entorno que
+existieron en el historial son los cuatro `.env.example`.
+
+### D.20 — Quién tiene acceso, y 2FA
+
+Los accesos están al mínimo, que es lo mejor que se puede pedir:
+
+| | Miembros | Rol |
+| --- | --- | --- |
+| Repo de GitHub | 1 — `departamentosdimo` | admin |
+| Equipo de Vercel | 1 — `departamentosdimo-7578` | OWNER |
+
+**Lo que falta: 2FA en GitHub está apagado** (`two_factor_authentication: false`).
+Es el mismo agujero que el MFA de Supabase de la Parte A, en la otra cuenta que
+puede tocar todo.
+
+> **Protección de rama:** tampoco se puede. La API contesta *"Upgrade to GitHub
+> Pro or make this repository public"*. Con un solo colaborador que además es
+> admin, igual no aportaría gran cosa.
+
+#### Un hallazgo aparte: el token de GitHub del `.env`
+
+El `GITHUB_ACCESS_TOKEN` es un PAT clásico con estos scopes:
+
+```
+admin:enterprise, admin:org, admin:org_hook, admin:public_key, admin:repo_hook,
+admin:gpg_key, admin:ssh_signing_key, audit_log, codespace, copilot, delete_repo,
+delete:packages, gist, notifications, project, repo, user, workflow,
+write:discussion, write:network_configurations, write:packages
+```
+
+Incluye **`delete_repo`** y **`admin:org`**. Para lo que se usa —abrir PRs— con
+`repo` alcanzaba. Es el mismo caso que el `sbp_` de Supabase: un token con
+mucho más poder del que la tarea necesita.
+
+### D.21 — Secrets en logs de GitHub Actions
+
+**No aplica.** No hay carpeta `.github/workflows/` ni ningún workflow en el
+historial, y el repo tiene **0 secrets de Actions**. No hay pipeline que pueda
+imprimir nada.
+
+Los deploys los dispara Vercel por su propia integración, no por Actions.
+
+> Si algún día se agrega un workflow: los secrets de Actions no se imprimen
+> solos, pero `set -x`, un `echo $TOKEN` o un `curl -v` los mandan al log, y los
+> logs de un repo privado los ve cualquiera con acceso de lectura. GitHub
+> enmascara los valores que registró como secrets, pero no lo que se derive de
+> ellos (un token metido en una URL, por ejemplo).
+
+---
+
 ## Los dos frenos contra el abuso
 
 Salieron del hallazgo abierto en [B.12](#lo-que-sí-falta-nadie-limita-los-endpoints-que-mandan-mails).
@@ -651,6 +802,17 @@ después; `booking_requests` quedó con las mismas filas que antes.
 ---
 
 ## Lo que queda a mano
+
+### De la Parte D — en tu cuenta de GitHub
+
+1. **Activar 2FA.** `departamentosdimo` es admin del repo y hoy tiene
+   `two_factor_authentication: false`. Se activa en
+   [Settings → Password and authentication](https://github.com/settings/security).
+
+2. **Achicar el `GITHUB_ACCESS_TOKEN` del `.env`.** Hoy tiene `admin:org`,
+   `admin:enterprise` y `delete_repo`, entre otros. Para abrir PRs alcanza con
+   `repo`. Se rehace en
+   [Settings → Developer settings → Tokens](https://github.com/settings/tokens).
 
 ### De la Parte C — en el panel de MercadoPago
 

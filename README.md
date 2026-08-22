@@ -42,7 +42,19 @@ npm run dev             # el sitio          -> http://localhost:8000
 npm run dev:pago        # el checkout       -> http://localhost:3000
 npm run dev:dashboard   # el panel          -> http://localhost:3100
 npm run config          # regenera apps/sitio/supabase-config.js desde el .env
+npm run secretos        # busca credenciales en el repo
 ```
+
+## El hook que frena las claves
+
+Antes de cada commit corre `tools/buscar-secretos.mjs`, que revisa lo que estás
+por subir y **corta el commit** si encuentra una clave de Supabase, MercadoPago,
+Resend, GitHub o Vercel. Se activa solo con `npm install` en la raíz; si hiciste
+un `clone` y no lo corriste, `npm run hooks` lo deja andando.
+
+GitHub tiene esto de fábrica (*secret scanning*), pero no en repos privados de
+cuentas free — de ahí el hook. Para revisar todo el historial de una:
+`npm run secretos:historial`.
 
 Los tres levantan sin instalar nada: el sitio con `serve`, y el checkout y el
 panel con un servidor propio (`apps/*/tools/dev-server.mjs`) que emula el ruteo

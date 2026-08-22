@@ -9,7 +9,11 @@
     "dev:pago": "npm --prefix apps/pago run dev",
     "dev:dashboard": "npm --prefix apps/dashboard run dev",
     "config": "npm --prefix apps/sitio run config",
-    "config:check": "npm --prefix apps/sitio run config:check"
+    "config:check": "npm --prefix apps/sitio run config:check",
+    "prepare": "node tools/instalar-hooks.mjs",
+    "hooks": "node tools/instalar-hooks.mjs",
+    "secretos": "node tools/buscar-secretos.mjs --todo",
+    "secretos:historial": "node tools/buscar-secretos.mjs --historial"
   },
   "engines": {
     "node": ">=18"
