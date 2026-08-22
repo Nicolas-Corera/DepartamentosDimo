@@ -1,11 +1,13 @@
 import { exigirMetodo, json, manejarError } from "./_lib/http.js";
 import { exigirSesion } from "./_lib/sesion.js";
-import { seleccionar } from "./_lib/supabase.js";
+import { seleccionar, leerConfigTarifas, leerPorcentajeDeReserva } from "./_lib/supabase.js";
+import { calcularPrecio } from "./_lib/precios.js";
+import { montoDeLaSenia } from "./_lib/cobro.js";
 
 const ESTADOS_CON_PLATA = ["approved", "refunded", "charged_back"];
 
 const CONSULTA =
-  "select=mp_payment_id,booking_id,status,monto,moneda,metodo,tipo,cuotas," +
+  "select=mp_payment_id,booking_id,status,monto,monto_base,concepto,moneda,metodo,tipo,cuotas," +
   "ultimos_cuatro,payer_email,aprobado_en,created_at,devuelto,devuelto_en," +
   "booking_requests(id,nombre,email,dni,telefono,procedencia,check_in,check_out," +
   "personas,adultos,ninos,estado)" +
@@ -13,13 +15,26 @@ const CONSULTA =
   "&order=created_at.desc";
 
 const CONSULTA_COMPROBANTES =
-  "select=id,booking_id,mime,bytes,monto_declarado,estado,created_at,revisado_en," +
+  "select=id,booking_id,mime,bytes,monto_declarado,monto_base,concepto,estado,created_at,revisado_en," +
   "devuelto,devuelto_en," +
   "booking_requests(id,nombre,email,dni,telefono,procedencia,check_in,check_out," +
   "personas,adultos,ninos,estado)" +
   "&order=created_at.desc";
 
-function comprobanteComoAlquiler(c) {
+function datosDeLaReserva(saldos, bookingId) {
+  const info = saldos.get(bookingId);
+  if (!info) {
+    return { totalReserva: null, pagadoReserva: null, saldoReserva: null, reservaCompleta: null };
+  }
+  return {
+    totalReserva: info.total,
+    pagadoReserva: info.pagado,
+    saldoReserva: info.saldo,
+    reservaCompleta: info.completa,
+  };
+}
+
+function comprobanteComoAlquiler(c, saldos) {
   const r = c.booking_requests || null;
   const monto = Number(c.monto_declarado || 0);
 
@@ -28,6 +43,8 @@ function comprobanteComoAlquiler(c) {
   return {
     origen: "transferencia",
     comprobanteId: c.id,
+    concepto: c.concepto || null,
+    ...datosDeLaReserva(saldos, c.booking_id),
 
     paymentId: null,
     bookingId: c.booking_id,
@@ -71,16 +88,66 @@ function comprobanteComoAlquiler(c) {
   };
 }
 
+function reservasConSaldo(pagos, comprobantes, tarifas, especiales, porcentajeReserva) {
+  const porReserva = new Map();
+
+  const anotar = (bookingId, reserva, base) => {
+    if (!bookingId || !reserva?.check_in) return;
+    if (!porReserva.has(bookingId)) {
+      porReserva.set(bookingId, { reserva, pagado: 0 });
+    }
+    porReserva.get(bookingId).pagado += base;
+  };
+
+  for (const p of pagos || []) {
+    if (p.status !== "approved") continue;
+    anotar(p.booking_id, p.booking_requests, Number(p.monto_base ?? p.monto) || 0);
+  }
+
+  for (const c of comprobantes || []) {
+    if (c.estado !== "confirmado") continue;
+    anotar(c.booking_id, c.booking_requests, Number(c.monto_base ?? c.monto_declarado) || 0);
+  }
+
+  const resultado = new Map();
+
+  for (const [bookingId, { reserva, pagado }] of porReserva) {
+    let total = 0;
+    try {
+      total = calcularPrecio(reserva, tarifas.temporadas, especiales || []).total;
+    } catch {
+      continue;
+    }
+
+    const cobrado = Math.min(Math.round(pagado), total);
+
+    resultado.set(bookingId, {
+      total,
+      pagado: cobrado,
+      saldo: Math.max(0, total - cobrado),
+      senia: montoDeLaSenia(total, porcentajeReserva),
+      completa: cobrado >= total,
+    });
+  }
+
+  return resultado;
+}
+
 export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "GET")) return;
 
   try {
     exigirSesion(req);
 
-    const [filas, comprobantes] = await Promise.all([
+    const [filas, comprobantes, tarifas, especiales, porcentajeReserva] = await Promise.all([
       seleccionar("payments", CONSULTA),
       seleccionar("transfer_receipts", CONSULTA_COMPROBANTES),
+      leerConfigTarifas(),
+      seleccionar("tarifas_especiales", "select=fecha_desde,fecha_hasta,precio_por_noche,motivo"),
+      leerPorcentajeDeReserva(),
     ]);
+
+    const saldos = reservasConSaldo(filas, comprobantes, tarifas, especiales, porcentajeReserva);
 
     const deMercadoPago = (filas || []).map((f) => {
       const r = f.booking_requests || null;
@@ -123,10 +190,12 @@ export default async function handler(req, res) {
         origen: "mercadopago",
         comprobanteId: null,
         estadoComprobante: null,
+        concepto: f.concepto || null,
+        ...datosDeLaReserva(saldos, f.booking_id),
       };
     });
 
-    const alquileres = [...deMercadoPago, ...(comprobantes || []).map(comprobanteComoAlquiler)].sort(
+    const alquileres = [...deMercadoPago, ...(comprobantes || []).map((c) => comprobanteComoAlquiler(c, saldos))].sort(
       (a, b) => new Date(b.fecha) - new Date(a.fecha),
     );
 
