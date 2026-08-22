@@ -8,6 +8,7 @@ cobro dispara un mail, y cada mail dice cuánto falta.**
 | Parte | Dónde vive |
 | --- | --- |
 | Alta de la consulta y mail de `consultas@` | [apps/sitio/api/consulta.js](../apps/sitio/api/consulta.js) |
+| Alta de la reseña y mail de `resenas@` | [apps/sitio/api/resena.js](../apps/sitio/api/resena.js) |
 | Cálculo de seña / saldo / total | [apps/pago/api/_lib/cobro.js](../apps/pago/api/_lib/cobro.js) |
 | Cobro y mails de `reservas@` / `pagos@` | [apps/pago/api/pagos.js](../apps/pago/api/pagos.js), [apps/pago/api/webhook.js](../apps/pago/api/webhook.js) |
 | Mail al aprobar una transferencia | [apps/dashboard/api/comprobantes.js](../apps/dashboard/api/comprobantes.js) |
@@ -80,7 +81,7 @@ mandan el de `pagos@`.
 
 ## 2. Los mails
 
-Tres remitentes, ocho mails.
+Cuatro remitentes, nueve mails.
 
 ### `consultas@departamentosdimo.com.ar`
 
@@ -121,6 +122,22 @@ Sale cuando se completa el pago: el saldo, o el total de una.
 El mail **es** el comprobante: no hay ningún archivo adjunto más que el
 comprobante del huésped.
 
+### `resenas@departamentosdimo.com.ar`
+
+Sale cuando alguien publica una reseña desde el sitio.
+
+| Para | Qué lleva |
+| --- | --- |
+| Los dueños | El nombre, el puntaje, el comentario completo y el link al panel para aprobarla |
+
+El visitante no recibe nada: el formulario de reseñas no pide mail. La reseña
+entra **sin aprobar** y no se ve en el carrusel hasta que se apruebe en el
+panel, así que este mail es lo que avisa que hay algo esperando.
+
+Igual que el de consultas, el alta pasó del navegador a
+[apps/sitio/api/resena.js](../apps/sitio/api/resena.js): sin eso no hay id de
+la fila recién creada con el que armar la clave de idempotencia.
+
 ---
 
 ## 3. No se emiten facturas ni recibos en PDF
@@ -151,6 +168,7 @@ consulta:<booking_id>:inquilino
 reserva:<mp_payment_id>:duenos
 pago:<mp_payment_id>:inquilino
 pago:transfer:<receipt_id>:duenos
+resena:<review_id>
 ```
 
 Antes de armar el mail, el código intenta insertar esa clave. Si el insert

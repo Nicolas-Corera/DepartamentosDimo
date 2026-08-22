@@ -580,3 +580,41 @@ export function linksDePago(baseUrl, bookingId) {
     total: `${base}&modo=total`,
   };
 }
+
+function estrellas(rating) {
+  const n = Math.max(0, Math.min(5, Number(rating) || 0));
+  return "★".repeat(n) + "☆".repeat(5 - n);
+}
+
+export function resenaNueva({ resena, panelUrl }) {
+  const puntaje = Math.max(0, Math.min(5, Number(resena.rating) || 0));
+
+  return armar(
+    `Nueva reseña — ${resena.name} — ${puntaje}/5`,
+    [
+      titulo("Alguien dejó una reseña"),
+      parrafo(
+        `<strong>${esc(resena.name)}</strong> publicó una reseña de ${puntaje} ${puntaje === 1 ? "estrella" : "estrellas"}. ` +
+          "Queda <strong>pendiente de aprobación</strong>: no se ve en el sitio hasta que la apruebes en el panel.",
+      ),
+      bloque({ etiqueta: "Puntaje", valor: `${estrellas(puntaje)}   ${puntaje}/5` }),
+      `<div style="font-family:${FUENTE};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${COLOR.suave};margin:0 0 12px;">Comentario</div>
+<div style="padding:16px 18px;background:#f6f1e6;border-radius:12px;font-family:${FUENTE};font-size:15px;line-height:1.6;color:${COLOR.tinta};margin:0 0 20px;white-space:pre-wrap;">${esc(resena.text)}</div>`,
+      filas([
+        { etiqueta: "Nombre", valor: resena.name },
+        { etiqueta: "Puntaje", valor: `${puntaje} de 5` },
+        { etiqueta: "Recibida", valor: fechaLarga(resena.createdAt) },
+      ]),
+      panelUrl ? boton(panelUrl, "Revisar en el panel", COLOR.celeste) : "",
+      panelUrl ? urlCopiable(panelUrl) : "",
+      nota(
+        "Desde el panel podés aprobarla, para que salga en el carrusel del sitio, o eliminarla.",
+      ),
+    ],
+    {
+      preheader: `${resena.name} dejó una reseña de ${puntaje}/5. Falta aprobarla.`,
+      encabezado: "Aviso para los dueños",
+      pie: "Departamentos Dimo · aviso interno",
+    },
+  );
+}

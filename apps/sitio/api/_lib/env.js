@@ -41,6 +41,7 @@ const REMITENTES = {
   consultas: "Departamentos Dimo <consultas@departamentosdimo.com.ar>",
   reservas: "Departamentos Dimo <reservas@departamentosdimo.com.ar>",
   pagos: "Departamentos Dimo <pagos@departamentosdimo.com.ar>",
+  resenas: "Departamentos Dimo <resenas@departamentosdimo.com.ar>",
 };
 
 let cache = null;
@@ -95,6 +96,7 @@ export function leerConfig() {
         consultas: opcional("MAIL_DE_CONSULTAS", REMITENTES.consultas),
         reservas: opcional("MAIL_DE_RESERVAS", REMITENTES.reservas),
         pagos: opcional("MAIL_DE_PAGOS", REMITENTES.pagos),
+        resenas: opcional("MAIL_DE_RESENAS", REMITENTES.resenas),
       },
     },
 
