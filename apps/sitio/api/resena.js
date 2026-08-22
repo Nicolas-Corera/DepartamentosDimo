@@ -1,6 +1,7 @@
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
 import { insertarResena } from "./_lib/supabase.js";
 import { avisarResenaNueva } from "./_lib/mails.js";
+import { exigirCupoDeIp, exigirCupoGlobal } from "./_lib/limite.js";
 
 const NOMBRE_MIN = 2;
 const NOMBRE_MAX = 40;
@@ -48,7 +49,11 @@ export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "POST")) return;
 
   try {
+    exigirCupoDeIp(req, "resena");
+
     const fila = validar(leerBody(req));
+
+    await exigirCupoGlobal("resena");
 
     let resena;
     try {
