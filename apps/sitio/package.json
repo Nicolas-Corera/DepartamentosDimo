@@ -2,12 +2,14 @@
   "name": "departamentos-dimo-web",
   "version": "1.0.0",
   "private": true,
-  "description": "Sitio de Departamentos Dimo (HTML/CSS/JS estático)",
+  "description": "Sitio de Departamentos Dimo (HTML/CSS/JS estático + funciones de api/)",
   "type": "module",
   "scripts": {
     "config": "node tools/build-config.mjs",
     "config:check": "node tools/build-config.mjs --check",
-    "dev": "npx --yes serve . --listen 8000"
+    "env:check": "node --env-file=.env api/_lib/env.js",
+    "dev": "node --env-file=.env tools/dev-server.mjs",
+    "mails:preview": "node tools/preview-mails.mjs"
   },
   "engines": {
     "node": ">=18"

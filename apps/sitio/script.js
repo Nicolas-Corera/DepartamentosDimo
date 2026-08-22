@@ -453,6 +453,8 @@
       return;
     }
 
+    bookedDates.clear();
+
     for (const reserva of data || []) {
       const cursor = keyADate(reserva.check_in);
       const salida = keyADate(reserva.check_out);
@@ -682,8 +684,22 @@
   const bookingSubmit = bookingForm.querySelector('button[type="submit"]');
 
   async function createBookingRequest(consulta) {
-    const { error } = await db.from("booking_requests").insert(consulta);
-    if (error) throw error;
+    const respuesta = await fetch("/api/consulta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(consulta),
+    });
+
+    const cuerpo = await respuesta.json().catch(() => ({}));
+
+    if (!respuesta.ok) {
+      const error = new Error(cuerpo.error || "No pudimos enviar tu consulta.");
+      error.visible = cuerpo.error || null;
+      error.codigo = cuerpo.codigo || null;
+      throw error;
+    }
+
+    return cuerpo;
   }
 
   function leerEdades() {
@@ -771,7 +787,7 @@
     try {
       await createBookingRequest(consulta);
       mostrarToast(
-        "¡Gracias! Recibimos tu consulta, te vamos a contactar a la brevedad.",
+        "¡Gracias! Recibimos tu consulta y te mandamos un mail con el detalle. Te contactamos a la brevedad.",
         "exito",
       );
       bookingForm.reset();
@@ -781,16 +797,13 @@
       fechasLabel.textContent = "Seleccionar fechas";
       fechasInput.value = "";
       formCalendar.reset();
+      cargarFechasOcupadas();
     } catch (err) {
       console.error("No se pudo guardar la consulta:", err);
-
-      const rlsFecha = err?.code === "42501";
-      const aviso = rlsFecha
-        ? `Las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. Volvé a elegir las fechas de tu estadía.`
-        : err?.code === "23505"
-          ? "Ya recibimos una consulta con ese DNI para esas fechas. Si necesitás cambiar algo, escribinos por WhatsApp."
-          : "No pudimos enviar tu consulta. Probá de nuevo en un momento.";
-      mostrarToast(aviso, "error");
+      mostrarToast(
+        err?.visible || "No pudimos enviar tu consulta. Probá de nuevo en un momento.",
+        "error",
+      );
     } finally {
       bookingSubmit.disabled = false;
       bookingSubmit.textContent = textoBoton;
@@ -1454,4 +1467,56 @@
   });
 
   actualizarContadores();
+
+  const REFRESCO_MS = 90_000;
+  const REFRESCO_MAX_MS = 10 * 60_000;
+
+  const refresco = { timer: null, espera: REFRESCO_MS, corriendo: false };
+
+  function hayModalAbierto() {
+    return Array.from(document.querySelectorAll(".modal-overlay")).some((m) => !m.hidden);
+  }
+
+  function huellaDeResenas(lista) {
+    return (lista || []).map((r) => `${r.created_at}|${r.rating}|${r.name}`).join("~");
+  }
+
+  async function refrescarResenas() {
+    const frescas = await fetchReviews();
+    if (huellaDeResenas(frescas) === huellaDeResenas(reviews)) return;
+
+    reviews = Array.isArray(frescas) ? frescas : [];
+    renderReviews();
+  }
+
+  async function refrescarDatos() {
+    if (refresco.corriendo || document.hidden) return true;
+
+    refresco.corriendo = true;
+    try {
+      await Promise.all([
+        hayModalAbierto() ? Promise.resolve() : cargarFechasOcupadas(),
+        refrescarResenas(),
+      ]);
+      return true;
+    } catch (err) {
+      console.warn("[refresco] no se pudo actualizar:", err?.message || err);
+      return false;
+    } finally {
+      refresco.corriendo = false;
+    }
+  }
+
+  async function ciclarRefresco() {
+    const ok = await refrescarDatos();
+    refresco.espera = ok ? REFRESCO_MS : Math.min(refresco.espera * 2, REFRESCO_MAX_MS);
+    refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    refrescarDatos();
+  });
+
+  refresco.timer = setTimeout(ciclarRefresco, REFRESCO_MS);
 })();
