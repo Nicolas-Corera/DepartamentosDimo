@@ -276,8 +276,96 @@ El recargo de cada plan lo definimos nosotros, así que la cantidad de cuotas
 cambia el importe que se cobra. El Brick recibe el monto al montarse y no lo
 recalcula solo: si las cuotas se eligieran adentro de su formulario, mostraría el
 importe de otro plan. Por eso el selector va arriba, se elige primero, y cada
-cambio remonta el Brick con `minInstallments = maxInstallments = la elegida` y el
-monto definitivo.
+cambio remonta el Brick con el monto definitivo.
+
+#### Cómo se apaga el selector de cuotas del Brick
+
+El Brick se monta **siempre** con `minInstallments = maxInstallments = 1`, sin
+importar cuántas cuotas se hayan elegido, y la cantidad real la pone `pagar()`
+sobre el formData justo antes de mandarlo:
+
+```js
+formData.installments = estado.cuotas;
+```
+
+Parece un rodeo, pero es lo único que apaga el bloque de cuotas propio del
+Brick — ese que aparece abajo del formulario cuando se completa el número de
+tarjeta, con el título *"Seleccioná la cantidad de cuotas"* y el cartelito de
+**CFTEA / TEA**. Duplicaba nuestro selector y, peor, esas tasas son las de
+MercadoPago: no describen nuestro recargo, que es el que se está cobrando.
+
+Antes acá iba `min = max = la elegida`, y el bloque salía igual con una sola
+opción. **No hay opción de configuración para esconderlo** — las únicas que
+existen son `hideFormTitle`, `hidePaymentButton`, `hideEmail`,
+`hideIdentificationTypes` y `hideValueProp`. La regla que usa el Brick para
+decidir si lo dibuja es, textual:
+
+```js
+1 === opciones.length && 1 === opciones[0].value ? ocultar : mostrar
+```
+
+Con `min = max = 3` hay una sola opción, pero vale 3, y por eso se veía. Con 1
+se cumplen las dos condiciones y no se dibuja.
+
+**Por qué mandar las cuotas por afuera no es un agujero.** Para el backend ese
+número siempre fue entrada del navegador: `/api/pagos` lo valida contra el
+máximo configurado y calcula el importe a partir del plan. El monto nunca viaja
+desde el front. Un token de tarjeta tampoco lleva cuotas adentro — es solo la
+tarjeta —, así que cobrar en 3 con un token generado bajo una configuración de 1
+es una operación normal de la API.
+
+**Lo que se pierde:** el Brick ya no valida contra MercadoPago que la tarjeta
+acepte esa cantidad de cuotas. Si no las acepta, el rechazo llega igual al
+cobrar, con su mensaje de `status_detail`.
+
+### Transferencia: el comprobante
+
+La transferencia no se cobra desde la página: la hace la persona en su banco.
+Lo que hace el checkout es **recibir el comprobante** y dejarlo registrado en
+`transfer_receipts` para que el equipo lo confirme contra el extracto.
+
+El botón del resumen es el mismo para las tres pestañas. En transferencia dice
+*"Enviar comprobante"* y arranca **deshabilitado**: se habilita recién cuando
+hay un archivo elegido (PNG, JPG, JPEG o PDF, hasta 5 MB).
+
+**Un comprobante no es un pago.** Es alguien diciendo "ya transferí". Por eso no
+toca `payments` ni marca la reserva como paga: entra en `transfer_receipts` con
+`estado = 'pendiente'` y ahí espera. Ver
+[sql/comprobantes-transferencia.sql](sql/comprobantes-transferencia.sql).
+
+#### La subida, en dos pasos
+
+El archivo **no pasa por nuestra función**:
+
+| Paso | Quién | Qué |
+| --- | --- | --- |
+| 1 | `POST /api/comprobante` `{accion:"firmar"}` | Valida la reserva y el tipo, elige la ruta (`<uuid de la reserva>/<generado>.<ext>`) y devuelve una URL firmada de un solo uso |
+| 2 | El navegador | `PUT` del archivo directo a Storage con esa firma |
+| 3 | `POST /api/comprobante` `{accion:"registrar"}` | Mira el objeto **ya subido**, toma su tamaño y tipo reales, y recién ahí escribe la fila |
+
+Mandar el archivo adentro del body obligaría a codificarlo en base64 (crece un
+33%) y a pasarlo por la función, que en Vercel tiene un tope de **4,5 MB** de
+body. La foto de un comprobante sacada con el celular lo puede superar, y el
+rechazo sería incomprensible para quien la sube.
+
+#### Las cuatro puertas
+
+El bucket `comprobantes` es **privado y sin ninguna política de RLS**: `anon` no
+puede ni subir ni leer. Darle INSERT sería regalarle a cualquiera un disco
+gratis contra la cuenta. Sube el backend con service_role, y encima:
+
+1. **La firma está atada a la ruta.** Un token robado apuntado a otro path
+   devuelve `InvalidSignature`.
+2. **La ruta tiene que empezar con el uuid de la reserva.** Sin eso, el paso de
+   registrar aceptaría colgar el comprobante de otra persona de una reserva
+   propia.
+3. **Storage aplica el allowlist de MIME del bucket.** Un `PUT` de un ejecutable
+   con un token válido devuelve `415 invalid_mime_type`.
+4. **El registro mira el objeto real**, no lo que declaró el navegador. Si el
+   tamaño se pasa, borra el archivo y rechaza.
+
+Y antes que todo eso, la misma puerta que tiene el cobro con tarjeta: si la
+reserva ya está paga, responde `409 ya_pagada`.
 
 ### Ejemplo real
 
@@ -577,10 +665,12 @@ pago/
 ├── sql/
 │   ├── payments.sql                 la tabla de pagos, con RLS cerrado
 │   ├── tarifas-y-ocupacion.sql      tarifas especiales + función fechas_ocupadas
-│   └── configuracion-tarifas.sql    temporadas, medios de pago y planes de cuotas
+│   ├── configuracion-tarifas.sql    temporadas, medios de pago y planes de cuotas
+│   └── comprobantes-transferencia.sql  transfer_receipts + el bucket privado
 └── api/
     ├── reserva.js          GET  — resumen + monto + public key
     ├── pagos.js            POST — crea el pago (Checkout API)
+    ├── comprobante.js      POST — firma la subida del comprobante y lo registra
     ├── webhook.js          POST — notificaciones, con validación de firma
     └── _lib/
         ├── env.js          lee y valida las variables de entorno

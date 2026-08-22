@@ -79,6 +79,10 @@ const estado = {
 
   metodo: "credito", // credito | debito | transferencia
   cuotas: 1,         // la que eligió la persona en NUESTRO selector
+
+  // Transferencia: el archivo elegido, todavía sin subir. Mientras sea null el
+  // botón de pago está deshabilitado — es lo único que lo habilita.
+  comprobante: null,
 };
 
 /* ===========================================================================
@@ -278,7 +282,14 @@ function actualizarTotales() {
   }
 
   $("resumen-total").textContent = pesos.format(cobro.total);
-  $("btn-pagar-texto").textContent = `Pagar ${pesos.format(cobro.total)}`;
+
+  // En transferencia el botón no cobra: manda el comprobante. Prometer "Pagar
+  // $945.000" cuando lo que va a pasar es subir un archivo es mentir sobre lo
+  // que hace el botón.
+  $("btn-pagar-texto").textContent =
+    estado.metodo === "transferencia"
+      ? "Enviar comprobante"
+      : `Pagar ${pesos.format(cobro.total)}`;
 
   // La transferencia siempre muestra SU total, esté o no en esa pestaña: es el
   // dato que la persona compara para decidir con qué pagar.
@@ -378,8 +389,10 @@ async function aplicarMetodo(metodo) {
   $("form-card").classList.toggle("active", esTarjeta);
   $("form-transfer").classList.toggle("active", !esTarjeta);
 
-  // En transferencia no hay nada que enviar: el botón de pago no aplica.
-  $("btn-pagar").hidden = !esTarjeta;
+  /* El botón de pago es el mismo para las tres pestañas y está SIEMPRE
+     visible. En transferencia no cobra: manda el comprobante. Lo que cambia es
+     que arranca deshabilitado hasta que haya un archivo elegido. */
+  $("btn-pagar").hidden = false;
   $("nota-metodo").textContent = METODOS[metodo].nota || "";
   $("nota-metodo").hidden = !METODOS[metodo].nota;
 
@@ -387,6 +400,7 @@ async function aplicarMetodo(metodo) {
   // muestra el resumen y el monto con el que se monta el Brick.
   construirSelectorDeCuotas();
   actualizarTotales();
+  sincronizarBotonDePago();
 
   if (esTarjeta) {
     await montarBrick();
@@ -507,11 +521,32 @@ async function montarBrick() {
         hideFormTitle: true,
       },
       paymentMethods: {
-        // Fijas, no un rango: la cantidad ya se eligió en nuestro selector y el
-        // monto del Brick corresponde a ESE plan. Dejarle elegir otra adentro
-        // del formulario mostraría cuotas de un total que no es el que se cobra.
-        minInstallments: cobro.cuotas,
-        maxInstallments: cobro.cuotas,
+        /* SIEMPRE 1, aunque la persona haya elegido 3.
+
+           No es que cobremos en un pago: la cantidad real viaja aparte, la pone
+           `pagar()` sobre el formData antes de mandarlo. Esto es lo único que
+           apaga el selector de cuotas propio del Brick.
+
+           Antes acá iba `min = max = cobro.cuotas`, y el Brick igual dibujaba
+           su bloque "Seleccioná la cantidad de cuotas" abajo del formulario,
+           con una sola opción y el cartelito de CFTEA/TEA. Duplicaba nuestro
+           selector y, peor, esas tasas son las de MercadoPago: no describen
+           nuestro recargo, que es el que se está cobrando.
+
+           No hay opción de configuración para esconderlo. La regla que usa el
+           Brick para decidir si lo muestra es, textual, que haya UNA sola
+           opción Y que valga 1:
+
+             1 === opciones.length && 1 === opciones[0].value ? ocultar : mostrar
+
+           Con `min = max = 3` hay una sola opción, pero vale 3, y por eso se
+           veía. Con 1 se cumplen las dos condiciones y el bloque no se dibuja.
+
+           Lo que se pierde: el Brick ya no valida contra MercadoPago que la
+           tarjeta acepte esa cantidad de cuotas. Si no las acepta, el rechazo
+           llega igual desde el backend al cobrar, con su mensaje. */
+        minInstallments: 1,
+        maxInstallments: 1,
         types: { excluded: config.excluidos },
       },
     },
@@ -704,8 +739,207 @@ function ocultarAvisoDePago() {
  * mal, rechaza y el Brick marca los errores solo. Por eso el catch no muestra
  * nada extra — sería un segundo mensaje diciendo lo mismo.
  */
+/* ===========================================================================
+   6b. Transferencia: el comprobante
+   ---------------------------------------------------------------------------
+   La transferencia no se cobra desde acá: la hace la persona en su banco. Lo
+   que hace esta página es recibir el comprobante y dejarlo registrado para que
+   el equipo lo confirme contra el extracto.
+
+   Por eso el botón del resumen arranca deshabilitado en esta pestaña: sin
+   archivo no hay nada que mandar, y un botón que se puede apretar y no hace
+   nada es peor que uno apagado.
+
+   La subida NO pasa por nuestra función. `/api/comprobante` firma una
+   autorización de un solo uso para una ruta que elige el servidor, y el
+   archivo va del navegador a Storage directo. Así no hay tope de 4,5 MB de
+   body ni base64 de por medio, y el bucket sigue cerrado para `anon`.
+   =========================================================================== */
+
+/** Los cuatro formatos que se aceptan, y la extensión que los delata. */
+const FORMATOS_COMPROBANTE = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "application/pdf": "pdf",
+};
+const MAX_BYTES_COMPROBANTE = 5 * 1024 * 1024;
+
+/** El texto que muestra el campo cuando no hay nada elegido ni nada que avisar. */
+const AYUDA_COMPROBANTE = "PNG, JPG, JPEG o PDF. Hasta 5 MB.";
+
+/**
+ * El tipo declarado por el navegador, normalizado.
+ *
+ * Windows manda a veces "image/jpg" (que no es un MIME real) y, con algunos
+ * archivos sin extensión, string vacío. Cuando no dice nada, se cae a la
+ * extensión del nombre: es una pista peor, pero es la que hay. Igual esto es
+ * solo para no dejar avanzar lo obvio — quien valida en serio es el servidor,
+ * sobre el archivo ya subido.
+ */
+function tipoDelArchivo(archivo) {
+  const declarado = String(archivo.type || "").trim().toLowerCase();
+  if (declarado === "image/jpg") return "image/jpeg";
+  if (FORMATOS_COMPROBANTE[declarado]) return declarado;
+
+  const extension = (archivo.name.split(".").pop() || "").toLowerCase();
+  const porExtension = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", pdf: "application/pdf" };
+  return porExtension[extension] || "";
+}
+
+/** El texto de ayuda debajo del campo, en su versión normal o de error. */
+function decirDelComprobante(texto, esError) {
+  const ayuda = $("comprobante-ayuda");
+  ayuda.textContent = texto;
+  ayuda.classList.toggle("es-error", Boolean(esError));
+}
+
+/**
+ * Deja el botón de pago como corresponde a la pestaña actual.
+ *
+ * En tarjeta siempre habilitado (el Brick valida lo suyo al enviar). En
+ * transferencia, solo con un comprobante elegido.
+ */
+function sincronizarBotonDePago() {
+  if (estado.procesando) return;
+  $("btn-pagar").disabled = estado.metodo === "transferencia" && !estado.comprobante;
+}
+
+/** Alguien eligió un archivo (o lo sacó). Valida y habilita o no el botón. */
+function alElegirComprobante(evento) {
+  const archivo = evento.target.files && evento.target.files[0];
+  evento.target.classList.remove("tiene-archivo");
+  estado.comprobante = null;
+
+  if (!archivo) {
+    decirDelComprobante(AYUDA_COMPROBANTE, false);
+    sincronizarBotonDePago();
+    return;
+  }
+
+  const mime = tipoDelArchivo(archivo);
+  if (!FORMATOS_COMPROBANTE[mime]) {
+    // Se limpia el input: si quedara el archivo elegido, el mensaje de error
+    // conviviría con un nombre de archivo en pantalla y parecería aceptado.
+    evento.target.value = "";
+    decirDelComprobante("Ese formato no sirve. Subí un PNG, JPG, JPEG o PDF.", true);
+    anunciar("El archivo no tiene un formato válido.");
+    sincronizarBotonDePago();
+    return;
+  }
+
+  if (archivo.size > MAX_BYTES_COMPROBANTE) {
+    evento.target.value = "";
+    const mb = (archivo.size / 1024 / 1024).toFixed(1);
+    decirDelComprobante(`Ese archivo pesa ${mb} MB y el máximo es 5 MB.`, true);
+    anunciar("El archivo es demasiado grande.");
+    sincronizarBotonDePago();
+    return;
+  }
+
+  estado.comprobante = { archivo, mime };
+  evento.target.classList.add("tiene-archivo");
+  decirDelComprobante(`Listo: ${archivo.name}. Ya podés enviarlo.`, false);
+  anunciar("Comprobante cargado. El botón de envío está habilitado.");
+  sincronizarBotonDePago();
+}
+
+/** Sube el comprobante y lo registra. Dos pasos, como los espera el backend. */
+async function enviarComprobante() {
+  const { archivo, mime } = estado.comprobante;
+
+  estado.procesando = true;
+  $("btn-pagar").disabled = true;
+  ocultarAvisoDePago();
+  mostrarVeloProcesando(true);
+  anunciar("Enviando el comprobante.");
+
+  try {
+    // 1. La autorización de subida. La ruta la elige el servidor.
+    const firma = await pedirJson("/api/comprobante", {
+      ref: estado.ref,
+      accion: "firmar",
+      mime,
+    });
+
+    // 2. El archivo, del navegador a Storage. Sin pasar por nuestra función.
+    const destino =
+      `${estado.datos.supabaseUrl}/storage/v1/object/upload/sign/comprobantes/` +
+      `${firma.path}?token=${encodeURIComponent(firma.token)}`;
+
+    const subida = await fetch(destino, {
+      method: "PUT",
+      headers: { "Content-Type": mime },
+      body: archivo,
+    });
+    if (!subida.ok) throw new Error(`Storage respondió ${subida.status}`);
+
+    // 3. Recién con el archivo arriba se deja constancia. El backend mira el
+    //    objeto real —tamaño y tipo— antes de escribir la fila.
+    const registro = await pedirJson("/api/comprobante", {
+      ref: estado.ref,
+      accion: "registrar",
+      path: firma.path,
+    });
+
+    mostrarVeloProcesando(false);
+    mostrarResultado({
+      grupo: "pendiente",
+      titulo: "Recibimos tu comprobante",
+      detalle:
+        `Vamos a verificar la transferencia de ${pesos.format(registro.monto)} contra ` +
+        "nuestra cuenta y te confirmamos por mail dentro de las 24 horas hábiles.",
+      accion: "ninguna",
+    });
+  } catch (error) {
+    mostrarVeloProcesando(false);
+    console.error("[comprobante]", error);
+    mostrarAvisoDePago({
+      titulo: "No pudimos recibir el comprobante",
+      detalle:
+        error.mensajeVisible ||
+        "Volvé a intentar en unos minutos. Si sigue fallando, escribinos y te lo tomamos por WhatsApp.",
+      grupo: "rechazado",
+    });
+  } finally {
+    estado.procesando = false;
+    sincronizarBotonDePago();
+  }
+}
+
+/**
+ * POST con JSON a nuestra API. Si el backend devuelve un error con mensaje
+ * propio, lo cuelga del Error para que el catch lo pueda mostrar tal cual:
+ * "Esta reserva ya está paga" explica mucho más que el genérico.
+ */
+async function pedirJson(url, cuerpo) {
+  const respuesta = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cuerpo),
+  });
+
+  const datos = await respuesta.json().catch(() => ({}));
+  if (!respuesta.ok) {
+    const error = new Error(datos.error || `HTTP ${respuesta.status}`);
+    error.mensajeVisible = datos.error || null;
+    error.codigo = datos.codigo || null;
+    throw error;
+  }
+  return datos;
+}
+
 async function pagar() {
-  if (estado.procesando || !estado.brick) return;
+  if (estado.procesando) return;
+
+  // En transferencia el botón no cobra: manda el comprobante. Sin archivo no
+  // llega acá (el botón está deshabilitado), pero el chequeo es barato.
+  if (estado.metodo === "transferencia") {
+    if (!estado.comprobante) return;
+    await enviarComprobante();
+    return;
+  }
+
+  if (!estado.brick) return;
 
   let formData;
   try {
@@ -716,6 +950,18 @@ async function pagar() {
     return;
   }
   if (!formData) return;
+
+  /* Las cuotas las pone NUESTRO selector, no el del Brick.
+
+     El Brick se monta con min = max = 1 para que no dibuje su propio selector
+     (ver `montarBrick()`), así que el formData vuelve siempre con
+     `installments: 1`. La cantidad que la persona eligió está en
+     `estado.cuotas`, y es la que tiene que viajar.
+
+     No es un agujero: para el backend este número es entrada del navegador,
+     igual que antes. `/api/pagos` lo valida contra el máximo configurado y
+     calcula el importe a partir del plan — el monto nunca se manda desde acá. */
+  formData.installments = estado.cuotas;
 
   await enviarPago(formData);
 }
@@ -911,5 +1157,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("error-reintentar").addEventListener("click", () => cargarReserva());
   $("btn-pagar").addEventListener("click", pagar);
   $("selector-cuotas").addEventListener("change", alCambiarLasCuotas);
+  $("comprobante-archivo").addEventListener("change", alElegirComprobante);
   cargarReserva();
 });

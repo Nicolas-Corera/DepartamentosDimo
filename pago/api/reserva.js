@@ -109,6 +109,10 @@ export default async function handler(req, res) {
 
     json(res, 200, {
       publicKey: config.mp.publicKey,
+      // Para subir el comprobante de transferencia el navegador le pega directo
+      // a Storage con una URL firmada, así que necesita saber a qué host. Es un
+      // dato público: es la misma URL que ya está en el JS del sitio principal.
+      supabaseUrl: config.supabase.url,
       maxCuotas: maximoDeCuotas(tarifasConfig.planes),
       reserva: {
         id: reserva.id,

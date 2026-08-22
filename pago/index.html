@@ -284,6 +284,63 @@
         color: var(--color-on-surface);
       }
 
+      /* Campo de archivo del comprobante. El input nativo de tipo file se ve
+         distinto en cada navegador; lo que se puede peinar de forma pareja es
+         el botón interno (::file-selector-button), así que el marco lo pone el
+         input y el botón queda adentro. */
+      .file-input {
+        width: 100%;
+        background-color: var(--color-blanco);
+        border: 1px dashed var(--color-surface-variant);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: inherit;
+        font-size: 15px;
+        color: var(--color-on-surface);
+        cursor: pointer;
+      }
+
+      .file-input::file-selector-button {
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--color-blanco);
+        background-color: var(--color-tinta);
+        border: none;
+        border-radius: 9999px;
+        padding: 8px 16px;
+        margin-right: 12px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      .file-input::file-selector-button:hover {
+        background-color: var(--color-primary);
+      }
+
+      .file-input:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+
+      /* Con archivo válido el marco se cierra: es la señal de que el botón de
+         pago se acaba de habilitar. */
+      .file-input.tiene-archivo {
+        border-style: solid;
+        border-color: var(--color-primary);
+      }
+
+      .file-ayuda {
+        font-size: 13px;
+        color: var(--color-on-surface-variant);
+        margin-top: 8px;
+      }
+
+      .file-ayuda.es-error {
+        color: var(--color-tertiary);
+        font-weight: 600;
+      }
+
       .info-box {
         background-color: rgba(253, 236, 228, 0.3);
         border: 1px solid rgba(182, 62, 25, 0.2);
@@ -1006,9 +1063,35 @@
                   </div>
                   <div class="info-box col-span-2">
                     <p class="info-text">
-                      Una vez realizada la transferencia, enviá el comprobante y
-                      el equipo confirmará tu pago en las próximas 24 horas
-                      hábiles. Poné tu DNI en la referencia.
+                      Poné tu DNI en la referencia. Cuando tengas el comprobante
+                      subilo acá abajo: el equipo confirma el pago dentro de las
+                      24 horas hábiles.
+                    </p>
+                  </div>
+
+                  <!--
+                    El comprobante habilita el botón de pago del resumen. Sin
+                    archivo no hay nada que mandar, así que el botón arranca
+                    deshabilitado. Lo maneja `aplicarMetodo()` en pago.js.
+
+                    `accept` filtra el diálogo del sistema, no valida: es una
+                    sugerencia que se puede saltear eligiendo "todos los
+                    archivos". El tipo lo vuelve a mirar el JS antes de subir y,
+                    del lado del servidor, Storage (que solo acepta los MIME del
+                    bucket) y /api/comprobante sobre el archivo YA subido.
+                  -->
+                  <div class="input-group col-span-2">
+                    <label class="input-label" for="comprobante-archivo">
+                      Comprobante de la transferencia
+                    </label>
+                    <input
+                      type="file"
+                      id="comprobante-archivo"
+                      class="file-input"
+                      accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+                    />
+                    <p class="file-ayuda" id="comprobante-ayuda">
+                      PNG, JPG, JPEG o PDF. Hasta 5 MB.
                     </p>
                   </div>
                 </div>

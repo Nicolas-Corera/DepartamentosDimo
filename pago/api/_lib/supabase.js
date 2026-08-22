@@ -200,3 +200,79 @@ export async function leerConfigTarifas() {
     })),
   };
 }
+
+/* ===========================================================================
+   Comprobantes de transferencia
+
+   El bucket `comprobantes` es privado y no tiene ninguna política de RLS: el
+   navegador no puede ni subir ni leer. Todo lo que sigue corre con
+   service_role, que las saltea. Ver pago/sql/comprobantes-transferencia.sql.
+   =========================================================================== */
+
+const BUCKET = "comprobantes";
+
+/**
+ * Una autorización de un solo uso para escribir EN ESA ruta y nada más.
+ *
+ * Es lo que permite que el archivo viaje del navegador a Storage sin pasar por
+ * la función — y sin abrirle el bucket a `anon`. El token vence solo.
+ */
+export async function firmarSubidaDeComprobante(path) {
+  const { data, error } = await db().storage.from(BUCKET).createSignedUploadUrl(path);
+
+  if (error) {
+    log.error("supabase.firmarSubidaDeComprobante", error, { path });
+    throw new Error(`No se pudo preparar la subida del comprobante: ${error.message}`);
+  }
+  return { path: data.path, token: data.token };
+}
+
+/**
+ * El tamaño y el tipo REALES del objeto ya subido, según Storage.
+ *
+ * Devuelve null si no está: eso es "la subida no terminó", no un error. Lo que
+ * quede acá es lo que se guarda en la tabla — nunca lo que declaró el
+ * navegador, que puede decir que un ejecutable de 40 MB es un PNG de 3 KB.
+ */
+export async function leerObjetoDeComprobante(path) {
+  const { data, error } = await db().storage.from(BUCKET).info(path);
+
+  if (error) {
+    // 404 = todavía no está. Cualquier otra cosa sí es un problema nuestro.
+    if (error.statusCode === "404" || error.status === 404) return null;
+    log.error("supabase.leerObjetoDeComprobante", error, { path });
+    throw new Error(`No se pudo verificar el comprobante: ${error.message}`);
+  }
+  if (!data) return null;
+
+  return {
+    mime: data.contentType || data.metadata?.mimetype || "",
+    bytes: Number(data.size ?? data.metadata?.size ?? 0),
+  };
+}
+
+/**
+ * Saca del bucket un archivo que no pasó la validación.
+ *
+ * No tira: si el borrado falla queda un huérfano, y un huérfano es mucho menos
+ * grave que perder el error real que lo motivó.
+ */
+export async function borrarComprobante(path) {
+  const { error } = await db().storage.from(BUCKET).remove([path]);
+  if (error) log.warn("supabase.borrarComprobante", { path, motivo: error.message });
+}
+
+/** La fila que deja constancia del comprobante. Recién acá queda registrado. */
+export async function guardarComprobante(fila) {
+  const { data, error } = await db()
+    .from("transfer_receipts")
+    .insert(fila)
+    .select("id, created_at")
+    .single();
+
+  if (error) {
+    log.error("supabase.guardarComprobante", error, { path: fila.path });
+    throw new Error(`No se pudo registrar el comprobante: ${error.message}`);
+  }
+  return data;
+}
