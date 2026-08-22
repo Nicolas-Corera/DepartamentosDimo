@@ -6,7 +6,7 @@ import {
   confirmarReserva,
   buscarTarifasEspeciales,
   leerConfigTarifas,
-  leerPorcentajeDeReserva,
+  leerConfigDeCobro,
   pagosAprobados,
   transferenciasConfirmadas,
 } from "./_lib/supabase.js";
@@ -103,14 +103,14 @@ export default async function handler(req, res) {
 
     const reserva = await buscarReserva(ref);
 
-    const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
+    const [tarifasConfig, especiales, cobroConfig] = await Promise.all([
       leerConfigTarifas(),
       buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
-      leerPorcentajeDeReserva(),
+      leerConfigDeCobro(),
     ]);
 
     const datos = validarFormData(body.formData, maximoDeCuotas(tarifasConfig.planes));
-    const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+    const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales, cobroConfig.tarifaLimpieza);
 
     const [pagosPrevios, transferencias] = await Promise.all([
       pagosAprobados(reserva.id),
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
 
     const cobro = calcularCobro({
       precioTotal: precio.total,
-      porcentajeReserva,
+      porcentajeReserva: cobroConfig.porcentajeReserva,
       pagadoBase: sumarPagado({ pagos: pagosPrevios, transferencias }),
       modo,
     });
@@ -224,7 +224,7 @@ export default async function handler(req, res) {
 
     const cobroFinal = calcularCobro({
       precioTotal: precio.total,
-      porcentajeReserva,
+      porcentajeReserva: cobroConfig.porcentajeReserva,
       pagadoBase: cobro.pagado + (aprobado ? importe.totalBase : 0),
       modo,
     });

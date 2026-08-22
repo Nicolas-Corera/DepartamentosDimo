@@ -132,12 +132,34 @@ recargos viejos.
 | `medios_pago` | Tres filas fijas: habilitado y recargo %. |
 | `planes_cuotas` | 24 filas; las de arriba del máximo quedan deshabilitadas. |
 | `tarifas_especiales` | Largo variable: se agregan y se borran desde el carrusel. |
+| `configuracion_pagos` | Una sola fila: porcentaje de seña y tarifa de limpieza. |
 
 El esquema completo está en
 [`sql/configuracion-tarifas.sql`](../sql/configuracion-tarifas.sql).
 Las cuatro tienen RLS activo **sin ninguna política**: el navegador no las toca
 ni para leer. Las lee el backend del checkout y las escribe el del panel, los dos
 con service_role.
+
+### La tarifa de limpieza
+
+Un importe fijo que se suma **una sola vez** al total de la estadía, no por
+noche. Se edita en la pestaña *Tarifas*, en la tarjeta **Tarifa de limpieza**, y
+vive en `configuracion_pagos.tarifa_limpieza` — la misma fila que el porcentaje
+de seña. El esquema está en
+[`sql/tarifa-limpieza.sql`](../sql/tarifa-limpieza.sql).
+
+**En 0 desaparece.** No se cobra y no se muestra en ningún lado: ni en el
+resumen del checkout, ni en los mails, ni en la calculadora. No hay una casilla
+de "activar", el 0 es el apagado.
+
+Dónde entra en la cuenta: `calcularPrecio()` devuelve `alojamiento` (las noches)
+y `limpieza` por separado, y `total` es la suma de los dos. Como la seña es un
+porcentaje del **total**, la limpieza queda incluida en la seña. Los recargos
+por medio de pago y cuotas se aplican después, sobre lo que se cobra.
+
+En el checkout aparece como una línea propia debajo de *Alojamiento*, con el
+texto *Tarifa de limpieza* y el importe. En el mail de consulta a los dueños se
+agrega el desglose alojamiento + limpieza abajo del total.
 
 ### Fechas absolutas y el aviso de huecos
 

@@ -7,7 +7,7 @@ import {
   descargarComprobante,
   leerConfigTarifas,
   buscarTarifasEspeciales,
-  leerPorcentajeDeReserva,
+  leerConfigDeCobro,
   pagosAprobados,
   transferenciasConfirmadas,
   buscarReservaCompleta,
@@ -64,13 +64,13 @@ export async function avisarTransferenciaConfirmada(comprobante) {
     return null;
   }
 
-  const [tarifas, especiales, porcentajeReserva] = await Promise.all([
+  const [tarifas, especiales, cobroConfig] = await Promise.all([
     leerConfigTarifas(),
     buscarTarifasEspeciales(reservaFila.check_in, reservaFila.check_out),
-    leerPorcentajeDeReserva(),
+    leerConfigDeCobro(),
   ]);
 
-  const precio = calcularPrecio(reservaFila, tarifas.temporadas, especiales || []);
+  const precio = calcularPrecio(reservaFila, tarifas.temporadas, especiales || [], cobroConfig.tarifaLimpieza);
 
   const [pagos, transferencias] = await Promise.all([
     pagosAprobados(reservaFila.id),
@@ -79,7 +79,7 @@ export async function avisarTransferenciaConfirmada(comprobante) {
 
   const cobro = calcularCobro({
     precioTotal: precio.total,
-    porcentajeReserva,
+    porcentajeReserva: cobroConfig.porcentajeReserva,
     pagadoBase: sumarPagado({ pagos: pagos || [], transferencias: transferencias || [] }),
     modo: "total",
   });

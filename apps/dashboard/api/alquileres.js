@@ -1,6 +1,6 @@
 import { exigirMetodo, json, manejarError } from "./_lib/http.js";
 import { exigirSesion } from "./_lib/sesion.js";
-import { seleccionar, leerConfigTarifas, leerPorcentajeDeReserva } from "./_lib/supabase.js";
+import { seleccionar, leerConfigTarifas, leerConfigDeCobro } from "./_lib/supabase.js";
 import { calcularPrecio } from "./_lib/precios.js";
 import { montoDeLaSenia } from "./_lib/cobro.js";
 
@@ -88,7 +88,7 @@ function comprobanteComoAlquiler(c, saldos) {
   };
 }
 
-function reservasConSaldo(pagos, comprobantes, tarifas, especiales, porcentajeReserva) {
+function reservasConSaldo(pagos, comprobantes, tarifas, especiales, cobroConfig) {
   const porReserva = new Map();
 
   const anotar = (bookingId, reserva, base) => {
@@ -114,7 +114,12 @@ function reservasConSaldo(pagos, comprobantes, tarifas, especiales, porcentajeRe
   for (const [bookingId, { reserva, pagado }] of porReserva) {
     let total = 0;
     try {
-      total = calcularPrecio(reserva, tarifas.temporadas, especiales || []).total;
+      total = calcularPrecio(
+        reserva,
+        tarifas.temporadas,
+        especiales || [],
+        cobroConfig.tarifaLimpieza,
+      ).total;
     } catch {
       continue;
     }
@@ -125,7 +130,7 @@ function reservasConSaldo(pagos, comprobantes, tarifas, especiales, porcentajeRe
       total,
       pagado: cobrado,
       saldo: Math.max(0, total - cobrado),
-      senia: montoDeLaSenia(total, porcentajeReserva),
+      senia: montoDeLaSenia(total, cobroConfig.porcentajeReserva),
       completa: cobrado >= total,
     });
   }
@@ -139,15 +144,15 @@ export default async function handler(req, res) {
   try {
     exigirSesion(req);
 
-    const [filas, comprobantes, tarifas, especiales, porcentajeReserva] = await Promise.all([
+    const [filas, comprobantes, tarifas, especiales, cobroConfig] = await Promise.all([
       seleccionar("payments", CONSULTA),
       seleccionar("transfer_receipts", CONSULTA_COMPROBANTES),
       leerConfigTarifas(),
       seleccionar("tarifas_especiales", "select=fecha_desde,fecha_hasta,precio_por_noche,motivo"),
-      leerPorcentajeDeReserva(),
+      leerConfigDeCobro(),
     ]);
 
-    const saldos = reservasConSaldo(filas, comprobantes, tarifas, especiales, porcentajeReserva);
+    const saldos = reservasConSaldo(filas, comprobantes, tarifas, especiales, cobroConfig);
 
     const deMercadoPago = (filas || []).map((f) => {
       const r = f.booking_requests || null;

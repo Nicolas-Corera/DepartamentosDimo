@@ -57,7 +57,7 @@ function tarifaEspecialDe(fechaISO, tarifas) {
   return elegida;
 }
 
-export function calcularPrecio(reserva, temporadas = [], especiales = []) {
+export function calcularPrecio(reserva, temporadas = [], especiales = [], tarifaLimpieza = 0) {
   const fechas = nochesDe(reserva.check_in, reserva.check_out);
 
   if (fechas.length === 0) {
@@ -91,6 +91,8 @@ export function calcularPrecio(reserva, temporadas = [], especiales = []) {
 
   const alojamiento = noches.reduce((suma, n) => suma + n.precio, 0);
 
+  const limpieza = Math.max(0, Math.round(Number(tarifaLimpieza) || 0));
+
   const importes = noches.map((n) => n.precio);
   const minimo = Math.min(...importes);
   const maximo = Math.max(...importes);
@@ -103,8 +105,10 @@ export function calcularPrecio(reserva, temporadas = [], especiales = []) {
     precioMinimo: minimo,
     precioMaximo: maximo,
     alojamiento,
+    limpieza,
+    hayLimpieza: limpieza > 0,
 
-    total: alojamiento,
+    total: alojamiento + limpieza,
 
     nochesSinTemporada: noches.filter((n) => !n.temporada && !n.motivo).length,
     moneda: "ARS",

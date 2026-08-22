@@ -403,6 +403,40 @@
 
             <div class="card card-ancho">
               <div class="card-header">
+                <div class="card-icon icon-senia">
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">cleaning_services</span>
+                </div>
+                <h2 class="headline-md card-title">Tarifa de limpieza</h2>
+              </div>
+
+              <p class="nota-card">
+                Un importe fijo que se suma <strong>una sola vez</strong> al total de
+                la estadía, no por noche. Aparece como una línea aparte en el resumen
+                del pago y en los mails. Poné <strong>0</strong> para no cobrarla: así
+                no se muestra en ningún lado.
+              </p>
+
+              <div class="senia-fila">
+                <div class="senia-controles">
+                  <div class="input-group" style="margin-bottom: 0">
+                    <label class="label-md" for="tarifa-limpieza">Importe</label>
+                    <input
+                      id="tarifa-limpieza"
+                      min="0"
+                      placeholder="Ej: 25000"
+                      required
+                      step="1"
+                      type="number"
+                    />
+                  </div>
+                  <span class="sufijo-porcentaje">$</span>
+                </div>
+                <p class="senia-ejemplo" id="limpieza-ejemplo">—</p>
+              </div>
+            </div>
+
+            <div class="card card-ancho">
+              <div class="card-header">
                 <div class="card-icon icon-calc">
                   <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">calculate</span>
                 </div>

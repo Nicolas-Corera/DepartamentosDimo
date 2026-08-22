@@ -3,7 +3,7 @@ import {
   buscarReserva,
   buscarTarifasEspeciales,
   leerConfigTarifas,
-  leerPorcentajeDeReserva,
+  leerConfigDeCobro,
   pagosAprobados,
   transferenciasConfirmadas,
   firmarSubidaDeComprobante,
@@ -54,13 +54,13 @@ function exigirPathDeLaReserva(crudo, bookingId) {
 }
 
 async function estadoDeCobro(reserva, modo) {
-  const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
+  const [tarifasConfig, especiales, cobroConfig] = await Promise.all([
     leerConfigTarifas(),
     buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
-    leerPorcentajeDeReserva(),
+    leerConfigDeCobro(),
   ]);
 
-  const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+  const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales, cobroConfig.tarifaLimpieza);
 
   const [pagos, transferencias] = await Promise.all([
     pagosAprobados(reserva.id),
@@ -69,7 +69,7 @@ async function estadoDeCobro(reserva, modo) {
 
   const cobro = calcularCobro({
     precioTotal: precio.total,
-    porcentajeReserva,
+    porcentajeReserva: cobroConfig.porcentajeReserva,
     pagadoBase: sumarPagado({ pagos, transferencias }),
     modo,
   });

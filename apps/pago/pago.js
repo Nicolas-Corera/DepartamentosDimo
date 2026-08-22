@@ -382,6 +382,10 @@ function pintarResumen({ reserva, precio }) {
     : `Alojamiento (${n} ${n === 1 ? "noche" : "noches"})`;
   $("resumen-alojamiento").textContent = pesos.format(precio.alojamiento);
 
+  const limpieza = Number(precio.limpieza || 0);
+  $("resumen-limpieza-fila").hidden = limpieza <= 0;
+  if (limpieza > 0) $("resumen-limpieza").textContent = pesos.format(limpieza);
+
   pintarDetalleDeNoches(precio);
 
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);

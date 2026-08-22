@@ -26,7 +26,7 @@ async function leerTodo() {
     seleccionar("medios_pago", "select=clave,nombre,habilitado,recargo_porcentaje,orden&order=orden"),
     seleccionar("planes_cuotas", "select=cuotas,habilitado,recargo_porcentaje&order=cuotas"),
     seleccionar("tarifas_especiales", "select=id,fecha_desde,fecha_hasta,precio_por_noche,motivo&order=fecha_desde"),
-    seleccionar("configuracion_pagos", "select=porcentaje_reserva&id=eq.1"),
+    seleccionar("configuracion_pagos", "select=porcentaje_reserva,tarifa_limpieza&id=eq.1"),
   ]);
 
   const normalizados = (planes || []).map((p) => ({
@@ -39,6 +39,7 @@ async function leerTodo() {
 
   return {
     porcentajeReserva: Number(cobro?.[0]?.porcentaje_reserva ?? PORCENTAJE_RESERVA_POR_DEFECTO),
+    tarifaLimpieza: Number(cobro?.[0]?.tarifa_limpieza ?? 0),
     temporadas: (temporadas || []).map((t) => ({
       clave: t.clave,
       nombre: t.nombre,
@@ -161,18 +162,31 @@ function validar(cuerpo) {
     errores.push("El porcentaje de seña tiene que ser un número mayor a 0 y hasta 100.");
   }
 
+  const tarifaLimpieza = entero(cuerpo.tarifaLimpieza, { min: 0, max: PRECIO_MAX });
+  if (tarifaLimpieza === null) {
+    errores.push(
+      "La tarifa de limpieza tiene que ser un número entero de 0 en adelante. " +
+        "Poné 0 si no querés cobrarla.",
+    );
+  }
+
   if (errores.length) {
     throw new ErrorVisible(400, errores.join(" "), "validacion");
   }
 
-  return { temporadas, medios, planes, especiales, porcentajeReserva };
+  return { temporadas, medios, planes, especiales, porcentajeReserva, tarifaLimpieza };
 }
 
 async function guardarTodo(datos) {
   const sello = new Date().toISOString();
 
   await upsert("configuracion_pagos", [
-    { id: 1, porcentaje_reserva: datos.porcentajeReserva, actualizado_en: sello },
+    {
+      id: 1,
+      porcentaje_reserva: datos.porcentajeReserva,
+      tarifa_limpieza: datos.tarifaLimpieza,
+      actualizado_en: sello,
+    },
   ]);
 
   await upsert("temporadas", datos.temporadas.map((t) => ({ ...t, actualizado_en: sello })));

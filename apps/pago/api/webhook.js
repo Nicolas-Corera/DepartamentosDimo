@@ -15,7 +15,7 @@ import {
   completarDatosDePago,
   buscarTarifasEspeciales,
   leerConfigTarifas,
-  leerPorcentajeDeReserva,
+  leerConfigDeCobro,
   pagosAprobados,
   transferenciasConfirmadas,
 } from "./_lib/supabase.js";
@@ -49,13 +49,13 @@ const MEDIO_POR_TIPO = {
 async function avisarPorMail(resumen, bookingId, guardado) {
   const reserva = await buscarReserva(bookingId);
 
-  const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
+  const [tarifasConfig, especiales, cobroConfig] = await Promise.all([
     leerConfigTarifas(),
     buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
-    leerPorcentajeDeReserva(),
+    leerConfigDeCobro(),
   ]);
 
-  const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+  const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales, cobroConfig.tarifaLimpieza);
 
   const [pagos, transferencias] = await Promise.all([
     pagosAprobados(reserva.id),
@@ -92,7 +92,7 @@ async function avisarPorMail(resumen, bookingId, guardado) {
     deducirConcepto({
       montoBase,
       montoTotal: precio.total,
-      montoReserva: montoDeLaSenia(precio.total, porcentajeReserva),
+      montoReserva: montoDeLaSenia(precio.total, cobroConfig.porcentajeReserva),
       pagadoPrevio: pagadoOtros,
     });
 
@@ -105,7 +105,7 @@ async function avisarPorMail(resumen, bookingId, guardado) {
 
   const cobro = calcularCobro({
     precioTotal: precio.total,
-    porcentajeReserva,
+    porcentajeReserva: cobroConfig.porcentajeReserva,
     pagadoBase: pagadoOtros + montoBase,
     modo: concepto === "reserva" ? "reserva" : "total",
   });

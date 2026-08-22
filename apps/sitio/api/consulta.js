@@ -3,7 +3,7 @@ import {
   insertarConsulta,
   leerConfigTarifas,
   buscarTarifasEspeciales,
-  leerPorcentajeDeReserva,
+  leerConfigDeCobro,
 } from "./_lib/supabase.js";
 import { calcularPrecio } from "./_lib/precios.js";
 import { montoDeLaSenia } from "./_lib/cobro.js";
@@ -227,21 +227,21 @@ export default async function handler(req, res) {
     );
 
     try {
-      const [tarifas, especiales, porcentajeReserva] = await Promise.all([
+      const [tarifas, especiales, cobroConfig] = await Promise.all([
         leerConfigTarifas(),
         buscarTarifasEspeciales(fila.check_in, fila.check_out),
-        leerPorcentajeDeReserva(),
+        leerConfigDeCobro(),
       ]);
 
-      const precio = calcularPrecio(reserva, tarifas.temporadas, especiales || []);
+      const precio = calcularPrecio(reserva, tarifas.temporadas, especiales || [], cobroConfig.tarifaLimpieza);
 
       await avisarConsultaNueva({
         reserva,
         precio,
         cobro: {
-          porcentajeReserva,
+          porcentajeReserva: cobroConfig.porcentajeReserva,
           montoTotal: precio.total,
-          montoReserva: montoDeLaSenia(precio.total, porcentajeReserva),
+          montoReserva: montoDeLaSenia(precio.total, cobroConfig.porcentajeReserva),
         },
       });
     } catch (error) {

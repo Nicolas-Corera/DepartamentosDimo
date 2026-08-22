@@ -204,14 +204,21 @@ export function buscarTarifasEspeciales(checkIn, checkOut) {
   );
 }
 
-export async function leerPorcentajeDeReserva() {
-  const filas = await seleccionar("configuracion_pagos", "select=porcentaje_reserva&id=eq.1");
+export async function leerConfigDeCobro() {
+  const filas = await seleccionar(
+    "configuracion_pagos",
+    "select=porcentaje_reserva,tarifa_limpieza&id=eq.1",
+  );
   const pct = Number(filas?.[0]?.porcentaje_reserva);
 
   if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
     throw new Error("configuracion_pagos.porcentaje_reserva no es un porcentaje válido.");
   }
-  return pct;
+
+  const limpieza = Number(filas?.[0]?.tarifa_limpieza ?? 0);
+  const tarifaLimpieza = Number.isFinite(limpieza) && limpieza > 0 ? limpieza : 0;
+
+  return { porcentajeReserva: pct, tarifaLimpieza };
 }
 
 export function pagosAprobados(bookingId) {
