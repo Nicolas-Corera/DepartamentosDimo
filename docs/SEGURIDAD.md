@@ -949,6 +949,97 @@ después; `booking_requests` quedó con las mismas filas que antes.
 
 ---
 
+## Las cabeceras de seguridad
+
+Salió de una pregunta al cerrar la Fase 6: *"¿lo de las inyecciones ya está
+seguro?"*. La respuesta corta fue que sí —el escapado y la validación están
+bien— pero faltaba la **segunda línea**: lo que limita el daño si algún día se
+escapa una.
+
+Antes de esto, los tres dominios mandaban una sola cabecera de seguridad,
+`Strict-Transport-Security`. Ahora los tres mandan cinco.
+
+### Lo que aplica a los tres
+
+| Cabecera | Para qué |
+| --- | --- |
+| `Content-Security-Policy` | Lista blanca de de dónde se puede cargar cada cosa |
+| `X-Content-Type-Options: nosniff` | Que el navegador no adivine el tipo de un archivo — importa para los comprobantes |
+| `X-Frame-Options: DENY` | Clickjacking, para navegadores viejos que no entienden `frame-ancestors` |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Que no se filtre la URL completa —con el uuid de la reserva— al salir del sitio |
+| `Permissions-Policy` | Apaga cámara, micrófono, ubicación y *topics* |
+
+Las tres políticas comparten el mismo núcleo: `default-src 'self'`,
+`object-src 'none'` (mata Flash/applets), `base-uri 'self'` (impide que un
+`<base>` inyectado redirija todos los links) y `frame-ancestors 'none'` (nadie
+puede meter el sitio en un iframe).
+
+De ahí para arriba, cada app abre solo lo que usa.
+
+### Por qué no alcanza con leer el código
+
+La política se armó mirando qué carga cada app, y **la primera versión estaba
+mal en tres cosas** que solo aparecieron probándola en el navegador:
+
+| Lo que faltaba | Cómo se descubrió |
+| --- | --- |
+| `fonts.googleapis.com` en `pago` | El `<link>` tiene el `href` en otra línea y el `grep` no lo vio. La consola sí: *"Loading the stylesheet … has been blocked"* |
+| `api.mercadolibre.com` en `connect-src` | El SDK manda telemetría ahí. No rompía el brick, pero llenaba la consola de errores |
+| `*.mercadolivre.com` en `img-src` | Con **v**, el dominio brasileño. MercadoPago carga desde ahí una imagen de *fingerprint* antifraude. Esto no está en ninguna documentación que hayamos visto: apareció solo al montar el formulario de tarjeta |
+
+Ese último es el mejor argumento para no publicar una CSP sin probarla: bloquear
+el fingerprint antifraude no rompe nada visible, pero puede hacer que
+MercadoPago rechace más pagos.
+
+### El caso especial: `script-src 'unsafe-inline'` en el checkout
+
+`pago` es la única de las tres que lleva `'unsafe-inline'` en `script-src`, y es
+a propósito.
+
+**El SDK de MercadoPago inyecta un `<script>` inline en tiempo de ejecución.** No
+está en nuestro HTML, así que no se puede sacar a un archivo. Quedaban dos
+salidas:
+
+1. Poner el hash del script (`sha256-5LAqz1…`). Lo rechazamos: **el hash cambia
+   cuando MercadoPago actualiza el SDK**, y ese día el checkout se rompe solo,
+   en producción, sin que nadie toque nada.
+2. `'unsafe-inline'`. Es lo que se usó.
+
+El costo es acotado porque **`pago` no tiene superficie de XSS propia**: sus
+siete `innerHTML` son strings fijos —la única interpolación es un número
+formateado con `Intl`— y los 43 datos dinámicos van por `textContent`. Sin un
+vector de inyección, `'unsafe-inline'` no habilita nada.
+
+El resto de la política sigue firme ahí: `object-src 'none'`,
+`frame-ancestors 'none'`, `base-uri`, `form-action` y un `connect-src` cerrado
+que impide mandar datos a un servidor ajeno.
+
+> `sitio` y `dashboard` **no** llevan `'unsafe-inline'` en `script-src`. Para
+> lograrlo hubo que sacar el único script inline del repo, el de
+> `login_panel.html`, a `apps/dashboard/login.js` — 138 líneas movidas tal cual.
+
+### Verificado en el navegador, app por app
+
+Las políticas se probaron inyectándolas como `<meta http-equiv>` en los tres dev
+servers, ejercitando cada función y leyendo la consola.
+
+| | |
+| --- | --- |
+| **sitio** — Leaflet carga, **18 de 18** tiles del mapa, 7 fuentes, reseñas por Supabase, calendario | ✅ sin violaciones |
+| **dashboard** — login con el script ya externalizado, GSAP, jsPDF desde cdnjs, imagen e iframe hacia Supabase | ✅ sin violaciones |
+| **pago** — SDK, **brick de tarjeta montado** (11 campos, iframes de `secure-fields.mercadopago.com`), 3 fuentes, subida a Storage | ✅ sin violaciones |
+
+Y que la política **realmente bloquea**: un `<script>` y una `<img>` desde un
+dominio no permitido se cortaron, con el mensaje de CSP en consola, mientras
+cdnjs y Supabase pasaban.
+
+> Un detalle del método: la consola del navegador acumula mensajes entre
+> navegaciones. La primera lectura mostraba errores de la política vieja y
+> parecía que el arreglo no había funcionado. Hay que mirar **qué directiva cita
+> el error** para saber de qué carga viene, o abrir una pestaña limpia.
+
+---
+
 ## Lo que queda a mano
 
 ### De la Parte E — a resolver en código
