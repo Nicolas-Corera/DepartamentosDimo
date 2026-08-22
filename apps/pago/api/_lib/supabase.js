@@ -197,6 +197,29 @@ export async function leerObjetoDeComprobante(path) {
   };
 }
 
+export async function leerCabeceraDeComprobante(path, bytes = 1024) {
+  const { supabase } = leerConfig();
+
+  const respuesta = await fetch(
+    `${supabase.url}/storage/v1/object/${BUCKET}/${path.split("/").map(encodeURIComponent).join("/")}`,
+    {
+      headers: {
+        apikey: supabase.serviceRoleKey,
+        Authorization: `Bearer ${supabase.serviceRoleKey}`,
+        Range: `bytes=0-${bytes - 1}`,
+      },
+      signal: AbortSignal.timeout(12_000),
+    },
+  );
+
+  if (!respuesta.ok && respuesta.status !== 206) {
+    log.error("supabase.leerCabeceraDeComprobante", new Error(`HTTP ${respuesta.status}`), { path });
+    throw new Error(`No se pudo leer el comprobante: HTTP ${respuesta.status}`);
+  }
+
+  return Buffer.from(await respuesta.arrayBuffer());
+}
+
 export async function borrarComprobante(path) {
   const { error } = await db().storage.from(BUCKET).remove([path]);
   if (error) log.warn("supabase.borrarComprobante", { path, motivo: error.message });
