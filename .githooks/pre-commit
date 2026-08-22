@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node tools/buscar-secretos.mjs --stage
