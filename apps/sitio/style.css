@@ -1324,7 +1324,7 @@ p {
   gap: 8px;
   font-weight: bold;
 }
-.footer-address a{
+.footer-address a {
   transition: all 100ms ease-in-out;
 }
 .footer-address a:hover {
@@ -1599,4 +1599,110 @@ p {
     bottom: 12px;
     width: auto;
   }
+}
+
+.pais-select {
+  position: relative;
+}
+
+.pais-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--arena-deep);
+  background: var(--blanco);
+  color: var(--tinta);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.pais-btn:focus,
+.pais-btn:focus-visible {
+  border-color: var(--celeste);
+  box-shadow: 0 0 0 4px rgba(63, 167, 199, 0.18);
+  outline: none;
+}
+
+.pais-select[data-abierto="true"] .pais-btn {
+  border-color: var(--celeste);
+  box-shadow: 0 0 0 4px rgba(63, 167, 199, 0.18);
+}
+
+.pais-code {
+  font-variant-numeric: tabular-nums;
+}
+
+.pais-caret {
+  margin-left: 2px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.pais-lista {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  min-width: 200px;
+  background: var(--blanco);
+  border: 1.5px solid var(--arena-deep);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.pais-lista li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--tinta);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.pais-lista li:hover,
+.pais-lista li[aria-selected="true"] {
+  background: rgba(63, 167, 199, 0.1);
+}
+
+.flag {
+  display: inline-block;
+  width: 20px;
+  height: 14px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.flag.ar {
+  background-image: url("assets/icons/argenina-flag.svg");
+}
+.flag.uy {
+  background-image: url("assets/icons/uruguay-flag.svg");
+}
+.flag.cl {
+  background-image: url("assets/icons/chile-flag.svg");
+}
+.flag.br {
+  background-image: url("assets/icons/brasil-flag.svg");
+}
+.flag.py {
+  background-image: url("assets/icons/paraguay-flag.svg");
+}
+.flag.bo {
+  background-image: url("assets/icons/bolivia-flag.svg");
+}
+.flag.pe {
+  background-image: url("assets/icons/peru-flag.svg");
 }

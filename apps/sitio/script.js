@@ -83,7 +83,7 @@
       size: "tall",
     },
     {
-      src: "/assets/images/galeria/baño.jpg",
+      src: "/assets/images/galeria/bano.jpg",
       alt: "Baño",
       size: "std",
     },
@@ -264,7 +264,11 @@
     const cursor = keyADate(desdeKey);
     const fin = keyADate(hastaKey);
     while (cursor < fin) {
-      const key = fmtKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+      const key = fmtKey(
+        cursor.getFullYear(),
+        cursor.getMonth(),
+        cursor.getDate(),
+      );
       if (bookedDates.has(key)) return true;
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -442,14 +446,19 @@
 
   async function cargarFechasOcupadas() {
     if (typeof window.db === "undefined") {
-      console.warn("[disponibilidad] Supabase no está cargado; el calendario queda sin ocupación.");
+      console.warn(
+        "[disponibilidad] Supabase no está cargado; el calendario queda sin ocupación.",
+      );
       return;
     }
 
     const { data, error } = await window.db.rpc("fechas_ocupadas");
 
     if (error) {
-      console.error("[disponibilidad] no se pudieron traer las fechas ocupadas:", error.message);
+      console.error(
+        "[disponibilidad] no se pudieron traer las fechas ocupadas:",
+        error.message,
+      );
       return;
     }
 
@@ -559,8 +568,9 @@
   function renderGrupo(adultos, ninos) {
     const t = total();
 
-    adultosSel.innerHTML = Array.from({ length: t }, (_, i) => optAdultos(i + 1))
-      .join("");
+    adultosSel.innerHTML = Array.from({ length: t }, (_, i) =>
+      optAdultos(i + 1),
+    ).join("");
     ninosSel.innerHTML = Array.from({ length: t }, (_, i) => optNinos(i)).join(
       "",
     );
@@ -680,16 +690,90 @@
 
   toggleVehiculo();
 
-  const telefonoInput = document.getElementById("telefono");
+  const paisSelect = document.getElementById("paisSelect");
+  const paisBtn = document.getElementById("paisBtn");
+  const paisLista = document.getElementById("paisLista");
+  const paisFlagActual = document.getElementById("paisFlagActual");
+  const paisCodeActual = document.getElementById("paisCodeActual");
   const telefonoPais = document.getElementById("telefonoPais");
   const telefonoOtroPais = document.getElementById("telefonoOtroPais");
+
+  paisBtn.addEventListener("click", () => {
+    const abierto = !paisLista.hidden;
+    paisLista.hidden = abierto;
+    paisBtn.setAttribute("aria-expanded", String(!abierto));
+    paisSelect.dataset.abierto = String(!abierto);
+  });
+
+  paisLista.addEventListener("click", (e) => {
+    const li = e.target.closest("li");
+    if (!li) return;
+
+    const value = li.dataset.value;
+    const code = li.dataset.code;
+    const flagClass = li.querySelector(".flag")?.classList[1]; // ej: "ar"
+
+    paisFlagActual.className = "pais-flag flag " + (flagClass || "");
+    paisFlagActual.style.display = value === "otro" ? "none" : "";
+    paisCodeActual.textContent = value === "otro" ? "Otro" : code;
+    telefonoPais.value = value;
+    telefonoPais.dispatchEvent(new Event("change"));
+
+    telefonoOtroPais.hidden = value !== "otro";
+
+    paisLista.hidden = true;
+    paisBtn.setAttribute("aria-expanded", "false");
+    paisSelect.dataset.abierto = "false";
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!paisSelect.contains(e.target)) {
+      paisLista.hidden = true;
+      paisBtn.setAttribute("aria-expanded", "false");
+      paisSelect.dataset.abierto = "false";
+    }
+  });
+
+  const telefonoInput = document.getElementById("telefono");
   const telefonoEco = document.getElementById("telefonoEco");
 
   const AREAS_DE_TRES = new Set([
-    "220", "221", "223", "230", "236", "237", "249", "260", "261", "263", "264",
-    "266", "280", "291", "297", "299", "336", "341", "342", "343", "345", "348",
-    "351", "353", "358", "362", "364", "370", "376", "379", "380", "381", "383",
-    "385", "387", "388",
+    "220",
+    "221",
+    "223",
+    "230",
+    "236",
+    "237",
+    "249",
+    "260",
+    "261",
+    "263",
+    "264",
+    "266",
+    "280",
+    "291",
+    "297",
+    "299",
+    "336",
+    "341",
+    "342",
+    "343",
+    "345",
+    "348",
+    "351",
+    "353",
+    "358",
+    "362",
+    "364",
+    "370",
+    "376",
+    "379",
+    "380",
+    "381",
+    "383",
+    "385",
+    "387",
+    "388",
   ]);
 
   function soloDigitos(valor) {
@@ -809,7 +893,10 @@
   async function createBookingRequest(consulta) {
     const respuesta = await fetch("/api/consulta", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       body: JSON.stringify(consulta),
     });
 
@@ -932,7 +1019,8 @@
     } catch (err) {
       console.error("No se pudo guardar la consulta:", err);
       mostrarToast(
-        err?.visible || "No pudimos enviar tu consulta. Probá de nuevo en un momento.",
+        err?.visible ||
+          "No pudimos enviar tu consulta. Probá de nuevo en un momento.",
         "error",
       );
     } finally {
@@ -970,7 +1058,10 @@
   async function createReview(review) {
     const respuesta = await fetch("/api/resena", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       body: JSON.stringify({
         name: review.name,
         rating: review.rating,
@@ -1353,7 +1444,8 @@
       console.error("No se pudo publicar la reseña:", err);
 
       mostrarToast(
-        err?.visible || "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
+        err?.visible ||
+          "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
         "error",
       );
     } finally {
@@ -1368,7 +1460,7 @@
     "/assets/images/galeria/dormitorio_3.jpeg",
     "/assets/images/galeria/dormitorio_1.jpeg",
     "/assets/images/galeria/cocina.jpeg",
-    "/assets/images/galeria/baño.jpg",
+    "/assets/images/galeria/bano.jpg",
     "/assets/images/galeria/living.jpeg",
     "/assets/images/galeria/comedor.jpeg",
   ];
@@ -1611,11 +1703,15 @@
   const refresco = { timer: null, espera: REFRESCO_MS, corriendo: false };
 
   function hayModalAbierto() {
-    return Array.from(document.querySelectorAll(".modal-overlay")).some((m) => !m.hidden);
+    return Array.from(document.querySelectorAll(".modal-overlay")).some(
+      (m) => !m.hidden,
+    );
   }
 
   function huellaDeResenas(lista) {
-    return (lista || []).map((r) => `${r.created_at}|${r.rating}|${r.name}`).join("~");
+    return (lista || [])
+      .map((r) => `${r.created_at}|${r.rating}|${r.name}`)
+      .join("~");
   }
 
   async function refrescarResenas() {
@@ -1646,7 +1742,9 @@
 
   async function ciclarRefresco() {
     const ok = await refrescarDatos();
-    refresco.espera = ok ? REFRESCO_MS : Math.min(refresco.espera * 2, REFRESCO_MAX_MS);
+    refresco.espera = ok
+      ? REFRESCO_MS
+      : Math.min(refresco.espera * 2, REFRESCO_MAX_MS);
     refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
   }
 

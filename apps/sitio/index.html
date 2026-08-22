@@ -31,10 +31,8 @@
     ></script>
   </head>
   <body>
-
     <svg class="icon-sprite" aria-hidden="true">
       <defs>
-
         <symbol id="ic-umbrella" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M786-120 532-374l56-56 254 254-56 56Zm-546-28q-100-98-117.5-230T168-625q3 34 17 76.5t38.5 89.5q24.5 47 58.5 96.5t75 97.5L240-148Zm172-172q-48-48-84-104.5T271.5-534q-20.5-53-23-96.5T267-695q21-22 64.5-20t97 22.5q53.5 20.5 110 57T643-551L412-320Zm286-286q-47-41-96.5-74t-96-58q-46.5-25-89-39.5T340-795q115-60 246.5-41.5T814-722L698-606Z"
@@ -189,7 +187,6 @@
     </header>
 
     <main>
-
       <section class="hero" id="inicio">
         <div
           class="hero-media"
@@ -237,9 +234,7 @@
         <div class="wrap">
           <p class="section-eyebrow">Recorré cada rincón</p>
           <h2 class="section-title">Fotos del departamento</h2>
-          <div class="masonry" id="masonry">
-
-          </div>
+          <div class="masonry" id="masonry"></div>
         </div>
       </section>
 
@@ -393,16 +388,54 @@
               <div class="field">
                 <label for="telefono">Teléfono de contacto *</label>
                 <div class="tel-grupo">
-                  <select id="telefonoPais" name="telefonoPais" aria-label="Código de país">
-                    <option value="54" selected>🇦🇷 +54</option>
-                    <option value="598">🇺🇾 +598</option>
-                    <option value="56">🇨🇱 +56</option>
-                    <option value="55">🇧🇷 +55</option>
-                    <option value="595">🇵🇾 +595</option>
-                    <option value="591">🇧🇴 +591</option>
-                    <option value="51">🇵🇪 +51</option>
-                    <option value="otro">Otro…</option>
-                  </select>
+                  <div class="pais-select" id="paisSelect">
+                    <button
+                      type="button"
+                      class="pais-btn"
+                      id="paisBtn"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                    >
+                      <span
+                        class="pais-flag flag ar"
+                        id="paisFlagActual"
+                      ></span>
+                      <span class="pais-code" id="paisCodeActual">+54</span>
+                      <span class="pais-caret">▾</span>
+                    </button>
+                    <ul class="pais-lista" id="paisLista" role="listbox" hidden>
+                      <li role="option" data-value="54" data-code="+54">
+                        <span class="flag ar"></span> Argentina +54
+                      </li>
+                      <li role="option" data-value="598" data-code="+598">
+                        <span class="flag uy"></span> Uruguay +598
+                      </li>
+                      <li role="option" data-value="56" data-code="+56">
+                        <span class="flag cl"></span> Chile +56
+                      </li>
+                      <li role="option" data-value="55" data-code="+55">
+                        <span class="flag br"></span> Brasil +55
+                      </li>
+                      <li role="option" data-value="595" data-code="+595">
+                        <span class="flag py"></span> Paraguay +595
+                      </li>
+                      <li role="option" data-value="591" data-code="+591">
+                        <span class="flag bo"></span> Bolivia +591
+                      </li>
+                      <li role="option" data-value="51" data-code="+51">
+                        <span class="flag pe"></span> Perú +51
+                      </li>
+                      <li role="option" data-value="otro" data-code="+__">
+                        Otro…
+                      </li>
+                    </ul>
+                  </div>
+                  <input
+                    type="hidden"
+                    id="telefonoPais"
+                    name="telefonoPais"
+                    value="54"
+                  />
                   <input
                     type="tel"
                     id="telefonoOtroPais"
@@ -417,7 +450,8 @@
                     id="telefono"
                     name="telefono"
                     inputmode="tel"
-                    placeholder="223 555 1234"
+                    placeholder="11 2345-6789"
+                    maxlength="10"
                     required
                   />
                 </div>
@@ -607,9 +641,7 @@
             >
               <svg class="ic-sm rot180"><use href="#ic-chevron" /></svg>
             </button>
-            <div class="reviews-track" id="reviewsTrack">
-
-            </div>
+            <div class="reviews-track" id="reviewsTrack"></div>
             <button
               type="button"
               class="carousel-nav next"

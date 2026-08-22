@@ -16,6 +16,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+apps/sitio/components.html
+
 # NOTA sobre supabase-config.js
 # ---------------------------------------------------------------------------
 # El archivo generado supabase-config.js SÍ se commitea a propósito: GitHub
