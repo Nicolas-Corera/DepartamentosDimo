@@ -445,16 +445,17 @@
   }
 
   async function cargarFechasOcupadas() {
-    if (typeof window.db === "undefined") {
-      console.warn(
-        "[disponibilidad] Supabase no está cargado; el calendario queda sin ocupación.",
-      );
-      return;
-    }
+    let data;
 
-    const { data, error } = await window.db.rpc("fechas_ocupadas");
+    try {
+      const respuesta = await fetch("/api/ocupacion", {
+        headers: { Accept: "application/json" },
+      });
+      const cuerpo = await respuesta.json().catch(() => ({}));
 
-    if (error) {
+      if (!respuesta.ok) throw new Error(cuerpo.error || `Error ${respuesta.status}`);
+      data = cuerpo.fechas;
+    } catch (error) {
       console.error(
         "[disponibilidad] no se pudieron traer las fechas ocupadas:",
         error.message,

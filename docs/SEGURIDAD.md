@@ -579,6 +579,77 @@ manda a escribir por WhatsApp — no un error técnico.
 
 ---
 
+## El calendario, fuera de la API pública
+
+El Security Advisor de Supabase marcaba dos warnings, las dos sobre
+`public.fechas_ocupadas()`: *Public Can Execute SECURITY DEFINER Function* y
+*Signed-In Users Can Execute SECURITY DEFINER Function*.
+
+En [A.1](#a1--rls-en-todas-las-tablas) la habíamos dado por buena, y no estaba
+mal: la función devuelve dos columnas de fecha, nada más, y tiene
+`search_path = ''`. Pero el aviso apunta a algo real. Una función
+`SECURITY DEFINER` **saltea RLS por definición**, así que era el único camino
+por el que el navegador podía llegar a `booking_requests` — la tabla con el
+nombre, el mail, el DNI y el teléfono de cada huésped. Que hoy devuelva solo
+fechas depende de que nadie le toque el cuerpo.
+
+### Lo que se hizo
+
+El calendario ya no le habla a Supabase: le pide las fechas a
+**`GET /api/ocupacion`** del propio sitio, que corre en el servidor con la
+`service_role`.
+
+| | Antes | Ahora |
+| --- | --- | --- |
+| Tipo de función | `SECURITY DEFINER` | `SECURITY INVOKER` |
+| La puede ejecutar `anon` | ✅ sí | ❌ no |
+| La puede ejecutar `authenticated` | ✅ sí | ❌ no |
+| La puede ejecutar `service_role` | ✅ sí | ✅ sí |
+| Quién la llama | El navegador, por RPC | `apps/sitio/api/ocupacion.js` |
+
+El cambio está en [`sql/ocupacion-solo-servidor.sql`](../sql/ocupacion-solo-servidor.sql).
+`sql/tarifas-y-ocupacion.sql` también se actualizó: si se volviera a correr con
+la versión vieja, devolvería el `grant` a `anon` y las warnings con él.
+
+Pasarla a `INVOKER` es lo que apaga los dos avisos, pero además es cinturón y
+tiradores: aunque mañana alguien le devolviera el `execute` a `anon` por error,
+la función correría *como* `anon` y RLS la frenaría igual. Antes, ese error solo
+alcanzaba para abrir la puerta.
+
+Funciona porque `service_role` tiene `rolbypassrls`, así que llamándola desde el
+servidor lee la tabla sin necesitar que la función saltee nada.
+
+### Por qué no la otra salida
+
+La alternativa era dejar la función como `INVOKER` y darle a `anon` un
+`GRANT SELECT (check_in, check_out, estado)` sobre `booking_requests` más una
+policy de RLS para las confirmadas. Apagaba las warnings sin tocar el front.
+
+Se descartó: obliga a abrirle `booking_requests` al navegador —con permisos
+recortados, pero abierta— y rompe el invariante que venía de la Parte A, que es
+más simple de auditar: **el navegador no toca esa tabla, punto.** El costo de la
+opción elegida es una ruta más y un salto extra; el beneficio es que la tabla
+con los datos personales queda cerrada del todo.
+
+### Verificado
+
+Contra la base y contra el sitio levantado:
+
+| | |
+| --- | --- |
+| La consulta del Security Advisor no devuelve ninguna fila | ✅ |
+| `anon` llamando al RPC → `permission denied for function` | ✅ |
+| `anon` leyendo `booking_requests` → `permission denied for table` | ✅ |
+| `service_role` la llama y devuelve solo las `confirmada` | ✅ |
+| `GET /api/ocupacion` devuelve las fechas; `POST` da `405` | ✅ |
+| El calendario marca los días como `booked` y deshabilitados | ✅ |
+| Las reseñas siguen leyéndose con la clave pública | ✅ |
+
+La prueba con datos se hizo insertando una reserva confirmada y borrándola
+después; `booking_requests` quedó con las mismas filas que antes.
+
+---
+
 ## Lo que queda a mano
 
 ### De la Parte C — en el panel de MercadoPago
@@ -645,9 +716,21 @@ select proname, prosecdef from pg_proc p
  where n.nspname = 'public' and p.prosecdef;
 ```
 
-Sobre la última: `fechas_ocupadas()` es `SECURITY DEFINER` a propósito. Saltea
-RLS para leer `booking_requests`, pero devuelve **solo** `check_in` y
-`check_out` de las reservas confirmadas — ningún nombre, mail ni teléfono. Es lo
-que necesita el calendario del sitio para marcar los días ocupados. Tiene
-`search_path = ''`, que es lo que evita que se la pueda secuestrar con una
-tabla falsa en otro schema.
+Sobre la última: hoy la única `SECURITY DEFINER` que queda es `rls_auto_enable`,
+el event trigger de [A.1](#a1--rls-en-todas-las-tablas), y ni `anon` ni
+`authenticated` pueden ejecutarla. `fechas_ocupadas()` pasó a `SECURITY INVOKER`
+— ver [El calendario, fuera de la API pública](#el-calendario-fuera-de-la-api-pública).
+
+La consulta que replica exactamente lo que mira el Security Advisor, y que no
+debería devolver ninguna fila:
+
+```sql
+select p.proname,
+       has_function_privilege('anon', p.oid, 'EXECUTE')          as anon,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public'
+   and p.prosecdef
+   and (has_function_privilege('anon', p.oid, 'EXECUTE')
+        or has_function_privilege('authenticated', p.oid, 'EXECUTE'));
+```
