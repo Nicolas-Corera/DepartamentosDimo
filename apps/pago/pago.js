@@ -108,10 +108,62 @@ function leerModoDeLaUrl() {
   return modo === "reserva" ? "reserva" : "total";
 }
 
+function telefonoParaWhatsapp(crudo) {
+  let n = String(crudo || "").replace(/\D/g, "");
+  if (!n) return "";
+
+  n = n.replace(/^00/, "");
+  if (n.startsWith("54")) return n;
+
+  n = n.replace(/^0/, "");
+  return n.startsWith("9") ? `54${n}` : `549${n}`;
+}
+
+function mensajeDeWhatsapp() {
+  const reserva = estado.datos?.reserva;
+  if (!reserva) return "Hola! Escribo por una consulta.";
+  return (
+    `Hola! Escribo por mi reserva del ${fechaCorta(reserva.checkIn)} ` +
+    `al ${fechaCorta(reserva.checkOut)} (código ${String(estado.ref || "").slice(0, 8)}).`
+  );
+}
+
+function pintarContacto(id) {
+  const caja = $(id);
+  if (!caja) return;
+
+  const contacto = estado.datos?.contacto;
+  if (!contacto?.mail && !contacto?.whatsapp) {
+    caja.hidden = true;
+    return;
+  }
+
+  const mail = $(`${id}-mail`);
+  if (contacto.mail) {
+    mail.href = `mailto:${contacto.mail}`;
+    mail.lastElementChild.textContent = contacto.mail;
+    mail.hidden = false;
+  } else {
+    mail.hidden = true;
+  }
+
+  const wa = $(`${id}-wa`);
+  const numero = telefonoParaWhatsapp(contacto.whatsapp);
+  if (numero) {
+    wa.href = `https://wa.me/${numero}?text=${encodeURIComponent(mensajeDeWhatsapp())}`;
+    wa.hidden = false;
+  } else {
+    wa.hidden = true;
+  }
+
+  caja.hidden = false;
+}
+
 function mostrarErrorDeCarga(titulo, detalle, { reintentar = true } = {}) {
   $("error-titulo").textContent = titulo;
   $("error-detalle").textContent = detalle;
   $("error-reintentar").hidden = !reintentar;
+  pintarContacto("contacto-error");
   mostrarPantalla("pantalla-error");
   anunciar(`${titulo}. ${detalle}`);
 }
@@ -124,7 +176,7 @@ async function cargarReserva() {
   if (!estado.ref) {
     mostrarErrorDeCarga(
       "Falta el código de reserva",
-      "Entrá con el link que te enviamos por mail: incluye el código de tu reserva. Si lo perdiste, escribinos y te lo reenviamos.",
+      "Entrá con el link que te enviamos por mail: incluye el código de tu reserva. Si lo perdiste, escribinos por mail o WhatsApp y te lo reenviamos.",
       { reintentar: false },
     );
     return;
@@ -167,7 +219,7 @@ async function cargarReserva() {
         titulo: "¡Listo! Tu estadía está paga",
         detalle:
           "Ya registramos el pago completo de esta reserva. " +
-          "Te llegó el comprobante por mail; si no lo encontrás, escribinos.",
+          "Te llegó el comprobante por mail; si no lo encontrás, escribinos por mail o WhatsApp.",
         accion: "ninguna",
       },
       pagoQueCerroLaReserva(cuerpo),
@@ -287,8 +339,8 @@ function mostrarEstadoDeTransferencia(transferencia, cobro) {
       detalle:
         `No encontramos la transferencia de ${monto} en nuestra cuenta. ` +
         "Puede ser que el comprobante no corresponda o que la transferencia no " +
-        "haya salido. Podés pagar con otro medio acá abajo, o escribirnos si " +
-        "creés que es un error.",
+        "haya salido. Podés pagar con otro medio acá abajo, o escribirnos por mail " +
+        "o WhatsApp si creés que es un error.",
       accion: "otro_medio",
     });
     return;
@@ -719,7 +771,7 @@ function fallaAlCargarElBrick(error) {
   $("cardPaymentBrick_container").innerHTML =
     '<p class="pantalla-detalle" style="text-align:left">' +
     "No pudimos cargar el formulario de tarjeta. Podés pagar por transferencia " +
-    "desde la pestaña de al lado, o escribirnos y te ayudamos." +
+    "desde la pestaña de al lado, o escribirnos por mail o WhatsApp y te ayudamos." +
     "</p>";
   mostrarAvisoDePago({
     titulo: "No pudimos cargar el formulario de pago",
@@ -927,7 +979,7 @@ async function enviarComprobante() {
       titulo: "No pudimos recibir el comprobante",
       detalle:
         error.mensajeVisible ||
-        "Volvé a intentar en unos minutos. Si sigue fallando, escribinos y te lo tomamos por WhatsApp.",
+        "Volvé a intentar en unos minutos. Si sigue fallando, escribinos por mail o WhatsApp y te lo tomamos.",
       grupo: "rechazado",
     });
   } finally {
@@ -1044,7 +1096,7 @@ async function enviarPago(formData) {
     mostrarAvisoDePago({
       titulo: "Se cortó la conexión",
       detalle:
-        "No pudimos confirmar si el pago se procesó. Revisá tu mail antes de volver a intentar, o escribinos.",
+        "No pudimos confirmar si el pago se procesó. Revisá tu mail antes de volver a intentar, o escribinos por mail o WhatsApp.",
       grupo: "rechazado",
     });
   } finally {
@@ -1159,6 +1211,7 @@ function mostrarResultado(mensaje, pago) {
     acciones.appendChild(boton);
   }
 
+  pintarContacto("contacto-resultado");
   mostrarPantalla("pantalla-resultado");
   anunciar(`${mensaje.titulo}. ${mensaje.detalle}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1262,7 +1315,7 @@ async function refrescarEstado() {
           titulo: "¡Listo! Tu estadía está paga",
           detalle:
             "Registramos el pago completo de esta reserva. " +
-            "Te llega el comprobante por mail; si no lo encontrás, escribinos.",
+            "Te llega el comprobante por mail; si no lo encontrás, escribinos por mail o WhatsApp.",
           accion: "ninguna",
         },
         pagoQueCerroLaReserva(nuevo),

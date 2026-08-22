@@ -902,6 +902,59 @@ function estadoDeAlquiler(a) {
   return { texto: "Pagada", clase: "status-pendiente" };
 }
 
+function telefonoParaWhatsapp(crudo) {
+  let n = String(crudo || "").replace(/\D/g, "");
+  if (!n) return "";
+
+  n = n.replace(/^00/, "");
+  if (n.startsWith("54")) return n;
+
+  n = n.replace(/^0/, "");
+  return n.startsWith("9") ? `54${n}` : `549${n}`;
+}
+
+function contactosDelHuesped(huesped) {
+  const caja = document.createElement("span");
+  caja.className = "celda-contactos";
+
+  if (huesped?.email) {
+    const mail = document.createElement("a");
+    mail.className = "contacto-chip";
+    mail.href = `mailto:${huesped.email}`;
+    mail.textContent = huesped.email;
+    mail.title = `Escribirle a ${huesped.email}`;
+    caja.appendChild(mail);
+  }
+
+  const numero = telefonoParaWhatsapp(huesped?.telefono);
+  if (numero) {
+    const wa = document.createElement("a");
+    wa.className = "contacto-chip contacto-chip--wa";
+    wa.href = `https://wa.me/${numero}`;
+    wa.target = "_blank";
+    wa.rel = "noopener";
+    wa.textContent = huesped.telefono;
+    wa.title = "Abrir WhatsApp";
+    caja.appendChild(wa);
+  }
+
+  return caja.childElementCount ? caja : null;
+}
+
+function celdaDelHuesped(huesped) {
+  const td = document.createElement("td");
+
+  const principal = document.createElement("span");
+  principal.className = "celda-principal";
+  principal.textContent = huesped?.nombre ?? "—";
+  td.appendChild(principal);
+
+  const contactos = contactosDelHuesped(huesped);
+  if (contactos) td.appendChild(contactos);
+
+  return td;
+}
+
 function celda(contenido, secundario) {
   const td = document.createElement("td");
   const principal = document.createElement("span");
@@ -930,9 +983,7 @@ function filaDeAlquiler(a) {
       esTransferencia ? "Transferencia" : `Op. ${a.paymentId}`,
     ),
   );
-  tr.appendChild(
-    celda(a.huesped.nombre, a.huesped.email || a.huesped.telefono || ""),
-  );
+  tr.appendChild(celdaDelHuesped(a.huesped));
   tr.appendChild(
     celda(
       a.checkIn

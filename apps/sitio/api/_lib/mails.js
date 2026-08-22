@@ -56,7 +56,7 @@ export async function avisarConsultaNueva({ reserva, precio, cobro }) {
     enviarUnaVez(`${clave}:inquilino`, "consulta_inquilino", [datos.email], async () => ({
       from: config.mails.de.consultas,
       replyTo: config.mails.duenos[0],
-      ...consultaInquilino({ reserva: datos }),
+      ...consultaInquilino({ reserva: datos, contacto: config.mails.contacto }),
     })),
 
     enviarUnaVez(`${clave}:duenos`, "consulta_duenos", config.mails.duenos, async () => ({

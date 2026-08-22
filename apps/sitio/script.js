@@ -787,7 +787,7 @@
     try {
       await createBookingRequest(consulta);
       mostrarToast(
-        "¡Gracias! Recibimos tu consulta y te mandamos un mail con el detalle. Te contactamos a la brevedad.",
+        "¡Gracias! Recibimos tu consulta y te mandamos un mail con el detalle. Te contactamos a la brevedad por mail o WhatsApp.",
         "exito",
       );
       bookingForm.reset();

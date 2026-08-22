@@ -680,6 +680,59 @@
         margin-top: 4px;
       }
 
+      .contacto-ayuda {
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid var(--color-surface-variant);
+        text-align: center;
+      }
+
+      .contacto-ayuda-titulo {
+        display: block;
+        font-size: 14px;
+        color: var(--color-on-surface-variant);
+        margin-bottom: 12px;
+      }
+
+      .contacto-ayuda-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      .contacto-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 10px;
+        border: 1px solid var(--color-surface-variant);
+        background-color: var(--color-blanco);
+        font-family: var(--font-headline);
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--color-primary);
+        text-decoration: none;
+        transition: border-color 0.2s ease;
+      }
+
+      .contacto-link:hover {
+        border-color: var(--color-primary);
+      }
+
+      .contacto-link .material-symbols-rounded {
+        font-size: 20px;
+      }
+
+      .contacto-link--wa {
+        color: var(--color-exito);
+      }
+
+      .contacto-link--wa:hover {
+        border-color: var(--color-exito);
+      }
+
       .aviso-concepto {
         display: flex;
         gap: 14px;
@@ -949,6 +1002,19 @@
             Reintentar
           </button>
         </div>
+        <div class="contacto-ayuda" id="contacto-error" hidden>
+          <span class="contacto-ayuda-titulo">¿Necesitás una mano?</span>
+          <div class="contacto-ayuda-links">
+            <a class="contacto-link" id="contacto-error-mail" href="#">
+              <span class="material-symbols-rounded">mail</span>
+              <span></span>
+            </a>
+            <a class="contacto-link contacto-link--wa" id="contacto-error-wa" href="#" target="_blank" rel="noopener">
+              <span class="material-symbols-rounded">chat</span>
+              <span>WhatsApp</span>
+            </a>
+          </div>
+        </div>
       </section>
 
       <div class="layout-grid" id="checkout" hidden>
@@ -1176,6 +1242,19 @@
         <p class="pantalla-detalle" id="resultado-detalle"></p>
         <div class="pantalla-datos" id="resultado-datos" hidden></div>
         <div class="pantalla-acciones" id="resultado-acciones"></div>
+        <div class="contacto-ayuda" id="contacto-resultado" hidden>
+          <span class="contacto-ayuda-titulo">¿Necesitás una mano?</span>
+          <div class="contacto-ayuda-links">
+            <a class="contacto-link" id="contacto-resultado-mail" href="#">
+              <span class="material-symbols-rounded">mail</span>
+              <span></span>
+            </a>
+            <a class="contacto-link contacto-link--wa" id="contacto-resultado-wa" href="#" target="_blank" rel="noopener">
+              <span class="material-symbols-rounded">chat</span>
+              <span>WhatsApp</span>
+            </a>
+          </div>
+        </div>
       </section>
     </main>
 

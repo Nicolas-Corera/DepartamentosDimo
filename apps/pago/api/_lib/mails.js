@@ -80,7 +80,7 @@ export async function avisarSeniaPagada({ reserva, pago, cobro }) {
     enviarUnaVez(`${clave}:inquilino`, "reserva_inquilino", [datos.email], async () => ({
       from: config.mails.de.reservas,
       replyTo: config.mails.duenos[0],
-      ...reservaInquilino(contexto),
+      ...reservaInquilino({ ...contexto, contacto: config.mails.contacto }),
     })),
 
     enviarUnaVez(`${clave}:duenos`, "reserva_duenos", config.mails.duenos, async () => ({
@@ -115,7 +115,7 @@ export async function avisarPagoCompletado({ reserva, pago, cobro, comprobante }
     enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
       from: config.mails.de.pagos,
       replyTo: config.mails.duenos[0],
-      ...pagoInquilino(contexto),
+      ...pagoInquilino({ ...contexto, contacto: config.mails.contacto }),
     })),
 
     enviarUnaVez(`${clave}:duenos`, "pago_duenos", config.mails.duenos, async () => ({
@@ -151,7 +151,7 @@ export async function avisarComprobanteSubido({ reserva, comprobante, cobro }) {
     enviarUnaVez(`${clave}:inquilino`, "comprobante_inquilino", [datos.email], async () => ({
       from: config.mails.de.reservas,
       replyTo: config.mails.duenos[0],
-      ...comprobanteInquilino(contexto),
+      ...comprobanteInquilino({ ...contexto, contacto: config.mails.contacto }),
     })),
 
     enviarUnaVez(`${clave}:duenos`, "comprobante_duenos", config.mails.duenos, async () => ({
