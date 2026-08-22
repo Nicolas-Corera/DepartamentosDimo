@@ -177,27 +177,6 @@ export async function liberarEnvioDeMail(clave) {
   }
 }
 
-export async function crearRecibo(fila) {
-  const columna = fila.mp_payment_id ? "mp_payment_id" : "transfer_receipt_id";
-  const valor = fila.mp_payment_id || fila.transfer_receipt_id;
-  const filtro = `${columna}=eq.${encodeURIComponent(valor)}`;
-
-  const existentes = await seleccionar("recibos", `select=id,numero,created_at&${filtro}`);
-  if (existentes?.[0]) return existentes[0];
-
-  try {
-    const nuevas = await insertar("recibos", [fila]);
-    if (nuevas?.[0]) return nuevas[0];
-  } catch (error) {
-    if (!/duplicate key|23505/.test(error.message)) throw error;
-  }
-
-  const reintento = await seleccionar("recibos", `select=id,numero,created_at&${filtro}`);
-  if (reintento?.[0]) return reintento[0];
-
-  throw new Error("No se pudo emitir el recibo.");
-}
-
 export async function leerConfigTarifas() {
   const [temporadas, medios] = await Promise.all([
     seleccionar(

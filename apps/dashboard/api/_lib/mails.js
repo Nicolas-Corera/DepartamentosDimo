@@ -1,11 +1,9 @@
 import { leerConfig } from "./env.js";
 import { despachar } from "./resend.js";
-import { generarRecibo, nombreDeArchivo, numeroDeRecibo } from "./recibo.js";
 import {
   reservarEnvioDeMail,
   anotarResultadoDeMail,
   liberarEnvioDeMail,
-  crearRecibo,
   descargarComprobante,
   leerConfigTarifas,
   buscarTarifasEspeciales,
@@ -90,26 +88,6 @@ export async function avisarTransferenciaConfirmada(comprobante) {
   const monto = Number(comprobante.monto_declarado) || 0;
   const concepto = comprobante.concepto || (cobro.saldo > 0 ? "reserva" : "total");
 
-  const fila = await crearRecibo({
-    booking_id: reservaFila.id,
-    origen: "transferencia",
-    mp_payment_id: null,
-    transfer_receipt_id: comprobante.id,
-    concepto,
-    monto,
-    monto_base: montoBase,
-    recargo: Math.max(0, monto - montoBase),
-    moneda: "ARS",
-  });
-
-  const recibo = {
-    numero: fila.numero,
-    numeroTexto: numeroDeRecibo(fila.numero, config.mails.emisor.puntoVenta),
-    emitidoEn: fila.created_at,
-    cae: null,
-    caeVence: null,
-  };
-
   const datos = desdeLaBase(reservaFila);
 
   const pago = {
@@ -125,29 +103,12 @@ export async function avisarTransferenciaConfirmada(comprobante) {
     fecha: comprobante.revisado_en || new Date().toISOString(),
   };
 
-  let pdf = null;
-  try {
-    pdf = await generarRecibo({
-      emisor: config.mails.emisor,
-      reserva: datos,
-      pago,
-      cobro,
-      recibo,
-    });
-  } catch (error) {
-    console.error("[recibo] no se pudo generar el PDF:", error.message);
-  }
-
-  const adjuntoRecibo = pdf
-    ? [{ nombre: nombreDeArchivo(recibo, datos), contenido: pdf.toString("base64") }]
-    : [];
-
-  const adjuntosDuenos = [...adjuntoRecibo];
+  const adjuntosDuenos = [];
 
   const bytes = await descargarComprobante(comprobante.path);
   if (bytes) {
     adjuntosDuenos.push({
-      nombre: `comprobante-transferencia-${recibo.numeroTexto}.${
+      nombre: `comprobante-transferencia-${String(reservaFila.id).slice(0, 8)}.${
         EXTENSIONES[comprobante.mime] || "bin"
       }`,
       contenido: bytes.toString("base64"),
@@ -155,13 +116,12 @@ export async function avisarTransferenciaConfirmada(comprobante) {
   }
 
   const clave = `pago:transfer:${comprobante.id}`;
-  const contexto = { reserva: datos, pago, cobro, recibo };
+  const contexto = { reserva: datos, pago, cobro };
 
   await Promise.all([
     enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
       from: config.mails.de.pagos,
       replyTo: config.mails.duenos[0],
-      adjuntos: adjuntoRecibo,
       ...pagoInquilino(contexto),
     })),
 
@@ -169,9 +129,9 @@ export async function avisarTransferenciaConfirmada(comprobante) {
       from: config.mails.de.pagos,
       replyTo: datos.email,
       adjuntos: adjuntosDuenos,
-      ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > adjuntoRecibo.length }),
+      ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > 0 }),
     })),
   ]);
 
-  return { recibo, cobro };
+  return { cobro };
 }

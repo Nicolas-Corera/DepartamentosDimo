@@ -296,40 +296,6 @@ export async function liberarEnvioDeMail(clave) {
   if (error) log.warn("supabase.liberarEnvioDeMail", { clave, motivo: error.message });
 }
 
-export async function crearRecibo(fila) {
-  const columna = fila.mp_payment_id ? "mp_payment_id" : "transfer_receipt_id";
-  const valor = fila.mp_payment_id || fila.transfer_receipt_id;
-
-  const existente = await db()
-    .from("recibos")
-    .select("id, numero, created_at")
-    .eq(columna, valor)
-    .maybeSingle();
-
-  if (existente.data) return existente.data;
-
-  const { data, error } = await db()
-    .from("recibos")
-    .insert(fila)
-    .select("id, numero, created_at")
-    .single();
-
-  if (error) {
-    if (error.code === "23505") {
-      const reintento = await db()
-        .from("recibos")
-        .select("id, numero, created_at")
-        .eq(columna, valor)
-        .maybeSingle();
-      if (reintento.data) return reintento.data;
-    }
-
-    log.error("supabase.crearRecibo", error, { [columna]: valor });
-    throw new Error(`No se pudo emitir el recibo: ${error.message}`);
-  }
-  return data;
-}
-
 export async function descargarComprobante(path) {
   const { data, error } = await db().storage.from(BUCKET).download(path);
 
