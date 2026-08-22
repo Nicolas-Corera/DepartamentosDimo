@@ -392,7 +392,36 @@
               </div>
               <div class="field">
                 <label for="telefono">Teléfono de contacto *</label>
-                <input type="tel" id="telefono" name="telefono" required />
+                <div class="tel-grupo">
+                  <select id="telefonoPais" name="telefonoPais" aria-label="Código de país">
+                    <option value="54" selected>🇦🇷 +54</option>
+                    <option value="598">🇺🇾 +598</option>
+                    <option value="56">🇨🇱 +56</option>
+                    <option value="55">🇧🇷 +55</option>
+                    <option value="595">🇵🇾 +595</option>
+                    <option value="591">🇧🇴 +591</option>
+                    <option value="51">🇵🇪 +51</option>
+                    <option value="otro">Otro…</option>
+                  </select>
+                  <input
+                    type="tel"
+                    id="telefonoOtroPais"
+                    name="telefonoOtroPais"
+                    inputmode="numeric"
+                    placeholder="+__"
+                    aria-label="Código de país"
+                    hidden
+                  />
+                  <input
+                    type="tel"
+                    id="telefono"
+                    name="telefono"
+                    inputmode="tel"
+                    placeholder="223 555 1234"
+                    required
+                  />
+                </div>
+                <p class="tel-eco" id="telefonoEco" hidden></p>
               </div>
               <div class="field">
                 <label for="procedencia">Procedencia / Localidad</label>

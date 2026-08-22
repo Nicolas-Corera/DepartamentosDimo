@@ -680,6 +680,129 @@
 
   toggleVehiculo();
 
+  const telefonoInput = document.getElementById("telefono");
+  const telefonoPais = document.getElementById("telefonoPais");
+  const telefonoOtroPais = document.getElementById("telefonoOtroPais");
+  const telefonoEco = document.getElementById("telefonoEco");
+
+  const AREAS_DE_TRES = new Set([
+    "220", "221", "223", "230", "236", "237", "249", "260", "261", "263", "264",
+    "266", "280", "291", "297", "299", "336", "341", "342", "343", "345", "348",
+    "351", "353", "358", "362", "364", "370", "376", "379", "380", "381", "383",
+    "385", "387", "388",
+  ]);
+
+  function soloDigitos(valor) {
+    return String(valor == null ? "" : valor).replace(/\D/g, "");
+  }
+
+  function limpiarArgentino(crudo) {
+    let n = soloDigitos(crudo).replace(/^0+/, "");
+
+    if (n.length === 12) {
+      for (const i of [2, 3, 4]) {
+        if (n.slice(i, i + 2) === "15") {
+          n = n.slice(0, i) + n.slice(i + 2);
+          break;
+        }
+      }
+    }
+
+    return n;
+  }
+
+  function paisElegido() {
+    const valor = telefonoPais.value;
+    return valor === "otro" ? soloDigitos(telefonoOtroPais.value) : valor;
+  }
+
+  function normalizarTelefono(codigoPais, numero) {
+    const pais = soloDigitos(codigoPais);
+    let n = soloDigitos(numero).replace(/^00/, "");
+
+    if (pais && n.startsWith(pais)) n = n.slice(pais.length);
+
+    if (pais === "54") {
+      if (n.startsWith("9")) n = n.slice(1);
+      n = limpiarArgentino(n);
+      return n ? `+549${n}` : "";
+    }
+
+    n = n.replace(/^0+/, "");
+    return n ? `+${pais}${n}` : "";
+  }
+
+  function formatearTelefono(e164) {
+    const n = soloDigitos(e164);
+    if (!n) return "";
+
+    if (n.startsWith("549") && n.length === 13) {
+      const nacional = n.slice(3);
+      const area = nacional.startsWith("11")
+        ? 2
+        : AREAS_DE_TRES.has(nacional.slice(0, 3))
+          ? 3
+          : 4;
+      return `+54 9 ${nacional.slice(0, area)} ${nacional.slice(area)}`;
+    }
+
+    return `+${n}`;
+  }
+
+  function telefonoNormalizado() {
+    return normalizarTelefono(paisElegido(), telefonoInput.value);
+  }
+
+  function revisarTelefono() {
+    const pais = paisElegido();
+    const crudo = soloDigitos(telefonoInput.value);
+
+    if (!crudo) {
+      telefonoEco.hidden = true;
+      telefonoInput.setCustomValidity("");
+      return;
+    }
+
+    if (!pais) {
+      telefonoEco.textContent = "Completá el código de país.";
+      telefonoEco.dataset.estado = "error";
+      telefonoEco.hidden = false;
+      telefonoInput.setCustomValidity("Completá el código de país.");
+      return;
+    }
+
+    const e164 = telefonoNormalizado();
+    const digitos = soloDigitos(e164);
+
+    if (digitos.length < 10 || digitos.length > 15) {
+      telefonoEco.textContent = "Revisá el número: parece incompleto.";
+      telefonoEco.dataset.estado = "error";
+      telefonoEco.hidden = false;
+      telefonoInput.setCustomValidity("Revisá el número de teléfono.");
+      return;
+    }
+
+    telefonoEco.textContent = `Te vamos a escribir al ${formatearTelefono(e164)}`;
+    telefonoEco.dataset.estado = "ok";
+    telefonoEco.hidden = false;
+    telefonoInput.setCustomValidity("");
+  }
+
+  function alCambiarElPais() {
+    const otro = telefonoPais.value === "otro";
+    telefonoOtroPais.hidden = !otro;
+    if (otro) telefonoOtroPais.focus();
+    revisarTelefono();
+  }
+
+  telefonoPais.addEventListener("change", alCambiarElPais);
+  telefonoOtroPais.addEventListener("input", () => {
+    telefonoOtroPais.value = soloDigitos(telefonoOtroPais.value).slice(0, 4);
+    revisarTelefono();
+  });
+  telefonoInput.addEventListener("input", revisarTelefono);
+  telefonoInput.addEventListener("blur", revisarTelefono);
+
   const bookingForm = document.getElementById("bookingForm");
   const bookingSubmit = bookingForm.querySelector('button[type="submit"]');
 
@@ -721,6 +844,11 @@
     if (dni.length < 6 || dni.length > 9)
       return "Revisá el DNI: tiene que tener entre 6 y 9 dígitos.";
 
+    const telefono = telefonoNormalizado();
+    const digitosTelefono = telefono.replace(/\D/g, "");
+    if (digitosTelefono.length < 10 || digitosTelefono.length > 15)
+      return "Revisá el teléfono: elegí el código de país y escribí el número completo.";
+
     const personas = total();
     const adultos = adultosField.hidden
       ? 0
@@ -743,7 +871,8 @@
       nombre: document.getElementById("nombre").value.trim(),
       email: document.getElementById("email").value.trim().toLowerCase(),
       dni,
-      telefono: document.getElementById("telefono").value.trim(),
+      telefono,
+      telefonoPais: paisElegido(),
       procedencia: texto(document.getElementById("procedencia")),
       check_in: checkIn,
       check_out: checkOut,
@@ -791,6 +920,8 @@
         "exito",
       );
       bookingForm.reset();
+      telefonoEco.hidden = true;
+      alCambiarElPais();
       limpiarGrupo();
       toggleVehiculo();
       resetContadores();

@@ -1,3 +1,7 @@
+import { telefonoParaWhatsapp, formatearTelefono } from "./telefono.js";
+
+export { telefonoParaWhatsapp };
+
 const COLOR = {
   fondo: "#f6eedf",
   tarjeta: "#fffdf8",
@@ -233,17 +237,6 @@ function textoPlano(html) {
     .trim();
 }
 
-export function telefonoParaWhatsapp(crudo) {
-  let n = String(crudo || "").replace(/\D/g, "");
-  if (!n) return "";
-
-  n = n.replace(/^00/, "");
-  if (n.startsWith("54")) return n;
-
-  n = n.replace(/^0/, "");
-  return n.startsWith("9") ? `54${n}` : `549${n}`;
-}
-
 export function linkDeWhatsapp(telefono, mensaje) {
   const numero = telefonoParaWhatsapp(telefono);
   if (!numero) return "";
@@ -284,7 +277,7 @@ function pieDeContacto(contacto, pieExtra) {
       ? `<a href="mailto:${esc(contacto.mail)}" style="display:inline-block;margin:0 16px 6px 0;font-family:${FUENTE};font-size:13px;font-weight:700;color:${COLOR.celeste};text-decoration:none;">${esc(contacto.mail)}</a>`
       : "",
     contacto.whatsapp
-      ? `<a href="${esc(contacto.whatsapp)}" style="display:inline-block;margin:0 0 6px 0;font-family:${FUENTE};font-size:13px;font-weight:700;color:${COLOR.verde};text-decoration:none;">${esc(String(contacto.telefono || ''))} · WhatsApp</a>`
+      ? `<a href="${esc(contacto.whatsapp)}" style="display:inline-block;margin:0 0 6px 0;font-family:${FUENTE};font-size:13px;font-weight:700;color:${COLOR.verde};text-decoration:none;">${esc(formatearTelefono(contacto.telefono))} · WhatsApp</a>`
       : "",
   ].join("");
 

@@ -163,10 +163,37 @@ Todos los mails cierran con una vía de contacto, distinta según quién lo reci
 | El inquilino | `MAIL_DE_CONTACTO` y `WHATSAPP_CONTACTO`. El link de WhatsApp viene con un mensaje precargado que dice de qué reserva se trata, con las fechas y el código |
 | Los dueños | El mail y el teléfono **del huésped**. El número abre WhatsApp directo, sin mensaje precargado |
 
-El número se normaliza para `wa.me`: se le sacan los símbolos, el `00` inicial y
-el `0` de la característica, y se le antepone `549` si no trae código de país.
-El texto que se muestra es el que cargó la persona, así que si la normalización
-falla igual se ve el número original.
+### El teléfono del huésped
+
+El formulario pide el **código de país en un desplegable aparte** (Argentina por
+default, más los limítrofes y una opción "Otro"), y guarda el número ya
+normalizado en formato E.164: `+5492235551234`.
+
+La normalización vive en `apps/*/api/_lib/telefono.js` y corre en los dos lados:
+en el navegador para mostrarle al huésped el número que va a quedar
+(*"Te vamos a escribir al +54 9 223 555 1234"*), y de nuevo en el servidor, que
+es el que manda.
+
+Para Argentina no alcanza con pegar el código de país. Hay que sacar el `0` de
+la característica y el `15` del celular, y agregar el `9` que pide WhatsApp. Los
+cuatro se resuelven al mismo número:
+
+```
+0223 15 555-1234   ->  +5492235551234
+0223 155 551234    ->  +5492235551234
+223 555 1234       ->  +5492235551234
++54 223 555 1234   ->  +5492235551234
+```
+
+El `15` puede estar después de una característica de 2, 3 o 4 dígitos, así que
+se prueba en esas tres posiciones y gana la primera que deje un número nacional
+de 10 dígitos. Puede errarle con formatos raros: por eso el formulario le
+muestra al huésped el número final antes de enviar, y el panel muestra el número
+guardado y no una reconstrucción.
+
+Las consultas cargadas antes de este cambio tienen el teléfono como lo escribió
+la persona. Para esas queda `telefonoParaWhatsapp()`, que aplica las mismas
+reglas al vuelo.
 
 `contacto@departamentosdimo.com.ar` **hay que crearla en el proveedor de mail.**
 Resend solo envía: una dirección que solo existe como remitente no recibe nada,
