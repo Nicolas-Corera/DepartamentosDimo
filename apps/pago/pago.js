@@ -207,6 +207,7 @@ function pagoDeLaTransferencia(transferencia, cobro) {
   if (!transferencia) return null;
   return {
     paymentId: `TR-${String(transferencia.id).slice(0, 8).toUpperCase()}`,
+    concepto: transferencia.concepto || null,
     monto: transferencia.monto,
     cuotas: 1,
     ultimosCuatro: null,
@@ -229,6 +230,7 @@ function ultimoPagoConTarjeta(pagos, cobro) {
   if (!ultimo) return null;
   return {
     paymentId: ultimo.referencia,
+    concepto: ultimo.concepto || null,
     monto: ultimo.monto,
     cuotas: 1,
     ultimosCuatro: null,
@@ -350,10 +352,20 @@ const ENCABEZADOS = {
     subtitulo: "Completá el pago de tu estadía en DepartamentosDimo.",
   },
   pagada: {
+    titulo: "Total pagado",
+    subtitulo: "Tu estadía en DepartamentosDimo está paga por completo.",
+  },
+  senada: {
     titulo: "Reserva paga",
-    subtitulo: "Tu estadía en DepartamentosDimo ya está paga por completo.",
+    subtitulo: "Tu seña quedó registrada y la estadía está tomada.",
   },
 };
+
+function ponerEncabezado(clave, subtitulo) {
+  const textos = ENCABEZADOS[clave] || ENCABEZADOS.total;
+  $("titulo-pagina").textContent = textos.titulo;
+  $("subtitulo-pagina").textContent = subtitulo || textos.subtitulo;
+}
 
 function sincronizarModoConLaUrl(concepto) {
   const modo = concepto === "reserva" ? "reserva" : "total";
@@ -375,10 +387,7 @@ function pintarEncabezado() {
 
   sincronizarModoConLaUrl(cobro.concepto);
 
-  const clave = cobro.saldo <= 0 ? "pagada" : cobro.concepto;
-  const textos = ENCABEZADOS[clave] || ENCABEZADOS.total;
-  $("titulo-pagina").textContent = textos.titulo;
-  $("subtitulo-pagina").textContent = textos.subtitulo;
+  ponerEncabezado(cobro.saldo <= 0 ? "pagada" : cobro.concepto);
 }
 
 const AVISOS = {
@@ -992,8 +1001,8 @@ async function enviarPago(formData) {
       if (cuerpo.codigo === "ya_pagada") {
         mostrarResultado({
           grupo: "aprobado",
-          titulo: "Esta reserva ya está paga",
-          detalle: cuerpo.error || "Ya registramos el pago de esta reserva.",
+          titulo: "Tu estadía ya está paga",
+          detalle: cuerpo.error || "Ya registramos el pago completo de esta reserva.",
           accion: "ninguna",
         });
         return;
@@ -1050,9 +1059,26 @@ const ICONOS = {
   rechazado: { glifo: "cancel", clase: "pantalla-icono--error" },
 };
 
+function encabezadoDelResultado(pago) {
+  if (!pago?.cobro) return;
+
+  if (pago.cobro.completa) {
+    ponerEncabezado("pagada");
+    return;
+  }
+
+  if (pago.concepto === "reserva") {
+    ponerEncabezado(
+      "senada",
+      `Tu seña quedó registrada. Te falta pagar ${pesos.format(pago.cobro.saldo)}.`,
+    );
+  }
+}
+
 function mostrarResultado(mensaje, pago) {
   setTimeout(desmontarBrick, 0);
   detenerRefresco();
+  encabezadoDelResultado(pago);
 
   const icono = ICONOS[mensaje.grupo] || ICONOS.rechazado;
   $("resultado-icono").className = `pantalla-icono ${icono.clase}`;
