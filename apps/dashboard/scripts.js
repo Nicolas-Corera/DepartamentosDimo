@@ -889,8 +889,16 @@ function estadoDeAlquiler(a) {
     return { texto: "Devuelto en parte", clase: "status-parcial" };
   if (a.estadoReserva === "cancelada")
     return { texto: "Cancelada", clase: "status-cancelado" };
-  if (a.estadoReserva === "confirmada")
+  if (a.estadoReserva === "confirmada") {
+    if (a.reservaCompleta === false) {
+      return {
+        texto: "Señada",
+        clase: "status-senado",
+        detalle: a.saldoReserva ? `Falta ${pesos.format(a.saldoReserva)}` : null,
+      };
+    }
     return { texto: "Confirmada", clase: "status-confirmado" };
+  }
   return { texto: "Pagada", clase: "status-pendiente" };
 }
 
@@ -956,11 +964,19 @@ function filaDeAlquiler(a) {
   );
 
   const tdEstado = document.createElement("td");
-  const { texto, clase } = estadoDeAlquiler(a);
+  const { texto, clase, detalle } = estadoDeAlquiler(a);
   const badge = document.createElement("span");
   badge.className = `status-badge ${clase}`;
   badge.textContent = texto;
   tdEstado.appendChild(badge);
+
+  if (detalle) {
+    const nota = document.createElement("span");
+    nota.className = "status-detalle";
+    nota.textContent = detalle;
+    tdEstado.appendChild(nota);
+  }
+
   tr.appendChild(tdEstado);
 
   tr.appendChild(accionesDeAlquiler(a, esTransferencia));
@@ -1119,7 +1135,7 @@ async function resolverComprobante(accion) {
     cerrarModalComprobante();
     mostrarToast(
       accion === "aprobar"
-        ? "Comprobante aprobado. La reserva quedó confirmada y las fechas bloqueadas."
+        ? "Comprobante aprobado. Las fechas quedaron bloqueadas. Si era la seña, la reserva figura como señada hasta que se pague el total."
         : "Comprobante rechazado. En el link de pago ya le aparece para pagar con otro medio.",
       accion === "aprobar" ? "exito" : undefined,
     );

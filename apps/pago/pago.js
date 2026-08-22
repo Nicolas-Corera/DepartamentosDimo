@@ -161,19 +161,23 @@ async function cargarReserva() {
 
   if (cuerpo.pago?.yaPagada) {
     detenerRefresco();
-    mostrarResultado({
-      grupo: "aprobado",
-      titulo: "Esta reserva ya está paga",
-      detalle:
-        "Ya registramos el pago completo de esta reserva. Si necesitás el recibo, escribinos.",
-      accion: "ninguna",
-    });
+    mostrarResultado(
+      {
+        grupo: "aprobado",
+        titulo: "¡Listo! Tu estadía está paga",
+        detalle:
+          "Ya registramos el pago completo de esta reserva. " +
+          "Te llegó el comprobante por mail; si no lo encontrás, escribinos.",
+        accion: "ninguna",
+      },
+      pagoQueCerroLaReserva(cuerpo),
+    );
     return;
   }
 
   const enCurso = cuerpo.transferencia;
   if (enCurso && enCurso.estado !== "confirmado" && !fueDescartado(enCurso)) {
-    mostrarEstadoDeTransferencia(enCurso);
+    mostrarEstadoDeTransferencia(enCurso, cuerpo.cobro);
     arrancarRefresco();
     return;
   }
@@ -181,6 +185,56 @@ async function cargarReserva() {
   mostrarPantalla("checkout");
   await aplicarMetodo("credito");
   arrancarRefresco();
+}
+
+const ETIQUETAS_DE_CONCEPTO = {
+  reserva: "Seña",
+  saldo: "Saldo de la estadía",
+  total: "Total de la estadía",
+};
+
+function resumenDeCobro(cobro) {
+  if (!cobro) return null;
+  return {
+    montoTotal: cobro.montoTotal,
+    pagado: cobro.pagado,
+    saldo: cobro.saldo,
+    completa: cobro.saldo <= 0,
+  };
+}
+
+function pagoDeLaTransferencia(transferencia, cobro) {
+  if (!transferencia) return null;
+  return {
+    paymentId: `TR-${String(transferencia.id).slice(0, 8).toUpperCase()}`,
+    monto: transferencia.monto,
+    cuotas: 1,
+    ultimosCuatro: null,
+    etiqueta: ETIQUETAS_DE_CONCEPTO[transferencia.concepto] || "Transferencia",
+    cobro: resumenDeCobro(cobro),
+  };
+}
+
+function pagoQueCerroLaReserva(cuerpo) {
+  const transferencia = cuerpo.transferencia;
+  if (transferencia?.estado === "confirmado") {
+    return pagoDeLaTransferencia(transferencia, cuerpo.cobro);
+  }
+  return ultimoPagoConTarjeta(cuerpo.pagos, cuerpo.cobro);
+}
+
+function ultimoPagoConTarjeta(pagos, cobro) {
+  const lista = Array.isArray(pagos) ? pagos : [];
+  const ultimo = lista[lista.length - 1];
+  if (!ultimo) return null;
+  return {
+    paymentId: ultimo.referencia,
+    monto: ultimo.monto,
+    cuotas: 1,
+    ultimosCuatro: null,
+    etiqueta: ETIQUETAS_DE_CONCEPTO[ultimo.concepto] || "Pago",
+    cobro: resumenDeCobro(cobro),
+  };
 }
 
 const CLAVE_DESCARTE = "dimo:transferencia-descartada:";
@@ -201,18 +255,26 @@ function marcarDescartado(transferencia) {
   }
 }
 
-function mostrarEstadoDeTransferencia(transferencia) {
+function mostrarEstadoDeTransferencia(transferencia, cobro) {
   const monto = pesos.format(transferencia.monto || 0);
 
   if (transferencia.estado === "confirmado") {
-    mostrarResultado({
-      grupo: "aprobado",
-      titulo: "¡Listo! Tu pago fue aprobado",
-      detalle:
-        `Verificamos la transferencia de ${monto} y tu reserva quedó confirmada. ` +
-        "Te va a llegar el comprobante por mail. Ya podés cerrar esta página.",
-      accion: "ninguna",
-    });
+    const saldo = cobro?.saldo ?? 0;
+
+    mostrarResultado(
+      {
+        grupo: "aprobado",
+        titulo: saldo > 0 ? "¡Listo! Recibimos tu seña" : "¡Listo! Tu pago fue aprobado",
+        detalle:
+          `Verificamos la transferencia de ${monto}. ` +
+          (saldo > 0
+            ? `Tu reserva quedó tomada y te queda un saldo de ${pesos.format(saldo)}.`
+            : "Tu estadía quedó paga por completo.") +
+          " Te va a llegar el comprobante por mail.",
+        accion: "ninguna",
+      },
+      pagoDeLaTransferencia(transferencia, cobro),
+    );
     return;
   }
 
@@ -272,6 +334,51 @@ function pintarResumen({ reserva, precio }) {
   $("resumen-checkout").textContent = fechaLarga(reserva.checkOut);
 
   actualizarTotales();
+}
+
+const ENCABEZADOS = {
+  reserva: {
+    titulo: "Finalizar Reserva",
+    subtitulo: "Pagá la seña y tu estadía en DepartamentosDimo queda tomada.",
+  },
+  saldo: {
+    titulo: "Finalizar Pago",
+    subtitulo: "Saldá lo que falta de tu reserva en DepartamentosDimo.",
+  },
+  total: {
+    titulo: "Finalizar Pago",
+    subtitulo: "Completá el pago de tu estadía en DepartamentosDimo.",
+  },
+  pagada: {
+    titulo: "Reserva paga",
+    subtitulo: "Tu estadía en DepartamentosDimo ya está paga por completo.",
+  },
+};
+
+function sincronizarModoConLaUrl(concepto) {
+  const modo = concepto === "reserva" ? "reserva" : "total";
+  if (estado.modo === modo) return;
+
+  estado.modo = modo;
+
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("modo", modo);
+    window.history.replaceState(null, "", url);
+  } catch {
+  }
+}
+
+function pintarEncabezado() {
+  const cobro = estado.datos?.cobro;
+  if (!cobro?.concepto) return;
+
+  sincronizarModoConLaUrl(cobro.concepto);
+
+  const clave = cobro.saldo <= 0 ? "pagada" : cobro.concepto;
+  const textos = ENCABEZADOS[clave] || ENCABEZADOS.total;
+  $("titulo-pagina").textContent = textos.titulo;
+  $("subtitulo-pagina").textContent = textos.subtitulo;
 }
 
 const AVISOS = {
@@ -399,6 +506,7 @@ function actualizarTotales() {
   nota.hidden = avisos.length === 0;
 
   pintarAvisoDeConcepto();
+  pintarEncabezado();
 }
 
 function formatearPorcentaje(n) {
@@ -1122,13 +1230,17 @@ async function refrescarEstado() {
     if (nuevo.pago?.yaPagada) {
       estado.datos = nuevo;
       detenerRefresco();
-      mostrarResultado({
-        grupo: "aprobado",
-        titulo: "Esta reserva ya está paga",
-        detalle:
-          "Registramos el pago completo de esta reserva. Si necesitás el recibo, escribinos.",
-        accion: "ninguna",
-      });
+      mostrarResultado(
+        {
+          grupo: "aprobado",
+          titulo: "¡Listo! Tu estadía está paga",
+          detalle:
+            "Registramos el pago completo de esta reserva. " +
+            "Te llega el comprobante por mail; si no lo encontrás, escribinos.",
+          accion: "ninguna",
+        },
+        pagoQueCerroLaReserva(nuevo),
+      );
       return "detener";
     }
 
@@ -1139,7 +1251,7 @@ async function refrescarEstado() {
       estado.datos = nuevo;
       if (!fueDescartado(nuevo.transferencia)) {
         detenerRefresco();
-        mostrarEstadoDeTransferencia(nuevo.transferencia);
+        mostrarEstadoDeTransferencia(nuevo.transferencia, nuevo.cobro);
         return "detener";
       }
     }

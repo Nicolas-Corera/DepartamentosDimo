@@ -145,7 +145,7 @@ export async function leerConfigTarifas() {
 export async function ultimoComprobante(bookingId) {
   const { data, error } = await db()
     .from("transfer_receipts")
-    .select("id, estado, monto_declarado, created_at, revisado_en")
+    .select("id, estado, monto_declarado, monto_base, concepto, created_at, revisado_en")
     .eq("booking_id", bookingId)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -162,6 +162,8 @@ export async function ultimoComprobante(bookingId) {
     id: fila.id,
     estado: fila.estado,
     monto: Number(fila.monto_declarado || 0),
+    montoBase: Number(fila.monto_base ?? fila.monto_declarado ?? 0),
+    concepto: fila.concepto || null,
     subidoEn: fila.created_at,
     revisadoEn: fila.revisado_en,
   };
