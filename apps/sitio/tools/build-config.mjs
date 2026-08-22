@@ -1,46 +1,15 @@
-/**
- * scripts/build-config.mjs
- * ---------------------------------------------------------------------------
- * Genera `supabase-config.js` (el archivo que carga el navegador) a partir de
- * las variables guardadas en `.env`.
- *
- *   node scripts/build-config.mjs        -> genera el archivo
- *   node scripts/build-config.mjs --check -> solo valida, no escribe nada
- *
- * Por qué existe: el sitio es HTML/CSS/JS plano, no hay bundler que lea el
- * `.env` por vos. Este script hace ese trabajo: lee el `.env`, valida que las
- * claves tengan sentido y escribe el archivo final.
- *
- * Regla de oro: SOLO las variables listadas en PUBLIC_VARS llegan al navegador.
- * Si alguna vez guardás una `service_role` / `sb_secret_...` en el `.env`, este
- * script la ignora, y si la pusiste por error en SUPABASE_ANON_KEY, aborta.
- */
-
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-/* El .env se busca primero en la app y después en la raíz del monorepo.
-
-   Las dos ubicaciones son legítimas: `apps/sitio/.env` si querés que el sitio
-   tenga el suyo, o el de la raíz —que es donde ya viven las credenciales de
-   todo el proyecto— para no repetir la URL y la clave en dos lados.
-
-   En Vercel no existe ninguno de los dos: ahí las variables se cargan en el
-   panel y se leen de `process.env`. */
 const ENV_CANDIDATOS = [resolve(ROOT, ".env"), resolve(ROOT, "..", "..", ".env")];
 const ENV_FILE = ENV_CANDIDATOS.find((ruta) => existsSync(ruta)) || ENV_CANDIDATOS[0];
 const OUT_FILE = resolve(ROOT, "supabase-config.js");
 const CHECK_ONLY = process.argv.includes("--check");
 
-// Las únicas variables que se copian al archivo público.
 const PUBLIC_VARS = ["SUPABASE_URL", "SUPABASE_ANON_KEY"];
-
-/* --------------------------------------------------------------------------
-   Parseo del .env (sin dependencias: no hace falta instalar nada)
-   -------------------------------------------------------------------------- */
 
 function parseEnv(raw) {
   const out = {};
@@ -54,7 +23,6 @@ function parseEnv(raw) {
     const key = trimmed.slice(0, eq).trim().replace(/^export\s+/, "");
     let value = trimmed.slice(eq + 1).trim();
 
-    // Saca comillas envolventes si las hay: FOO="bar" -> bar
     const quoted =
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"));
@@ -64,10 +32,6 @@ function parseEnv(raw) {
   }
   return out;
 }
-
-/* --------------------------------------------------------------------------
-   Validaciones
-   -------------------------------------------------------------------------- */
 
 function fail(msg, hint) {
   console.error(`\n  ERROR  ${msg}`);
@@ -86,13 +50,6 @@ function decodeJwtPayload(token) {
   }
 }
 
-/**
- * Clasifica la clave para no publicar nunca una secreta.
- * Supabase tiene dos formatos vigentes:
- *   - clave publicable nueva: sb_publishable_...   (secreta: sb_secret_...)
- *   - clave anon legacy: un JWT eyJ... con el claim role = "anon"
- *                        (la secreta es el mismo formato con role="service_role")
- */
 function classifyKey(key) {
   if (key.startsWith("sb_secret_")) return "secret";
   if (key.startsWith("sb_publishable_")) return "public";
@@ -112,15 +69,6 @@ function maskKey(key) {
   return `${key.slice(0, 12)}…${key.slice(-4)}`;
 }
 
-/* --------------------------------------------------------------------------
-   Main
-   -------------------------------------------------------------------------- */
-
-// De dónde salen las variables, en este orden:
-//   1. el archivo .env  -> desarrollo local
-//   2. process.env      -> Vercel / GitHub Actions / cualquier CI
-// En Vercel NO existe el .env: las variables se cargan en el panel del
-// proyecto (Settings -> Environment Variables) y llegan como env vars reales.
 const fileEnv = existsSync(ENV_FILE)
   ? parseEnv(readFileSync(ENV_FILE, "utf8"))
   : {};
@@ -143,7 +91,7 @@ for (const name of PUBLIC_VARS) {
   }
 }
 
-const url = env.SUPABASE_URL.replace(/\/+$/, ""); // saca la barra final si la pegaste
+const url = env.SUPABASE_URL.replace(/\/+$/, "");
 const anonKey = env.SUPABASE_ANON_KEY;
 
 if (!/^https:\/\//.test(url)) {
@@ -179,22 +127,7 @@ if (kind === "unknown") {
   );
 }
 
-/* --------------------------------------------------------------------------
-   Salida
-   -------------------------------------------------------------------------- */
-
-const banner = [
-  "/* =========================================================================",
-  "   ARCHIVO GENERADO — NO LO EDITES A MANO.",
-  "",
-  "   Se genera con `npm run config` a partir de las variables del .env.",
-  "   Si tenés que cambiar la URL o la clave, editá el .env y volvé a correrlo.",
-  "",
-  "   La clave anon/publishable es pública por diseño: queda visible en el",
-  "   código del sitio y está bien. La seguridad real la dan las políticas RLS",
-  "   de la tabla. Ver SUPABASE.md.",
-  "   ========================================================================= */",
-].join("\n");
+const banner = "";
 
 const body = `
 (function () {
@@ -203,9 +136,6 @@ const body = `
   var SUPABASE_URL = ${JSON.stringify(url)};
   var SUPABASE_ANON_KEY = ${JSON.stringify(anonKey)};
 
-  // El build UMD del CDN expone el namespace global \`supabase\`. Por eso el
-  // cliente se guarda en \`db\`: si lo llamáramos \`supabase\` pisaríamos el
-  // namespace y el próximo createClient() rompería.
   if (typeof supabase === "undefined" || typeof supabase.createClient !== "function") {
     console.error(
       "[supabase] El SDK no está cargado. En index.html el <script> del CDN " +
@@ -218,7 +148,7 @@ const body = `
 })();
 `;
 
-const output = `${banner}\n${body}`;
+const output = `${banner}${body}`;
 
 if (CHECK_ONLY) {
   console.log(`

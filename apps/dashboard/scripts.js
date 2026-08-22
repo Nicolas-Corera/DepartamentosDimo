@@ -1,29 +1,5 @@
-/**
- * dashboard/scripts.js
- * ---------------------------------------------------------------------------
- * El panel de administración.
- *
- * Tres pestañas, tres orígenes de datos, todos detrás de la cookie de sesión:
- *
- *   TARIFAS      GET/PUT /api/tarifas    temporadas, medios de pago, cuotas y
- *                                        fechas especiales. Un solo guardado.
- *   ALQUILERES   GET     /api/alquileres las reservas pagas
- *                POST    /api/cancelar   cancelar y (si se pide) devolver
- *   RESEÑAS      GET/PATCH/DELETE /api/resenas
- *
- * Nada de esto se valida solo en el navegador: cada endpoint revalida todo del
- * lado del servidor. Lo de acá es para que la pantalla sea usable, no para que
- * sea segura.
- */
-
-/* ===========================================================================
-   Utilidades
-   =========================================================================== */
-
 const $ = (id) => document.getElementById(id);
 
-// Un decimal fijo y coma como separador: "4,3". Fijo y no "el mínimo
-// necesario" para que el número del chip no cambie de ancho entre recargas.
 const puntajes = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -37,7 +13,6 @@ const pesos = new Intl.NumberFormat("es-AR", {
 
 const UN_DIA = 24 * 60 * 60 * 1000;
 
-/** "2027-01-15" -> ms UTC. Sin `new Date(iso)`, que resta un día por zona horaria. */
 function aUTC(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
   return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN;
@@ -47,13 +22,11 @@ function aISO(ms) {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** "2027-01-15" -> "15/01/2027". Vacío si no es una fecha. */
 function fechaCorta(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
 }
 
-/** Un timestamptz -> "15/01/2027 14:32". */
 function fechaHora(ts) {
   if (!ts) return "—";
   const d = new Date(ts);
@@ -62,22 +35,16 @@ function fechaHora(ts) {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 15 -> "15", 7.5 -> "7,5". */
 function pct(n) {
   const num = Number(n) || 0;
   return Number.isInteger(num) ? String(num) : String(num).replace(".", ",");
 }
 
-/** Hoy, en la zona local, como ISO. Para comparar contra rangos de fechas. */
 function hoyISO() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
-
-/* ---------------------------------------------------------------------------
-   Avisos
-   --------------------------------------------------------------------------- */
 
 const TOAST_MS = { exito: 3000, error: 6000 };
 
@@ -87,13 +54,12 @@ function mostrarToast(mensaje, tipo = "exito") {
 
   const toast = document.createElement("div");
   toast.className = `toast toast-${tipo}`;
-  // Los errores interrumpen al lector de pantalla; los avisos de éxito no.
+
   toast.setAttribute("role", tipo === "error" ? "alert" : "status");
 
   const icono = tipo === "error" ? "#ic-alert" : "#ic-check";
   toast.innerHTML = `<svg class="ic-sm" aria-hidden="true"><use href="${icono}"/></svg><span></span>`;
-  // textContent y no innerHTML: el mensaje puede venir de un error de la base y
-  // no tiene por qué terminar interpretado como HTML.
+
   toast.querySelector("span").textContent = mensaje;
 
   let cerrando = false;
@@ -103,8 +69,7 @@ function mostrarToast(mensaje, tipo = "exito") {
     clearTimeout(reloj);
     toast.classList.add("toast-saliendo");
     toast.addEventListener("animationend", () => toast.remove());
-    // Red de seguridad: con animaciones desactivadas (reduced motion)
-    // animationend no llega nunca y el toast se quedaría pegado.
+
     setTimeout(() => toast.remove(), 400);
   };
 
@@ -114,15 +79,6 @@ function mostrarToast(mensaje, tipo = "exito") {
   pila.appendChild(toast);
 }
 
-/* ---------------------------------------------------------------------------
-   Llamadas a la API
-   --------------------------------------------------------------------------- */
-
-/**
- * Un 401 significa que la cookie venció: se manda al login en vez de mostrar
- * un error que no se puede resolver desde acá. El `?volver=` es para no perder
- * la pestaña en la que estaba.
- */
 async function api(ruta, opciones = {}) {
   const respuesta = await fetch(`/api${ruta}`, {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -141,22 +97,14 @@ async function api(ruta, opciones = {}) {
   return cuerpo;
 }
 
-/* ===========================================================================
-   Estado
-   =========================================================================== */
-
 const estado = {
-  tarifas: null, // lo último que devolvió GET /api/tarifas
+  tarifas: null,
   alquileres: [],
   totales: null,
   resenas: [],
-  cancelando: null, // el alquiler que está abierto en el modal de cancelación
-  comprobante: null, // la transferencia abierta en el visor de comprobante
+  cancelando: null,
+  comprobante: null,
 };
-
-/* ===========================================================================
-   1. TARIFAS
-   =========================================================================== */
 
 async function cargarTarifas() {
   try {
@@ -189,8 +137,6 @@ function pintarTarifas() {
   revisarHuecos();
   prepararCalculadora();
 }
-
-/* --- Medios de pago -------------------------------------------------------- */
 
 function pintarMedios(medios) {
   const grid = $("medios-grid");
@@ -265,21 +211,12 @@ function leerMedios() {
   }));
 }
 
-/* --- Cuotas ---------------------------------------------------------------- */
-
-/**
- * Una fila por cuota, de 1 hasta el máximo. Cambiar el máximo redibuja la
- * grilla conservando los porcentajes que ya estaban cargados: bajar de 6 a 3 y
- * volver a subir no debería borrar lo que habías escrito en 4, 5 y 6.
- */
 function pintarCuotas(maxCuotas, planes) {
   const grid = $("cuotas-grid");
   const porCuota = new Map(
     (planes || []).map((p) => [p.cuotas, p.recargoPorcentaje]),
   );
 
-  // Lo que ya esté escrito en pantalla gana sobre lo que vino de la base: es lo
-  // que la persona acaba de tipear y todavía no guardó.
   for (const entrada of grid.querySelectorAll(".cuota-recargo")) {
     porCuota.set(Number(entrada.dataset.cuotas), Number(entrada.value || 0));
   }
@@ -327,13 +264,10 @@ function leerPlanes() {
   }));
 }
 
-/* --- Fechas especiales ----------------------------------------------------- */
-
 function crearTarjetaEspecial(datos = {}) {
   const tarjeta = document.createElement("div");
   tarjeta.className = "carousel-card special-date-card";
-  // El id de la base viaja en el DOM: es lo que permite que guardar actualice
-  // la fila existente en vez de crear una nueva cada vez.
+
   if (datos.id) tarjeta.dataset.id = String(datos.id);
 
   tarjeta.innerHTML = `
@@ -396,34 +330,18 @@ function agregarEspecial() {
   $("especiales-vacio").hidden = true;
   actualizarPuntos();
 
-  // Solo opacidad, sin `x`. Un transform sobre una tarjeta que vive DENTRO del
-  // contenedor con scroll-snap le mueve la geometría al scroller mientras dura
-  // la animación, y el navegador vuelve a snapear en el medio del scroll que
-  // acabamos de pedir.
   gsap.fromTo(
     tarjeta,
     { opacity: 0 },
     { opacity: 1, duration: 0.3, ease: "power2.out" },
   );
 
-  // Primero el scroll, y el foco SIN scroll automático: si se le deja hacer el
-  // suyo, el navegador acomoda el input con el mínimo desplazamiento posible y
-  // pisa el scrollTo de arriba — que es lo que dejaba el carrusel frenado entre
-  // dos tarjetas.
   setTimeout(() => {
     irATarjeta(tarjeta);
     tarjeta.querySelector(".date-desde").focus({ preventScroll: true });
   }, 60);
 }
 
-/**
- * El paso real del carrusel.
- *
- * NO es `carrusel.offsetWidth`: el contenedor es un flex con `gap: 16px`, así
- * que entre el borde de una tarjeta y el de la siguiente hay ancho + gap. Usar
- * el ancho pelado acumula 16px de error por tarjeta, y a partir de la tercera o
- * cuarta el carrusel queda parado en el medio de dos.
- */
 function pasoDelCarrusel(carrusel) {
   const tarjetas = carrusel.querySelectorAll(".special-date-card");
   if (tarjetas.length > 1)
@@ -431,15 +349,6 @@ function pasoDelCarrusel(carrusel) {
   return carrusel.offsetWidth;
 }
 
-/**
- * Deja una tarjeta encuadrada, sin restos de la anterior.
- *
- * Se mide con getBoundingClientRect y no con `indice * paso`: los anchos reales
- * son fraccionarios (418,33px y no 418), así que multiplicar un paso entero por
- * el índice acumula el redondeo y deja el carrusel un pixel corrido en cada
- * tarjeta. Restar rectángulos da la posición exacta de ESTA tarjeta, sin
- * arrastrar el error de las anteriores.
- */
 function irATarjeta(tarjeta, comportamiento = "smooth") {
   const carrusel = tarjeta.parentElement;
   if (!carrusel) return;
@@ -465,8 +374,6 @@ function eliminarEspecial(tarjeta) {
   });
 }
 
-/* --- Puntos del carrusel --------------------------------------------------- */
-
 function actualizarPuntos() {
   const carrusel = document.querySelector(".special-dates-carousel");
   const contenedor = document.querySelector(".carousel-dots");
@@ -478,8 +385,7 @@ function actualizarPuntos() {
       const punto = document.createElement("div");
       punto.className = "dot";
       if (i === 0) punto.classList.add("active");
-      // En escritorio no hay swipe: el punto navega con un clic. En mobile el
-      // swipe sigue funcionando igual y el clic no molesta.
+
       punto.addEventListener("click", () => irATarjeta(tarjeta));
       return punto;
     }),
@@ -499,8 +405,6 @@ function marcarPuntoActivo() {
   if (i >= puntos.length) i = puntos.length - 1;
   puntos.forEach((p, j) => p.classList.toggle("active", j === i));
 }
-
-/* --- Validación de rangos -------------------------------------------------- */
 
 function validarRango(desde, hasta) {
   const contenedor = hasta.parentElement;
@@ -541,14 +445,6 @@ function engancharValidacionDeFechas(raiz) {
   }
 }
 
-/* --- Lo que está en pantalla, como si fuera la configuración ---------------- */
-
-/**
- * Lee el formulario entero y lo devuelve con la misma forma que /api/tarifas.
- *
- * Es lo que le permite a la calculadora trabajar con los valores SIN GUARDAR:
- * cambiás un precio, ves cuánto queda, y recién después decidís si lo guardás.
- */
 function configEnPantalla() {
   return {
     temporadas: ["alta", "media", "baja"].map((clave) => ({
@@ -567,17 +463,6 @@ function configEnPantalla() {
   };
 }
 
-/* --- Tarifa de hoy y huecos ------------------------------------------------ */
-
-/**
- * El mismo criterio que usa el backend en precios.js: primero la tarifa
- * especial, después la temporada que contenga la fecha (si se solapan, la más
- * cara), y si no la cubre ninguna, el precio de la baja.
- *
- * Está duplicado a propósito y no compartido: son dos proyectos separados y lo
- * de acá es una previsualización, no lo que se cobra. Si algún día divergen, el
- * que manda es precios.js — la calculadora avisa el precio, el backend lo cobra.
- */
 function precioDeLaNoche(iso, config) {
   const especial = config.especiales
     .filter(
@@ -624,12 +509,6 @@ function actualizarTarifaDeHoy() {
   $("tarifa-hoy-nota").textContent = `(${hoy.etiqueta})`;
 }
 
-/**
- * Los tramos del calendario que no cubre ninguna temporada, mirando desde hoy
- * hasta un año adelante. Es lo único que hace visible el efecto secundario de
- * usar rangos con año: cuando se termina el ciclo cargado, esas noches pasan a
- * cobrarse al precio de temporada baja sin que nadie se entere.
- */
 function revisarHuecos() {
   const config = configEnPantalla();
   const rangos = config.temporadas
@@ -675,8 +554,6 @@ function revisarHuecos() {
   aviso.hidden = false;
 }
 
-/* --- Calculadora ----------------------------------------------------------- */
-
 function prepararCalculadora() {
   const config = configEnPantalla();
 
@@ -701,7 +578,6 @@ function prepararCalculadora() {
   recalcularCalculadora();
 }
 
-/** Solo el crédito ofrece cuotas; el resto queda en un pago. */
 function actualizarSelectorDeCuotasCalc() {
   const selector = $("calc-cuotas");
   const esCredito = $("calc-medio").value === "credito";
@@ -721,8 +597,6 @@ function actualizarSelectorDeCuotasCalc() {
 }
 
 function recalcularCalculadora() {
-  // El aviso de huecos y la tarifa de hoy dependen de lo mismo que la
-  // calculadora, así que se recalculan juntos con cada tecla.
   actualizarTarifaDeHoy();
   revisarHuecos();
 
@@ -751,8 +625,6 @@ function recalcularCalculadora() {
     return;
   }
 
-  // Una "noche" es la fecha en la que se duerme: del 10 al 14 son las noches
-  // del 10, 11, 12 y 13. La del 14 no se cobra porque esa mañana se van.
   const noches = [];
   for (let i = 0; i < cantidad; i++) {
     const iso = aISO(aUTC(checkIn) + i * UN_DIA);
@@ -822,8 +694,6 @@ function recalcularCalculadora() {
     );
   }
 
-  // El desglose noche por noche: es lo que explica un total que no es
-  // "noches × precio" cuando la estadía cruza temporadas o un fin de semana largo.
   const detalle = document.createElement("details");
   detalle.className = "calc-noches";
   const resumen = document.createElement("summary");
@@ -865,16 +735,12 @@ function crearVacio(texto) {
   return p;
 }
 
-/* --- Guardar --------------------------------------------------------------- */
-
 async function guardarTarifas(evento) {
   evento.preventDefault();
 
   const form = $("tarifas-form");
   const boton = form.querySelector(".save-btn");
 
-  // Los rangos primero: `checkValidity()` no sabe de "hasta anterior a desde",
-  // eso lo pone `setCustomValidity` y hay que refrescarlo antes de preguntar.
   let rangosOk = true;
   for (const fila of form.querySelectorAll(".input-row")) {
     const desde = fila.querySelector(".date-desde");
@@ -902,9 +768,6 @@ async function guardarTarifas(evento) {
       body: JSON.stringify(configEnPantalla()),
     });
 
-    // Se repinta con lo que devolvió la base y no con lo que había en pantalla:
-    // es lo que hace que las fechas especiales nuevas se queden con su id y el
-    // siguiente guardado las actualice en vez de duplicarlas.
     pintarTarifas();
 
     gsap.killTweensOf(icono);
@@ -929,10 +792,6 @@ async function guardarTarifas(evento) {
     mostrarToast(error.message, "error");
   }
 }
-
-/* ===========================================================================
-   2. ALQUILERES
-   =========================================================================== */
 
 const NOMBRE_MEDIO = {
   credit_card: "Crédito",
@@ -972,8 +831,6 @@ function pintarAlquileres() {
   $("total-devuelto").textContent = pesos.format(estado.totales.devuelto);
   $("total-neto").textContent = pesos.format(estado.totales.neto);
 
-  // El chip de "por aprobar" solo existe si hay algo que aprobar. Esa plata no
-  // está en "Cobrado" — nadie miró todavía el extracto.
   const pendientes = estado.totales.comprobantesPendientes || 0;
   $("total-chip-pendiente").hidden = !pendientes;
   if (pendientes) {
@@ -986,17 +843,11 @@ function pintarAlquileres() {
   );
 }
 
-/** El estado que se muestra: mezcla el del pago con el de la reserva. */
 function estadoDeAlquiler(a) {
-  // Una transferencia se cuenta por su comprobante, no por un pago: no hay
-  // contracargo ni devolución parcial posible, hay alguien que todavía no miró
-  // el extracto, alguien que lo miró y dijo que sí, o alguien que dijo que no.
   if (a.estadoComprobante === "pendiente") {
     return { texto: "Esperando aprobación", clase: "status-espera" };
   }
   if (a.estadoComprobante === "rechazado") {
-    // "Comprobante rechazado" y no "Cancelada": la reserva sigue viva y quien
-    // la hizo puede pagar con otro medio desde el mismo link.
     return { texto: "Comprobante rechazado", clase: "status-cancelado" };
   }
 
@@ -1035,9 +886,6 @@ function filaDeAlquiler(a) {
   if (a.comprobanteId) tr.dataset.comprobanteId = a.comprobanteId;
   if (esTransferencia) tr.dataset.origen = "transferencia";
 
-  // Una transferencia no tiene número de operación de MercadoPago porque no
-  // hubo operación de MercadoPago. Poner "Op. null" sería peor que no poner
-  // nada: parecería un pago roto en vez de otra forma de cobrar.
   tr.appendChild(
     celda(
       fechaHora(a.fecha),
@@ -1089,23 +937,10 @@ function filaDeAlquiler(a) {
   return tr;
 }
 
-/**
- * La celda de acciones. Cambia entera según de dónde vino la fila.
- *
- * MercadoPago: cancelar, que devuelve plata de verdad por la API.
- * Transferencia: el ojito para mirar el comprobante y decidir. No hay botón de
- * cancelar porque no hay nada que la API pueda devolver — esa plata entró al
- * banco por fuera de MercadoPago.
- */
 function accionesDeAlquiler(a, esTransferencia) {
   const td = document.createElement("td");
 
   if (esTransferencia) {
-    /* Los botones van en un <div> adentro de la celda, no en la celda misma.
-
-       Ponerle `display: flex` a un <td> lo saca del algoritmo de tabla: deja de
-       ser `table-cell` y con eso pierde el alto y los bordes de la fila. Se veia
-       como la linea divisoria cortada justo en la columna Acciones. */
     const grupo = document.createElement("div");
     grupo.className = "celda-acciones";
 
@@ -1124,12 +959,6 @@ function accionesDeAlquiler(a, esTransferencia) {
     ver.addEventListener("click", () => abrirModalComprobante(a));
     grupo.appendChild(ver);
 
-    /* Una transferencia aprobada es un alquiler cobrado como cualquier otro, y
-       se cancela igual que uno de tarjeta. La diferencia está adentro del
-       modal: la plata no la puede devolver el panel, solo anotarla.
-
-       Mientras el comprobante está pendiente o rechazado no hay alquiler que
-       cancelar, así que el botón ni aparece. */
     if (a.estadoComprobante === "confirmado") {
       const cancelar = document.createElement("button");
       cancelar.className = "btn-cancelar-reserva";
@@ -1151,7 +980,6 @@ function accionesDeAlquiler(a, esTransferencia) {
   boton.className = "btn-cancelar-reserva";
   boton.type = "button";
 
-  // Ya cancelada y sin plata pendiente de devolver: no queda nada que hacer.
   const sinPendiente = a.neto <= 0 && a.estadoReserva === "cancelada";
   boton.textContent = sinPendiente ? "—" : "Cancelar";
   boton.disabled = sinPendiente;
@@ -1162,21 +990,6 @@ function accionesDeAlquiler(a, esTransferencia) {
   return td;
 }
 
-/* --- Visor del comprobante de transferencia ---------------------------------
-
-   Aprobar y rechazar NO mueven plata, y es la diferencia importante con el
-   modal de cancelación de al lado. Una transferencia bancaria nunca pasó por
-   MercadoPago: no hay `payment` con id, así que no hay `refund` que pedirle a
-   la API. Lo único que se decide acá es si la reserva vale o no:
-
-     aprobar   -> comprobante confirmado + reserva 'confirmada' (bloquea fechas)
-     rechazar  -> comprobante rechazado  + reserva 'cancelada'  (las libera)
-
-   Si además hay que devolver la plata, se devuelve a mano. El aviso del modal
-   lo dice, y el backend lo repite en su respuesta para que no dependa de que
-   alguien se acuerde de escribirlo en la pantalla.
-   --------------------------------------------------------------------------- */
-
 async function abrirModalComprobante(alquiler) {
   estado.comprobante = alquiler;
 
@@ -1186,8 +999,6 @@ async function abrirModalComprobante(alquiler) {
     `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(alquiler.checkOut)}. ` +
     `Dice haber transferido ${pesos.format(alquiler.monto)}.`;
 
-  // Ya resuelto: queda como visor y nada más. Los botones de decidir no tienen
-  // sentido dos veces, y el backend igual los rechazaría con un 409.
   $("comprobante-aprobar").hidden = !pendiente;
   $("comprobante-rechazar").hidden = !pendiente;
   $("comprobante-aprobar").disabled = false;
@@ -1200,8 +1011,6 @@ async function abrirModalComprobante(alquiler) {
   $("modal-comprobante").hidden = false;
 
   try {
-    // Las URLs son temporales y las firma el servidor recién ahora: el bucket
-    // es privado y no hay ninguna URL permanente que se pueda filtrar.
     const datos = await api(
       `/comprobantes?id=${encodeURIComponent(alquiler.comprobanteId)}`,
     );
@@ -1228,13 +1037,6 @@ function cargandoDeComprobante() {
   return bloque;
 }
 
-/**
- * Una imagen o un PDF, según lo que se haya subido.
- *
- * El PDF va en un <iframe> y no en un <embed>: si el navegador no sabe
- * mostrarlo, el iframe queda vacío pero el botón de Descargar sigue estando,
- * mientras que un <embed> roto se lleva puesto el layout.
- */
 function vistaDelArchivo(datos) {
   if (datos.mime === "application/pdf") {
     const marco = document.createElement("iframe");
@@ -1253,8 +1055,7 @@ function vistaDelArchivo(datos) {
 
 function cerrarModalComprobante() {
   $("modal-comprobante").hidden = true;
-  // Se suelta el archivo: dejar el src apuntando a una URL firmada mantiene la
-  // imagen en memoria y el iframe con una request viva detrás del modal.
+
   $("comprobante-visor").replaceChildren();
   estado.comprobante = null;
 }
@@ -1293,8 +1094,6 @@ async function resolverComprobante(accion) {
       accion === "aprobar" ? "exito" : undefined,
     );
 
-    // El aviso de la devolución manual va en su propio toast y después del
-    // primero: es lo único que le queda por hacer al operador.
     if (respuesta.avisoDevolucion) {
       setTimeout(() => mostrarToast(respuesta.avisoDevolucion, "error"), 400);
     }
@@ -1307,18 +1106,9 @@ async function resolverComprobante(accion) {
   }
 }
 
-/* --- Modal de cancelación --------------------------------------------------- */
-
 function abrirModalCancelar(alquiler) {
   estado.cancelando = alquiler;
 
-  /* El mismo diálogo dice dos cosas distintas según de dónde vino la plata.
-
-     Con tarjeta, "devolver" es una orden: el refund sale por la API y no se
-     puede revertir. Con transferencia es una anotación: la plata la mueve una
-     persona desde MercadoPago y acá solo queda registrada, para que el registro
-     no siga diciendo que se cobró todo. Prometer "Devolver todo" en ese caso
-     sería mentir sobre lo que hace el botón. */
   const esTransferencia = alquiler.origen === "transferencia";
 
   $("modal-label-total").textContent = esTransferencia
@@ -1358,7 +1148,6 @@ function abrirModalCancelar(alquiler) {
   ).checked = true;
   $("modal-parcial").hidden = true;
 
-  // Sin plata pendiente, devolver no es una opción: solo queda cancelar.
   const hayQueDevolver =
     alquiler.neto > 0 && alquiler.estadoPago === "approved";
   for (const radio of document.querySelectorAll(
@@ -1425,9 +1214,6 @@ async function confirmarCancelacion() {
     const respuesta = await api("/cancelar", {
       method: "POST",
       body: JSON.stringify({
-        // Uno de los dos, nunca los dos: el backend elige la rama por cuál
-        // viene. Una transferencia no tiene paymentId porque no hubo pago de
-        // MercadoPago.
         ...(alquiler.origen === "transferencia"
           ? { comprobanteId: alquiler.comprobanteId }
           : { paymentId: alquiler.paymentId }),
@@ -1441,7 +1227,6 @@ async function confirmarCancelacion() {
     if (respuesta.aviso) {
       mostrarToast(respuesta.aviso, "error");
     } else if (respuesta.devolucion?.manual) {
-      // Transferencia: la plata no salió de ningún lado, solo quedó anotada.
       mostrarToast(
         `Anotados ${pesos.format(respuesta.devolucion.monto)} devueltos. Reserva cancelada.`,
       );
@@ -1453,8 +1238,6 @@ async function confirmarCancelacion() {
       mostrarToast("Reserva cancelada. Las fechas quedaron libres.");
     }
 
-    // El recordatorio de que la devolución sigue pendiente de hacerse a mano va
-    // aparte y después: es lo único que le queda por hacer al operador.
     if (respuesta.avisoDevolucion) {
       setTimeout(() => mostrarToast(respuesta.avisoDevolucion, "error"), 400);
     }
@@ -1471,13 +1254,6 @@ async function confirmarCancelacion() {
   }
 }
 
-/* --- Reporte en PDF --------------------------------------------------------- */
-
-/**
- * El PDF sale de `estado.alquileres`, que es exactamente lo que se está
- * mostrando en pantalla y ya viene ordenado por la base. Así el papel y la web
- * dicen lo mismo, en el mismo orden, sin dos criterios que puedan divergir.
- */
 function descargarReporte() {
   if (!estado.alquileres.length) {
     mostrarToast("No hay alquileres para exportar.", "error");
@@ -1493,7 +1269,6 @@ function descargarReporte() {
     return;
   }
 
-  // Apaisado: son ocho columnas y en vertical el nombre y el mail se parten.
   const doc = new constructor({
     orientation: "landscape",
     unit: "pt",
@@ -1509,9 +1284,6 @@ function descargarReporte() {
   doc.setTextColor(100);
   doc.text(`DepartamentosDimo · generado el ${generado}`, 40, 62);
 
-  // Los pendientes se nombran aparte y no se suman: es plata que todavía nadie
-  // verificó contra el extracto, y meterla en "cobrado" haría que el reporte
-  // dijera que entró plata que capaz nunca entró.
   const pendientes = estado.totales.comprobantesPendientes || 0;
   doc.text(
     `${estado.totales.cantidad} reservas · cobrado ${pesos.format(estado.totales.cobrado)} · ` +
@@ -1585,10 +1357,6 @@ function descargarReporte() {
   mostrarToast("Reporte descargado.");
 }
 
-/* ===========================================================================
-   3. RESEÑAS
-   =========================================================================== */
-
 async function cargarResenas() {
   try {
     const datos = await api("/resenas");
@@ -1609,9 +1377,6 @@ function pintarResenas(pendientes) {
   $("resenas-pendientes-chip").hidden = !pendientes;
   if (pendientes) $("resenas-pendientes").textContent = pendientes;
 
-  // Promedio sobre TODAS las reseñas de la tabla, aprobadas y pendientes: es
-  // el panel de moderación, así que interesa el pulso completo de lo que
-  // escribe la gente, no solo lo que ya se dejó salir al sitio.
   $("resenas-promedio-chip").hidden = !hay;
   if (hay) {
     const suma = estado.resenas.reduce(
@@ -1626,22 +1391,7 @@ function pintarResenas(pendientes) {
   $("resenas-grid").replaceChildren(...estado.resenas.map(tarjetaDeResena));
 }
 
-/* Las cinco estrellas de una tarjeta, más el puntaje en texto.
-
-   Las cinco usan SIEMPRE el glifo `star`: lo que distingue una encendida de
-   una apagada es el eje FILL de Material Symbols, no el nombre del icono.
-   Antes las apagadas pedían `star_outline`, pero `.stars` forzaba
-   `font-variation-settings: "FILL" 1` sobre todos los hijos, así que ese glifo
-   salía relleno igual y las cinco se veían encendidas con cualquier puntaje.
-   Ahora el estado apagado es una clase (`is-off`) que pone FILL en 0.
-
-   El "4/5" al lado no es decorativo: cinco iconos chiquitos se cuentan mal de
-   un vistazo, y en el panel el puntaje es justamente el dato que se mira para
-   decidir si una reseña se publica. */
 function bloqueDePuntaje(valor) {
-  // La columna `rating` tiene un check de 1 a 5, pero la tarjeta se pinta con
-  // lo que devuelva la API: si algún día llega basura, se recorta acá y no
-  // rompe el layout con 40 estrellas.
   const puntaje = Math.min(5, Math.max(0, Math.round(Number(valor) || 0)));
 
   const bloque = document.createElement("div");
@@ -1649,8 +1399,7 @@ function bloqueDePuntaje(valor) {
 
   const estrellas = document.createElement("div");
   estrellas.className = "stars";
-  // Para un lector de pantalla las cinco estrellas son UNA sola cosa que dice
-  // el puntaje, no cinco palabras "star" seguidas.
+
   estrellas.setAttribute("role", "img");
   estrellas.setAttribute("aria-label", `${puntaje} de 5 estrellas`);
 
@@ -1695,7 +1444,7 @@ function tarjetaDeResena(r) {
 
   const texto = document.createElement("p");
   texto.className = "review-text";
-  // textContent: la reseña la escribe cualquiera desde el sitio público.
+
   texto.textContent = `“${r.texto}”`;
 
   const fecha = document.createElement("p");
@@ -1705,8 +1454,6 @@ function tarjetaDeResena(r) {
   const acciones = document.createElement("div");
   acciones.className = "review-actions";
 
-  // El botón de aprobar solo existe mientras haga falta: una vez aprobada,
-  // desaparece y queda únicamente el de eliminar.
   if (!r.aprobada) {
     const aprobar = document.createElement("button");
     aprobar.className = "btn-action btn-action-approve";
@@ -1748,9 +1495,6 @@ async function aprobarResena(resena, boton) {
 }
 
 async function eliminarResena(resena, tarjeta, boton) {
-  // Borrar es definitivo y no hay papelera: se pregunta, aunque sea con el
-  // confirm del navegador. El diálogo lindo se lo lleva la cancelación de
-  // reservas, que además mueve plata.
   if (
     !window.confirm(
       `¿Eliminar la reseña de ${resena.nombre}? No se puede deshacer.`,
@@ -1778,10 +1522,6 @@ async function eliminarResena(resena, tarjeta, boton) {
     mostrarToast(error.message, "error");
   }
 }
-
-/* ===========================================================================
-   Pestañas
-   =========================================================================== */
 
 function activarPestanas() {
   const items = document.querySelectorAll(".nav-item, .bottom-nav-item");
@@ -1817,22 +1557,16 @@ function activarPestanas() {
   }
 }
 
-/* ===========================================================================
-   Arranque
-   =========================================================================== */
-
 document.addEventListener("DOMContentLoaded", async () => {
   activarPestanas();
   gsap.set(".tab-content.active", { opacity: 1, y: 0 });
 
-  // Si la cookie no vale, esto redirige al login y no se sigue cargando nada.
   try {
     await api("/sesion");
   } catch {
     return;
   }
 
-  // --- Tarifas -------------------------------------------------------------
   $("tarifas-form").addEventListener("submit", guardarTarifas);
 
   for (const id of ["alta-precio", "media-precio", "baja-precio"]) {
@@ -1867,12 +1601,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   engancharValidacionDeFechas(document);
 
-  // --- Alquileres ----------------------------------------------------------
   $("btn-reporte").addEventListener("click", descargarReporte);
   $("modal-volver").addEventListener("click", cerrarModal);
   $("modal-confirmar").addEventListener("click", confirmarCancelacion);
 
-  // --- Visor del comprobante ----------------------------------------------
   $("comprobante-volver").addEventListener("click", cerrarModalComprobante);
   $("comprobante-aprobar").addEventListener("click", () =>
     resolverComprobante("aprobar"),
@@ -1893,20 +1625,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Clic en el fondo o Escape cierran el modal. Confirmar no: para eso está
-  // el botón, que es la única forma de que salga plata.
   $("modal-cancelar").addEventListener("click", (evento) => {
     if (evento.target === $("modal-cancelar")) cerrarModal();
   });
   document.addEventListener("keydown", (evento) => {
     if (evento.key !== "Escape") return;
-    // El de arriba primero: si los dos estuvieran abiertos, Escape cierra el
-    // que se abrió último, que es el que está mirando la persona.
+
     if (!$("modal-comprobante").hidden) return cerrarModalComprobante();
     if (!$("modal-cancelar").hidden) cerrarModal();
   });
 
-  // Las tres pestañas se cargan juntas al arrancar: son tres consultas chicas y
-  // así cambiar de pestaña es instantáneo en vez de mostrar un spinner cada vez.
   await Promise.all([cargarTarifas(), cargarAlquileres(), cargarResenas()]);
 });

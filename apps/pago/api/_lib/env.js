@@ -1,18 +1,3 @@
-/**
- * api/_lib/env.js
- * ---------------------------------------------------------------------------
- * Lee y valida TODAS las variables de entorno en un solo lugar.
- *
- * Por qué existe: si una credencial falta o está mal, quiero enterarme con un
- * mensaje claro en el log del servidor y devolver un 500 controlado — no un
- * "undefined is not a string" tres capas más abajo, ni peor: un pago que sale
- * con el ambiente equivocado.
- *
- * Se puede correr suelto para chequear el .env:
- *     node api/_lib/env.js
- */
-
-/** Error de configuración: es culpa del servidor, no del que paga. */
 export class ErrorDeConfig extends Error {
   constructor(mensaje, pista) {
     super(pista ? `${mensaje}\n  → ${pista}` : mensaje);
@@ -33,13 +18,6 @@ function booleana(nombre, porDefecto) {
   return crudo === "true" || crudo === "1" || crudo === "si" || crudo === "sí";
 }
 
-/**
- * MercadoPago entrega dos juegos de credenciales. Las de prueba llevan el
- * prefijo TEST-, las reales APP_USR-. Mezclarlas es EL error clásico: el Brick
- * genera el token con una public key y el backend lo intenta cobrar con un
- * access token del otro ambiente, y MercadoPago devuelve un críptico
- * "invalid card_token_id" que no dice nada de ambientes.
- */
 function ambienteDeCredencial(valor) {
   if (valor.startsWith("TEST-")) return "test";
   if (valor.startsWith("APP_USR-")) return "produccion";
@@ -79,9 +57,6 @@ export function leerConfig() {
     );
   }
 
-  // Aviso, no error: en un preview de Vercel querés las de prueba, pero si
-  // alguien pone las reales a propósito para un test final, no le rompemos
-  // el deploy. Al revés (test en producción) sí es grave y lo gritamos.
   const entornoVercel = process.env.VERCEL_ENV || "development";
   if (entornoVercel === "production" && ambToken === "test") {
     console.warn(
@@ -113,8 +88,6 @@ export function leerConfig() {
       "y nunca puede llegar al navegador.",
   );
 
-  // Freno de mano: si acá pegaron la anon por error, el backend no puede leer
-  // booking_requests (es solo-alta) y todo falla con un 401 confuso.
   const pareceAnon =
     serviceRoleKey.startsWith("sb_publishable_") ||
     (serviceRoleKey.startsWith("eyJ") && /"role"\s*:\s*"anon"/.test(decodificarJwt(serviceRoleKey)));
@@ -131,13 +104,6 @@ export function leerConfig() {
       publicKey,
       accessToken,
 
-      /**
-       * Lazy a propósito: la clave del webhook la necesita SOLO el webhook.
-       * Si se exigiera acá, un `MP_WEBHOOK_SECRET` vacío tiraría abajo también
-       * `/api/reserva` y `/api/pagos` — es decir, nadie podría pagar por no
-       * poder validar una notificación. Con el getter, cada endpoint falla
-       * únicamente por lo que de verdad usa.
-       */
       get webhookSecret() {
         return requerida(
           "MP_WEBHOOK_SECRET",
@@ -152,10 +118,7 @@ export function leerConfig() {
       ambiente: ambToken,
     },
     supabase: { url: supabaseUrl, serviceRoleKey },
-    // Los precios NO están acá. Viven en las tablas `temporadas`,
-    // `medios_pago` y `planes_cuotas` de Supabase, y se editan desde el
-    // dashboard: cambiar un precio no puede depender de un redeploy de Vercel.
-    // Las lee leerConfigTarifas() en supabase.js.
+
     moneda: "ARS",
     confirmarReservaAlAprobar: booleana("CONFIRMAR_RESERVA_AL_APROBAR", true),
     entorno: entornoVercel,
@@ -174,14 +137,6 @@ function decodificarJwt(token) {
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Chequeo manual del .env, sin levantar nada:
-
-       node --env-file=.env api/_lib/env.js      (Node 20+)
-       npm run env:check                         (hace exactamente eso)
-
-   No imprime ninguna credencial: solo dice si la configuración cierra.
-   --------------------------------------------------------------------------- */
 if (process.argv[1] && process.argv[1].endsWith("env.js")) {
   try {
     const c = leerConfig();

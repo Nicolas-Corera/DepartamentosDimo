@@ -863,3 +863,40 @@ update public.booking_requests set estado = 'contactada' where id = 'PEGAR-EL-UU
 
 Las que lleguen a `confirmada` son las que después van a alimentar el calendario
 de ocupación.
+---
+
+## Trampas del código
+
+El código no lleva comentarios. Lo que sigue es lo que no se deduce leyéndolo, y
+lo que más de una vez ya se rompió por no saberlo.
+
+### El cliente se llama `db`, no `supabase`
+
+El build UMD del CDN expone el namespace global `supabase`. Si al cliente lo
+llamáramos igual, pisaríamos ese namespace y el próximo `createClient()`
+rompería. Por eso `apps/sitio/supabase-config.js` deja el cliente en
+`window.db`.
+
+### `supabase-config.js` es generado y no se commitea
+
+Lo escribe `npm run config` a partir del `.env`, y lo regenera Vercel en cada
+build. Editarlo a mano no sirve: el próximo build lo pisa. Si hay que cambiar la
+URL o la clave, se cambia el `.env`.
+
+El script busca el `.env` primero en `apps/sitio/` y después en la raíz del
+monorepo. En Vercel no existe ninguno de los dos y las variables se leen de
+`process.env`.
+
+### Los nombres de las políticas van sin `ñ`
+
+Los nombres con acentos se corrompen al viajar por la API de administración, y
+el resultado es peor que feo: un `drop policy` que no matchea deja la política
+vieja viva y crea una segunda al lado. Como las políticas se suman con **OR**,
+alcanza con que sobreviva una permisiva para que la restrictiva no sirva de
+nada.
+
+### El carrusel de reseñas triplica la lista, pero solo a veces
+
+El loop infinito se arma con clon-anterior + real + clon-siguiente. Eso solo
+tiene sentido si hay más reseñas que las que entran en pantalla: con una sola,
+las tres copias se veían juntas y parecía que se había guardado tres veces.

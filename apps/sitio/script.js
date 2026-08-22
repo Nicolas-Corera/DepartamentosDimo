@@ -1,9 +1,6 @@
 (function () {
   "use strict";
 
-  /* ==========================================================
-     TYPEWRITER HERO
-  =========================================================== */
   const phrases = [
     "Tu depto frente a la costa te espera",
     "Terraza con vista al mar en San Bernardo",
@@ -16,9 +13,6 @@
     twCharIdx = 0,
     twDeleting = false;
 
-  /* Reserva la altura máxima que puede ocupar cualquier frase para que
-     el título no cambie de tamaño (y no mueva el resto del hero) mientras
-     se "tipea" o se "borra" el texto. Se recalcula en resize. */
   function fixHeroTitleHeight() {
     if (!twEl || !heroTitleEl) return;
     const prevText = twEl.textContent;
@@ -62,9 +56,6 @@
   }
   if (twEl) typewriterTick();
 
-  /* ==========================================================
-     GALERÍA / MASONRY + LIGHTBOX
-  =========================================================== */
   const galleryImages = [
     {
       src: "/assets/images/galeria/terraza.jpeg",
@@ -149,19 +140,17 @@
 
   const toastStack = document.getElementById("toastStack");
 
-  // Un error necesita más tiempo de lectura que un "listo".
   const TOAST_MS = { exito: 3000, error: 5000 };
 
   function mostrarToast(mensaje, tipo = "exito") {
     const toast = document.createElement("div");
     toast.className = `toast toast-${tipo}`;
-    // Los errores interrumpen al lector de pantalla; los avisos de éxito no.
+
     toast.setAttribute("role", tipo === "error" ? "alert" : "status");
 
     const icono = tipo === "error" ? "#ic-alert" : "#ic-check";
     toast.innerHTML = `<svg class="ic-sm" aria-hidden="true"><use href="${icono}"/></svg><span></span>`;
-    // textContent y no innerHTML: el texto puede venir del mensaje de error
-    // de la base y no tiene por qué terminar interpretado como HTML.
+
     toast.querySelector("span").textContent = mensaje;
 
     let reloj;
@@ -172,8 +161,7 @@
       clearTimeout(reloj);
       toast.classList.add("toast-saliendo");
       toast.addEventListener("animationend", () => toast.remove());
-      // Red de seguridad: con animaciones desactivadas (reduced motion)
-      // animationend no llega nunca y el toast se quedaría pegado.
+
       setTimeout(() => toast.remove(), 400);
     }
 
@@ -184,9 +172,6 @@
     return toast;
   }
 
-  /* ==========================================================
-     MODALES (genérico)
-  =========================================================== */
   function openModal(el) {
     el.hidden = false;
     document.body.style.overflow = "hidden";
@@ -214,9 +199,6 @@
     }
   });
 
-  /* ==========================================================
-     CALENDARIO REUTILIZABLE (rango de fechas)
-  =========================================================== */
   const MESES = [
     "Enero",
     "Febrero",
@@ -233,38 +215,15 @@
   ];
   const DIAS = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
 
-  /* ==========================================================
-     DÍAS OCUPADOS
-
-     Arranca vacío y se llena solo, desde la base, en
-     cargarFechasOcupadas(). Antes acá había una lista escrita a mano:
-     eso se desactualiza el mismo día que entra una reserva, y no hay
-     forma de que alguien se acuerde de mantenerla.
-
-     De dónde salen: la vista `fechas_ocupadas` de Supabase, que expone
-     ÚNICAMENTE check_in y check_out de las reservas confirmadas. Ni
-     nombre, ni mail, ni DNI: la tabla `booking_requests` sigue siendo
-     ilegible desde el navegador. Ver pago/sql/tarifas-y-ocupacion.sql.
-  =========================================================== */
   const bookedDates = new Set();
 
   function fmtKey(y, m, d) {
     return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   }
 
-  /* ==========================================================
-     CALENDARIO: HASTA CUÁNDO SE PUEDE RESERVAR PARA HOY
-
-     El mismo día se puede reservar hasta las 09:00; pasada esa hora el
-     día de hoy queda bloqueado y la estadía tiene que arrancar mañana.
-
-     La hora se mide SIEMPRE en la zona del departamento, no en la del
-     visitante: si alguien consulta desde España, lo que manda es qué
-     hora es en San Bernardo, no en su reloj.
-  =========================================================== */
   const TZ_DESTINO = "America/Argentina/Buenos_Aires";
   const HORA_CIERRE = 9;
-  // Para los textos, siempre con dos digitos: 9 -> "09:00".
+
   const HORA_CIERRE_TXT = String(HORA_CIERRE).padStart(2, "0") + ":00";
 
   const FMT_DESTINO = new Intl.DateTimeFormat("en-CA", {
@@ -273,7 +232,7 @@
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
-    hourCycle: "h23", // sin esto, medianoche puede venir como "24"
+    hourCycle: "h23",
   });
 
   function ahoraEnDestino() {
@@ -289,18 +248,11 @@
     };
   }
 
-  /* "2026-01-10" -> Date del 10/01/2026 a medianoche LOCAL.
-     Con `new Date("2026-01-10")` sería medianoche UTC, o sea el día
-     anterior a las 21:00 hora argentina, y las comparaciones se corren
-     un día. */
   function keyADate(key) {
     const [y, m, d] = key.split("-").map(Number);
     return new Date(y, m - 1, d);
   }
 
-  /* Primer día que se puede elegir: hoy si todavía no son las 09:00 en
-     el destino, mañana si ya pasaron. Se recalcula en cada render, así
-     que una página abierta desde temprano se corrige sola. */
   function primerDiaElegible() {
     const { anio, mes, dia, hora } = ahoraEnDestino();
     const base = new Date(anio, mes, dia);
@@ -308,11 +260,6 @@
     return base;
   }
 
-  /* ¿Hay alguna noche ocupada entre estas dos fechas?
-
-     Se miran las NOCHES, no los días: una estadía del 12 al 18 son las
-     noches del 12 al 17. La del 18 no cuenta, porque esa mañana se van
-     y el departamento queda libre para quien entre ese mismo día. */
   function hayOcupadasEntre(desdeKey, hastaKey) {
     const cursor = keyADate(desdeKey);
     const fin = keyADate(hastaKey);
@@ -324,9 +271,6 @@
     return false;
   }
 
-  /* Todos los calendarios vivos, para repintarlos cuando lleguen las
-     fechas ocupadas (la consulta a la base termina después del primer
-     render). */
   const calendarios = [];
 
   function createCalendar(container, { onRangeChange } = {}) {
@@ -358,7 +302,7 @@
       });
 
       const firstDay = new Date(viewYear, viewMonth, 1);
-      let startOffset = firstDay.getDay() - 1; // lunes = 0
+      let startOffset = firstDay.getDay() - 1;
       if (startOffset < 0) startOffset = 6;
       const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
@@ -372,10 +316,6 @@
       const minimo = primerDiaElegible();
       const hoyCerrado = hoy.hora >= HORA_CIERRE;
 
-      /* Si la página quedó abierta y en el medio cruzó las 09:00 (o
-         cambió el día), lo que ya estaba elegido puede haber quedado
-         fuera de rango. Se limpia acá para que nunca se pueda confirmar
-         una fecha que el calendario ya no deja tocar. */
       if (rangeStart && keyADate(rangeStart) < minimo) {
         rangeStart = null;
         rangeEnd = null;
@@ -390,9 +330,6 @@
         const key = fmtKey(viewYear, viewMonth, d);
         const dateObj = new Date(viewYear, viewMonth, d);
 
-        // El día de hoy pasada la hora de cierre queda igual que un día ya
-        // pasado: mismo apagado, sin marca propia. Lo que explica por qué
-        // está cerrado es la nota de abajo de la grilla.
         if (dateObj < minimo) {
           btn.disabled = true;
         } else if (bookedDates.has(key)) {
@@ -427,16 +364,6 @@
               const desde = nuevoInicio ? key : rangeStart;
               const hasta = nuevoInicio ? rangeStart : key;
 
-              /* Bloquear el día ocupado no alcanza: sin esto se puede
-                 elegir el 12 y el 18 con el 15 ya reservado, y la
-                 estadía "salta por arriba" de una reserva existente.
-                 El rango completo tiene que estar libre.
-
-                 Cuando el rango no sirve, la selección ARRANCA DE NUEVO
-                 desde el día que se acaba de tocar. Si solo se rechazara
-                 el clic, la entrada vieja quedaría fija y cualquier día
-                 posterior a la reserva seguiría cruzándola: la persona
-                 quedaría trabada sin entender por qué. */
               if (hayOcupadasEntre(desde, hasta)) {
                 rangeStart = key;
                 rangeEnd = null;
@@ -462,8 +389,6 @@
       }
       container.appendChild(grid);
 
-      /* Por qué no se pudo elegir ese rango. Se limpia al primer clic
-         siguiente, así no queda un cartel viejo colgado. */
       if (avisoRango) {
         const aviso = document.createElement("p");
         aviso.className = "cal-note cal-note-cerrado";
@@ -472,8 +397,6 @@
         container.appendChild(aviso);
       }
 
-      /* La aclaración del horario solo tiene sentido mirando el mes en
-         curso: en marzo del año que viene no aporta nada. */
       if (viewYear === hoy.anio && viewMonth === hoy.mes) {
         const nota = document.createElement("p");
         nota.className = "cal-note";
@@ -510,38 +433,13 @@
         avisoRango = "";
         render();
       },
-      // Repinta con la hora de AHORA. Se llama al abrir cada modal para
-      // que el corte de las 09:00 valga aunque la página lleve horas abierta.
+
       refresh: render,
     };
     calendarios.push(api);
     return api;
   }
 
-  /* ==========================================================
-     TRAER LOS DÍAS OCUPADOS
-
-     Llama a la función `fechas_ocupadas()`, que solo devuelve
-     check_in y check_out de las reservas confirmadas. Cada reserva se
-     expande al rango COMPLETO, con el día de salida incluido: del 10
-     al 14 se tachan el 10, 11, 12, 13 y 14.
-
-     El 14 no se cobra —  el precio va por noche y esa mañana se van—
-     pero igual se bloquea: deja el margen para limpiar y preparar el
-     departamento, y evita el cruce de dos grupos el mismo día.
-
-     Es una función y no una vista a propósito: una vista sobre
-     booking_requests necesita correr con los privilegios de su dueño,
-     y el Security Advisor de Supabase desactiva eso. El detalle está
-     en pago/sql/tarifas-y-ocupacion.sql.
-
-     Si alguna vez querés liberar el día de salida, cambiá el `<=` por
-     un `<` en el while.
-
-     Si la consulta falla, el calendario queda como estaba: todos los
-     días libres. Es lo mismo que pasaba antes de tener esto, y es
-     preferible a no mostrar calendario.
-  =========================================================== */
   async function cargarFechasOcupadas() {
     if (typeof window.db === "undefined") {
       console.warn("[disponibilidad] Supabase no está cargado; el calendario queda sin ocupación.");
@@ -558,8 +456,7 @@
     for (const reserva of data || []) {
       const cursor = keyADate(reserva.check_in);
       const salida = keyADate(reserva.check_out);
-      // Tope de seguridad: una fila con fechas corruptas no puede colgar
-      // el navegador en un while infinito.
+
       let vueltas = 0;
       while (cursor <= salida && vueltas++ < 400) {
         bookedDates.add(
@@ -569,22 +466,17 @@
       }
     }
 
-    // La consulta termina después del primer render, así que hay que repintar.
     calendarios.forEach((c) => c.refresh());
   }
 
-  // Calendario del modal "Ver disponibilidad"
   const dispoCalendar = createCalendar(
     document.getElementById("calDisponibilidad"),
   );
 
-  // Calendario del formulario
   const fechasInput = document.getElementById("fechasInput");
   const fechasLabel = document.getElementById("fechasLabel");
   const formCalendar = createCalendar(document.getElementById("calFormulario"));
 
-  // Ya están los dos calendarios creados: se piden las fechas ocupadas y, al
-  // llegar, se repintan solos.
   cargarFechasOcupadas();
 
   function fmtDisplay(key) {
@@ -598,9 +490,6 @@
   });
 
   document.getElementById("fechasBtn").addEventListener("click", () => {
-    // Repintar con la hora de ahora puede invalidar lo que ya estaba
-    // elegido (cruzaron las 09:00 con la página abierta). Si pasa, el
-    // formulario también tiene que dejar de mostrar esas fechas.
     formCalendar.refresh();
     const { start, end } = formCalendar.getRange();
     if (!start || !end) {
@@ -618,10 +507,7 @@
       closeModal(document.getElementById("modalFechas"));
       return;
     }
-    // Falta una de las dos fechas: el modal se queda abierto y el aviso va
-    // por toast. Antes se escribía en la etiqueta del botón que abre este
-    // mismo modal, o sea que quedaba tapada detrás del overlay y el
-    // visitante veía que "Confirmar fechas" no hacía nada.
+
     mostrarToast(
       start
         ? "Elegí también la fecha de salida."
@@ -630,18 +516,6 @@
     );
   });
 
-  /* ==========================================================
-     FORMULARIO: PERSONAS / ADULTOS / NIÑOS / EDADES
-
-     Primero se elige el TOTAL de personas (1 a 4, el tope del depto).
-     Recién ahí aparecen los dos selects que reparten ese total entre
-     adultos y niños. Los dos están siempre atados: si cambiás uno, el
-     otro se recalcula para que la suma dé exactamente el total, así que
-     nunca puede quedar un grupo inconsistente.
-
-     Regla que no se negocia: al menos un adulto. Por eso el select de
-     niños llega hasta total - 1 y el de adultos arranca en 1.
-  =========================================================== */
   const personasSel = document.getElementById("personas");
   const personasHint = document.getElementById("personasHint");
   const adultosField = document.getElementById("adultosField");
@@ -651,7 +525,6 @@
   const edadesGroup = document.getElementById("edadesGroup");
   const edadesWrap = document.getElementById("edadesWrap");
 
-  /* Tope duro del departamento: adultos + niños nunca puede superarlo. */
   const MAX_PERSONAS = 4;
   const EDAD_MAX_NINO = 17;
 
@@ -659,7 +532,6 @@
     return parseInt(personasSel.value, 10) || 0;
   }
 
-  /* Mientras no haya un total elegido no se muestra nada del reparto. */
   function limpiarGrupo() {
     adultosField.hidden = true;
     ninosField.hidden = true;
@@ -682,8 +554,6 @@
       : `<option value="${n}">${n} niño${n > 1 ? "s" : ""}</option>`;
   }
 
-  /* Repinta los dos selects para un total dado y deja marcada la
-     combinación adultos/niños que se le pase. */
   function renderGrupo(adultos, ninos) {
     const t = total();
 
@@ -707,8 +577,6 @@
     renderEdades();
   }
 
-  /* Al elegir el total se arranca con todos adultos: es la opción más
-     común y evita que el visitante tenga que tocar los dos selects. */
   function onTotalChange() {
     const t = total();
     if (t < 1) {
@@ -728,7 +596,6 @@
     renderGrupo(total() - ninos, ninos);
   }
 
-  /* Un select de edad (0 a 17) por cada niño declarado. */
   function renderEdades() {
     const cantidad = parseInt(ninosSel.value, 10) || 0;
     const previas = Array.from(edadesWrap.querySelectorAll("select")).map(
@@ -758,8 +625,7 @@
         </select>
       `;
       edadesWrap.appendChild(field);
-      // Si ya había una edad cargada para ese niño se conserva: cambiar de
-      // 2 a 3 niños no tiene por qué borrar lo que el visitante ya eligió.
+
       if (previas[i - 1]) field.querySelector("select").value = previas[i - 1];
     }
   }
@@ -768,9 +634,6 @@
   adultosSel.addEventListener("change", onAdultosChange);
   ninosSel.addEventListener("change", onNinosChange);
 
-  /* ==========================================================
-     FORMULARIO: VEHÍCULO
-  =========================================================== */
   const vehiculoChk = document.getElementById("vehiculo");
   const vehiculoFields = document.getElementById("vehiculoFields");
   const vehiculoMarca = document.getElementById("vehiculoMarca");
@@ -787,8 +650,6 @@
   const ANIO_MIN = 1950;
   const ANIO_MAX = new Date().getFullYear() + 1;
 
-  /* Los datos del vehículo solo existen (y solo son obligatorios) mientras
-     el checkbox esté tildado; al destildar se limpian para no enviar basura. */
   function toggleVehiculo() {
     const activo = vehiculoChk.checked;
     vehiculoFields.hidden = !activo;
@@ -817,15 +678,6 @@
 
   toggleVehiculo();
 
-  /* ==========================================================
-     ENVÍO DE FORMULARIO DE RESERVA
-
-     Todo el acoplamiento con Supabase vive en createBookingRequest():
-     una sola fila en public.booking_requests con TODOS los campos del
-     formulario. Esa tabla es de solo-alta desde el sitio — guarda DNI,
-     mail y teléfono, así que no tiene policy de SELECT y se lee desde el
-     panel de Supabase. Ver SUPABASE.md.
-  =========================================================== */
   const bookingForm = document.getElementById("bookingForm");
   const bookingSubmit = bookingForm.querySelector('button[type="submit"]');
 
@@ -834,37 +686,25 @@
     if (error) throw error;
   }
 
-  /* Los <select> de edad se crean dinámicamente, así que las edades se leen
-     del DOM recién al enviar. La posición i del array es el "Niño i + 1". */
   function leerEdades() {
     return Array.from(edadesWrap.querySelectorAll("select")).map((s) =>
       parseInt(s.value, 10),
     );
   }
 
-  /* Devuelve el objeto listo para insertar, o un string con el motivo por el
-     que no se puede armar (que es justo el texto que ve el visitante).
-     Las validaciones de acá son las mismas que los check de la tabla: si
-     tocás una, tocá la otra. */
   function armarConsulta() {
     const [checkIn, checkOut] = fechasInput.value.split(" a ");
     if (!checkIn || !checkOut) return "Elegí las fechas de tu estadía.";
     if (checkOut <= checkIn)
       return "La fecha de salida tiene que ser posterior a la de entrada.";
-    // Misma regla que el calendario: después de las 09:00 el día de hoy ya
-    // no se puede reservar. Acá se vuelve a chequear por si la página
-    // quedó abierta desde antes de esa hora.
+
     if (keyADate(checkIn) < primerDiaElegible())
       return `Las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. Elegí de nuevo las fechas de tu estadía.`;
 
-    // El campo de DNI es de texto libre: se guarda solo con dígitos para que
-    // "12.345.678" y "12345678" no entren como dos consultas distintas.
     const dni = document.getElementById("dni").value.replace(/\D/g, "");
     if (dni.length < 6 || dni.length > 9)
       return "Revisá el DNI: tiene que tener entre 6 y 9 dígitos.";
 
-    // personas es el TOTAL declarado; adultos + ninos tiene que dar justo eso.
-    // El front los mantiene atados, así que esto es la red de seguridad.
     const personas = total();
     const adultos = adultosField.hidden
       ? 0
@@ -943,11 +783,7 @@
       formCalendar.reset();
     } catch (err) {
       console.error("No se pudo guardar la consulta:", err);
-      // 23505 = unique_violation: lo tira booking_requests_dedupe_idx cuando
-      // ya hay una consulta con el mismo DNI y las mismas fechas.
-      // 42501 = la política RLS rechazó la fila. Con los datos ya validados
-      // en el front, el caso realista es la fecha: cruzaron las 09:00 entre
-      // que eligió las fechas y que apretó enviar.
+
       const rlsFecha = err?.code === "42501";
       const aviso = rlsFecha
         ? `Las reservas para el mismo día cierran a las ${HORA_CIERRE_TXT}. Volvé a elegir las fechas de tu estadía.`
@@ -961,39 +797,12 @@
     }
   });
 
-  /* ==========================================================
-     RESEÑAS: ORIGEN DE DATOS
-
-     Las reseñas ya NO están hardcodeadas: la lista arranca vacía y se
-     llena con lo que devuelva la capa de datos (Supabase).
-
-     Todo el acoplamiento con el backend vive en estas dos funciones.
-     Ver SUPABASE.md para el paso a paso de la implementación.
-  =========================================================== */
-
-  // Lista en memoria que consume el carrusel. Cada item: { name, rating, text }
   let reviews = [];
 
-  // Límites del comentario. Existen para que TODAS las tarjetas entren en
-  // el mismo cuadrado sin que el texto se corte: si cambiás estos números,
-  // ajustá también el -webkit-line-clamp de .review-text en style.css.
-  const REVIEW_MAX_CHARS = 180; // también está como maxlength en el HTML
+  const REVIEW_MAX_CHARS = 180;
   const REVIEW_MAX_WORDS = 35;
   const REVIEW_NAME_MAX = 40;
 
-  /* Los mínimos NO son un capricho de la interfaz: son los `check` que tiene
-     la tabla `reviews` en Postgres —
-
-       check (char_length(trim(name)) between 2 and 40)
-       check (char_length(trim(text)) between 5 and 180)
-
-     — y hasta ahora el formulario no los miraba. Solo exigía que los campos
-     no estuvieran vacíos, así que un comentario de prueba tipo "ok" pasaba el
-     control del navegador, la base lo rechazaba con 23514 y la persona veía
-     el mensaje genérico de "probá de nuevo en un momento". Probar de nuevo no
-     servía de nada: el texto iba a seguir siendo corto.
-
-     Si tocás estos números, tocá también los `check` de la tabla. */
   const REVIEW_MIN_CHARS = 5;
   const REVIEW_NAME_MIN = 2;
 
@@ -1015,16 +824,6 @@
   }
 
   async function createReview(review) {
-    // `approved: false` va explícito a propósito. No alcanza con el default de
-    // la columna: la política de RLS de INSERT es `with check (approved =
-    // false)`, así que mandarlo es lo que hace que el insert sea válido — y
-    // deja escrito acá, en el único lugar donde el sitio da de alta reseñas,
-    // que lo que se guarda nace SIN publicar. La publica el panel.
-    //
-    // Ojo: sin `.select()` encadenado, supabase-js manda `Prefer:
-    // return=minimal`. Tiene que quedar así: si pidiera la fila de vuelta,
-    // el INSERT ... RETURNING chocaría contra la política de SELECT
-    // (`approved = true`) y el alta fallaría con un 401 engañoso.
     const { error } = await db.from("reviews").insert({
       name: review.name,
       rating: review.rating,
@@ -1036,9 +835,6 @@
     return review;
   }
 
-  /* ==========================================================
-     RESEÑAS: CARRUSEL
-  =========================================================== */
   const reviewsTrack = document.getElementById("reviewsTrack");
   const reviewDots = document.getElementById("reviewDots");
   const reviewsCarousel = document.getElementById("reviewsCarousel");
@@ -1046,18 +842,12 @@
   const reviewPrev = document.getElementById("reviewPrev");
   const reviewNext = document.getElementById("reviewNext");
 
-  // Cuántas tarjetas entran a la vez. Tiene que coincidir con los
-  // breakpoints de .review-card en style.css.
   function perView() {
     if (window.matchMedia("(min-width: 980px)").matches) return 3;
     if (window.matchMedia("(min-width: 680px)").matches) return 2;
     return 1;
   }
 
-  // El loop infinito se arma triplicando la lista (clon-anterior + real +
-  // clon-siguiente). Eso solo tiene sentido si hay MÁS reseñas que las que
-  // entran en pantalla: con 1 sola reseña, las tres copias se veían todas
-  // juntas y parecía que la reseña se había guardado tres veces.
   function shouldLoop() {
     return reviews.length > perView();
   }
@@ -1071,8 +861,6 @@
     ).join("");
   }
 
-  // Escapa el texto que viene del backend / del formulario antes de
-  // inyectarlo con innerHTML.
   const ESC_MAP = {
     "&": "&amp;",
     "<": "&lt;",
@@ -1087,22 +875,13 @@
     );
   }
 
-  // Índice dentro de la lista TRIPLICADA (clon-anterior + real + clon-siguiente).
-  // Es la ÚNICA fuente de verdad de la posición mientras hay una animación
-  // en curso: se actualiza directamente en los clics de prev/next, y el
-  // listener de "scroll" la deja en paz hasta que el movimiento programático
-  // termina. Antes, clics rápidos y el evento "scroll" (que "adivinaba" el
-  // índice a partir de una posición intermedia, todavía en movimiento) se
-  // pisaban entre sí, y el carrusel terminaba saltando a un índice
-  // equivocado (a veces directo a 0).
   let tripledIndex = 0;
-  let activeIndex = 0; // índice real (0..N-1) de la tarjeta más a la izquierda
-  let isAnimating = false; // true mientras el scroll lo está moviendo código nuestro (clic o jump silencioso)
+  let activeIndex = 0;
+  let isAnimating = false;
 
   function renderReviews() {
     const N = reviews.length;
 
-    // Sin reseñas: mostramos el estado vacío y escondemos el carrusel entero.
     reviewsEmpty.hidden = N > 0;
     reviewsCarousel.hidden = N === 0;
     reviewDots.hidden = N === 0;
@@ -1130,23 +909,16 @@
       });
     }
 
-    // Sin loop, todas las reseñas entran en pantalla: flechas y dots no
-    // tienen nada que hacer. Las flechas se deshabilitan y el CSS las
-    // saca del layout (display:none), así el track aprovecha todo el ancho
-    // mientras no hagan falta.
     reviewPrev.disabled = !isLooping;
     reviewNext.disabled = !isLooping;
     reviewDots.hidden = !isLooping;
 
-    tripledIndex = isLooping ? N : 0; // con loop arrancamos en la copia del medio
+    tripledIndex = isLooping ? N : 0;
     activeIndex = 0;
     renderDots();
-    moveTo(tripledIndex, false); // reposicionamos sin animación, sin que se note el salto inicial
+    moveTo(tripledIndex, false);
   }
 
-  // Mueve el track a un índice de la lista triplicada. Marca isAnimating
-  // para que el listener de "scroll" ignore los eventos que dispara esta
-  // misma animación (y no recalcule tripledIndex con valores intermedios).
   function moveTo(index, animate) {
     isAnimating = true;
     reviewsTrack.scrollTo({
@@ -1154,8 +926,6 @@
       behavior: animate ? "smooth" : "auto",
     });
     if (!animate) {
-      // Un scroll "auto" no siempre dispara "scrollend" en todos los
-      // navegadores: liberamos la bandera en el siguiente frame.
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           isAnimating = false;
@@ -1190,9 +960,6 @@
     );
   }
 
-  // Lleva el carrusel a un índice real (0..N-1), eligiendo la copia
-  // (anterior, real o siguiente) más cercana a la posición actual para
-  // que el desplazamiento sea siempre corto.
   function goToReal(i) {
     const N = reviews.length;
     if (!N || !isLooping) return;
@@ -1212,10 +979,6 @@
     moveTo(tripledIndex, true);
   }
 
-  // Da un paso (+1 / -1) dentro de la lista triplicada. tripledIndex se
-  // actualiza acá mismo, al instante del clic, en lugar de esperar a que
-  // el evento "scroll" lo "adivine" más tarde. Así los clics rápidos se
-  // van acumulando correctamente en vez de pisarse entre sí.
   function step(delta) {
     const N = reviews.length;
     if (!N || !isLooping) return;
@@ -1225,9 +988,6 @@
     moveTo(tripledIndex, true);
   }
 
-  // Si terminamos de desplazarnos dentro de una copia clon (izquierda o
-  // derecha), saltamos en silencio al bloque real equivalente. Como la
-  // tarjeta clonada es visualmente idéntica, el salto es imperceptible.
   function settleLoop() {
     const N = reviews.length;
     if (!N || !isLooping) return;
@@ -1237,17 +997,11 @@
     }
   }
 
-  // Detecta cuándo el scroll terminó realmente de moverse (ya sea por una
-  // animación de clic o por un arrastre táctil/manual), en vez de usar un
-  // timeout fijo desde el último clic, que era lo que se desincronizaba
-  // con clics rápidos y terminaba "reseteando" el carrusel.
   let scrollEndTimer;
   function onScrollSettled() {
     const N = reviews.length;
     if (!N || !isLooping) return;
     if (!isAnimating) {
-      // El usuario arrastró el carrusel manualmente (touch/trackpad):
-      // ahí sí leemos la posición real y la adoptamos como fuente de verdad.
       tripledIndex = Math.round(reviewsTrack.scrollLeft / (cardWidth() || 1));
       activeIndex = ((tripledIndex % N) + N) % N;
       updateDots();
@@ -1265,17 +1019,12 @@
     onScrollSettled();
   });
 
-  // Recalcula cuando el layout real del carrusel cambia (fuentes, imágenes,
-  // resize), no solo al cargar el script, que es cuando el ancho real
-  // todavía puede no estar estabilizado. Reubica sin animación en la
-  // misma tarjeta activa para no perder la posición.
   let dotsRecalcTimer;
   const scheduleDotsRecalc = () => {
     clearTimeout(dotsRecalcTimer);
     dotsRecalcTimer = setTimeout(() => {
       if (!reviews.length) return;
-      // Si el breakpoint cambió cuántas tarjetas entran, puede que ahora
-      // sobren (o falten) copias: hay que rearmar el track.
+
       if (shouldLoop() !== isLooping) renderReviews();
       else moveTo(tripledIndex, false);
     }, 120);
@@ -1294,8 +1043,6 @@
     step(1);
   });
 
-  // Carga inicial. Si el backend falla, dejamos el estado vacío en pantalla
-  // en vez de romper la sección.
   async function loadReviews() {
     try {
       const data = await fetchReviews();
@@ -1307,12 +1054,9 @@
     renderReviews();
   }
 
-  renderReviews(); // pinta el estado vacío de entrada
+  renderReviews();
   loadReviews();
 
-  /* ==========================================================
-     MODAL DEJAR RESEÑA
-  =========================================================== */
   const modalResena = document.getElementById("modalResena");
   const resenaForm = document.getElementById("resenaForm");
   const resenaSubmit = document.getElementById("resenaSubmit");
@@ -1325,15 +1069,6 @@
     });
   });
 
-  /* ---- Selector de estrellas ----
-     El problema anterior era que el encendido dependía de `:hover` en CSS,
-     que solo alcanza al botón que está bajo el mouse: se prendía una sola
-     estrella, sin progresión. Ahora el pintado lo maneja siempre el JS,
-     marcando TODAS las estrellas hasta el valor correspondiente:
-       - `is-on`      => valor confirmado con el clic
-       - `is-preview` => valor que se está apuntando con el mouse/teclado
-     Al salir del selector, el preview se descarta y vuelve a verse la
-     selección confirmada. */
   let selectedStars = 0;
 
   function paintStars(previewValue) {
@@ -1355,8 +1090,7 @@
       paintStars(val);
     });
   });
-  // Un único listener en el contenedor: se dispara al salir de todo el
-  // grupo, no al pasar de una estrella a la de al lado.
+
   starPicker.addEventListener("mouseleave", () => paintStars(0));
 
   function resetStars() {
@@ -1364,11 +1098,6 @@
     paintStars(0);
   }
 
-  /* ---- Contador de caracteres y palabras ----
-     Mismo comportamiento que el textarea del formulario de contacto: el
-     texto se recorta al llegar al tope, así que la reseña nunca puede
-     exceder el largo que entra en la tarjeta. Los chips avisan en amarillo
-     al acercarse y en rojo al tocar el límite. */
   const resenaComentario = document.getElementById("resenaComentario");
   const resenaPalabras = document.getElementById("resenaPalabras");
   const resenaCaracteres = document.getElementById("resenaCaracteres");
@@ -1457,10 +1186,7 @@
         rating: selectedStars,
         text: comentario,
       });
-      // No se recarga el carrusel: la reseña entra sin aprobar y el carrusel
-      // solo trae las aprobadas, así que un fetch acá devolvería exactamente
-      // la misma lista de antes. Peor todavía, quien la escribió vería que su
-      // reseña "no se guardó". Por eso el aviso dice que queda pendiente.
+
       resenaForm.reset();
       resetStars();
       updateContador();
@@ -1471,16 +1197,7 @@
       closeModal(modalResena);
     } catch (err) {
       console.error("No se pudo publicar la reseña:", err);
-      /* Los dos códigos que la base devuelve por algo que la persona SÍ puede
-         corregir. Sin este mapeo caían en el "probá de nuevo en un momento",
-         que es un mal consejo: volver a mandar lo mismo falla igual.
 
-           23505  unique_violation — el índice reviews_dedupe_idx: ya existe
-                  una reseña con el mismo nombre y el mismo comentario.
-           23514  check_violation  — largo fuera de rango. Las validaciones de
-                  arriba deberían atajarlo antes de llegar acá; esto es la red
-                  por si algún día los números del formulario y los `check` de
-                  la tabla dejan de coincidir. */
       const AVISOS = {
         23505: "Ya hay una reseña publicada con ese nombre y ese mismo comentario.",
         23514: `Revisá el largo: el nombre va de ${REVIEW_NAME_MIN} a ${REVIEW_NAME_MAX} caracteres y el comentario de ${REVIEW_MIN_CHARS} a ${REVIEW_MAX_CHARS}.`,
@@ -1493,8 +1210,6 @@
       resenaSubmit.disabled = false;
     }
   });
-
-  //dpto-media opacity change
 
   const image1 = document.getElementById("deptoImage1");
   const image2 = document.getElementById("deptoImage2");
@@ -1529,16 +1244,12 @@
     showingFirst = !showingFirst;
   }, 5000);
 
-  // ===========================
-  // MAPA LEAFLET
-  // ===========================
   const mapContainer = document.getElementById("map");
   const mapFrame = document.querySelector(".map-frame");
   const mapOverlay = document.getElementById("mapOverlay");
   const mapOverlayText = document.getElementById("mapOverlayText");
 
   if (mapContainer && mapFrame && mapOverlay && typeof L !== "undefined") {
-    /* Coordenadas de San Bernardo del Tuyú */
     const DEPTO_COORDS = [-36.68960161007483, -56.6791927028098];
     const DIRECCION_HTML =
       "<b>Dirección:</b> Calle San Juan 2530,<br>entre las calles Santa María de Oro y Andrade,<br>San Bernardo del Tuyú, Buenos Aires";
@@ -1546,9 +1257,6 @@
       "Usá <kbd>Ctrl</kbd> + <kbd>Scroll</kbd> para hacer zoom";
     const HINT_TOUCH = "Usá dos dedos para mover y hacer zoom en el mapa";
 
-    /* Puntero fino (mouse/trackpad) vs. táctil. Se consulta en cada uso
-       para que siga siendo correcto al rotar o cambiar de dispositivo,
-       en vez de quedar congelado al cargar la página. */
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
     const isDesktop = () => finePointer.matches;
 
@@ -1595,8 +1303,6 @@
       riseOnHover: true,
     }).addTo(map);
 
-    /* Leaflet sólo aplica `alt` a iconos <img>; en un divIcon el nombre
-       accesible hay que ponerlo a mano sobre el elemento generado. */
     const markerEl = marker.getElement();
     if (markerEl) {
       markerEl.setAttribute(
@@ -1617,9 +1323,6 @@
       { className: "map-popup-wrap", closeButton: true, autoPan: true },
     );
 
-    // ---------------------------
-    // Overlay de bloqueo de zoom
-    // ---------------------------
     let hintTimer = null;
 
     function showOverlay(message) {
@@ -1639,9 +1342,6 @@
 
     marker.on("popupopen", hideOverlay);
 
-    // ---------------------------
-    // Desktop: Ctrl + Scroll
-    // ---------------------------
     mapContainer.addEventListener("mouseenter", () => {
       if (!isDesktop()) return;
       showOverlay(HINT_DESKTOP);
@@ -1652,9 +1352,6 @@
       hideOverlay();
     });
 
-    /* Se habilita el zoom con rueda sólo mientras Ctrl está presionado.
-       El reset en keyup/blur evita que quede habilitado si el usuario
-       suelta Ctrl fuera de la pestaña (Alt+Tab, cambio de ventana...). */
     function enableWheelZoom(e) {
       if (e.ctrlKey || e.metaKey) map.scrollWheelZoom.enable();
     }
@@ -1672,13 +1369,8 @@
       else showOverlay(HINT_DESKTOP);
     });
 
-    /* Si el usuario ya está interactuando (zoom con botones, arrastre),
-       el cartel sobra. */
     map.on("zoomstart dragstart", hideOverlay);
 
-    // ---------------------------
-    // Táctil: un dedo = scroll de página, dos dedos = mapa
-    // ---------------------------
     function handleTouch(e) {
       if (isDesktop()) return;
 
@@ -1688,8 +1380,6 @@
         return;
       }
 
-      /* Un solo dedo: se devuelve el gesto al navegador para que la
-         página siga scrolleando y se avisa cómo manejar el mapa. */
       map.dragging.disable();
       if (e.type === "touchstart") {
         showOverlay(HINT_TOUCH);
@@ -1702,8 +1392,6 @@
       mapContainer.addEventListener(type, handleTouch, { passive: true });
     });
 
-    /* Al cambiar de puntero (tablet con teclado desmontable, rotación)
-       se recalcula el modo de arrastre y se limpia el cartel. */
     const onPointerChange = () => {
       if (isDesktop()) map.dragging.enable();
       else map.dragging.disable();
@@ -1713,8 +1401,6 @@
       finePointer.addEventListener("change", onPointerChange);
     }
 
-    /* El contenedor puede montarse oculto o cambiar de tamaño (resize,
-       cambio de layout); esto evita los típicos tiles grises a medio cargar. */
     window.addEventListener("resize", () => {
       map.invalidateSize();
     });
@@ -1730,7 +1416,6 @@
   const maxPalabras = 100;
   const maxCaracteres = 500;
 
-  /* El chip pasa a "aviso" cerca del límite y a "lleno" cuando lo toca. */
   function pintarChip(chip, actual, max) {
     chip.classList.toggle("is-warn", actual >= max * 0.85 && actual < max);
     chip.classList.toggle("is-full", actual >= max);

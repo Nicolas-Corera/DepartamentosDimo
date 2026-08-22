@@ -1,24 +1,3 @@
-/**
- * scripts/dev-server.mjs
- * ---------------------------------------------------------------------------
- * Servidor de desarrollo: sirve los archivos estáticos de `dashboard/` y ejecuta las
- * funciones de `api/` igual que lo haría Vercel.
- *
- *     npm run dev
- *
- * Por qué existe, si está `vercel dev`: porque `vercel dev` obliga a linkear el
- * proyecto y a estar logueado en Vercel. Esto arranca con `node` y nada más.
- *
- * SOLO PARA DESARROLLO. En producción quien ejecuta los handlers es Vercel;
- * este archivo no se despliega ni interviene.
- *
- * Lo que emula de Vercel:
- *   - req.query   (incluida la clave "data.id", con punto, que manda el webhook)
- *   - req.body    (JSON ya parseado)
- *   - res.status() / res.setHeader() / res.send() / res.json()
- *   - el ruteo /api/<archivo> -> api/<archivo>.js, ignorando lo que empieza con "_"
- */
-
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, resolve, dirname, normalize } from "node:path";
@@ -40,7 +19,6 @@ const TIPOS = {
   ".ico": "image/x-icon",
 };
 
-/** Le agrega a `res` los métodos que Vercel inyecta y los handlers usan. */
 function adaptarRespuesta(res) {
   res.status = (codigo) => {
     res.statusCode = codigo;
@@ -68,7 +46,7 @@ function leerCuerpo(req) {
       try {
         resolver(JSON.parse(crudo));
       } catch {
-        resolver(crudo); // que decida el handler (leerBody lo maneja)
+        resolver(crudo);
       }
     });
     req.on("error", rechazar);
@@ -78,7 +56,6 @@ function leerCuerpo(req) {
 async function servirEstatico(res, rutaUrl) {
   const relativa = rutaUrl === "/" ? "index.html" : rutaUrl.slice(1);
 
-  // Nada de subir por el árbol con "..": el servidor solo sirve dentro de dashboard/.
   const destino = join(RAIZ, normalize(relativa).replace(/^(\.\.[/\\])+/, ""));
   if (!destino.startsWith(RAIZ)) {
     res.statusCode = 403;
@@ -110,7 +87,6 @@ const servidor = createServer(async (req, res) => {
 
   const nombre = url.pathname.slice("/api/".length).replace(/\/+$/, "");
 
-  // Mismo criterio que Vercel: lo que empieza con "_" es librería, no endpoint.
   if (!nombre || nombre.startsWith("_") || nombre.includes("/")) {
     res.statusCode = 404;
     return res.end(JSON.stringify({ error: "endpoint inexistente" }));
@@ -118,7 +94,6 @@ const servidor = createServer(async (req, res) => {
 
   let handler;
   try {
-    // El sufijo evita que Node cachee el módulo entre recargas.
     const mod = await import(
       `${pathToFileURL(join(RAIZ, "api", `${nombre}.js`)).href}?t=${Date.now()}`
     );

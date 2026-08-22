@@ -1,19 +1,3 @@
-/**
- * api/_lib/supabase.js
- * ---------------------------------------------------------------------------
- * Acceso a Supabase por PostgREST, con `fetch` y sin dependencias.
- *
- * Por qué no `@supabase/supabase-js` como en el checkout: el panel es un
- * proyecto de Vercel aparte, y el SDK entero (con sus dependencias de realtime
- * y storage, que acá no se usan) es lo único que lo obligaría a tener
- * node_modules. Estas cuarenta líneas cubren lo que el panel necesita —
- * seleccionar, actualizar, insertar y borrar— y el deploy queda sin instalar
- * nada.
- *
- * Siempre con service_role: todas las tablas que toca el panel tienen RLS
- * activo y ninguna política. La clave no sale nunca de este archivo.
- */
-
 import { leerConfig } from "./env.js";
 
 async function pedir(ruta, opciones = {}) {
@@ -40,21 +24,10 @@ async function pedir(ruta, opciones = {}) {
       detalle = j.message || j.error || j.hint || texto;
       codigo = j.code || "";
     } catch {
-      /* la respuesta no era JSON: se usa el texto crudo */
     }
 
-    /**
-     * Los mensajes de PostgREST son precisos pero no dicen qué hacer. Estos
-     * tres son los únicos que se ven en la práctica cuando el panel se acaba
-     * de configurar, y los tres tienen una causa concreta que conviene nombrar
-     * en vez de dejar al operador leyendo "permission denied for table".
-     */
     let pista = "";
     if (/permission denied/i.test(detalle) || codigo === "42501") {
-      // El caso concreto de la clave equivocada. Se detecta por el mensaje y no
-      // por el status: un 401 también lo devuelve una clave vencida o un reloj
-      // corrido, y mandar a cambiar la service_role por un problema de hora
-      // hace perder más tiempo del que ahorra.
       pista =
         " → Revisá SUPABASE_SERVICE_ROLE_KEY en Vercel: estas tablas tienen RLS " +
         "activo y sin políticas, así que con la clave pública (anon) no se puede " +
@@ -83,12 +56,10 @@ async function pedir(ruta, opciones = {}) {
   }
 }
 
-/** SELECT. `consulta` es el query string de PostgREST ya armado. */
 export function seleccionar(tabla, consulta = "select=*") {
   return pedir(`${tabla}?${consulta}`);
 }
 
-/** UPDATE de las filas que matcheen el filtro. Devuelve las filas actualizadas. */
 export function actualizar(tabla, filtro, cambios) {
   return pedir(`${tabla}?${filtro}`, {
     method: "PATCH",
@@ -97,7 +68,6 @@ export function actualizar(tabla, filtro, cambios) {
   });
 }
 
-/** INSERT. Acepta una fila o un array. */
 export function insertar(tabla, filas) {
   return pedir(tabla, {
     method: "POST",
@@ -106,7 +76,6 @@ export function insertar(tabla, filas) {
   });
 }
 
-/** DELETE de las filas que matcheen el filtro. */
 export function borrar(tabla, filtro) {
   return pedir(`${tabla}?${filtro}`, {
     method: "DELETE",
@@ -114,13 +83,6 @@ export function borrar(tabla, filtro) {
   });
 }
 
-/**
- * INSERT ... ON CONFLICT DO UPDATE, sobre la clave primaria de la tabla.
- *
- * Es lo que usa el guardado de tarifas: la pantalla manda las tres temporadas,
- * los tres medios y los planes de cuotas, y esto los pisa de una. Sin upsert
- * habría que averiguar cuáles existen y cuáles no antes de escribir.
- */
 export function upsert(tabla, filas) {
   return pedir(tabla, {
     method: "POST",
@@ -129,30 +91,9 @@ export function upsert(tabla, filas) {
   });
 }
 
-/* ===========================================================================
-   Storage: los comprobantes de transferencia
-
-   Viven en el bucket privado `comprobantes`, que no tiene ninguna política de
-   RLS: nadie los lee salvo service_role. Para mostrarle uno al operador hay
-   que firmarle una URL temporal.
-   =========================================================================== */
-
-/**
- * Una URL que sirve el archivo durante unos minutos y después deja de andar.
- *
- * `descargarComo` es opcional: con nombre, Storage manda un
- * `Content-Disposition: attachment` y el navegador lo baja en vez de abrirlo.
- * Sin nombre, la misma URL se puede usar en un <img> o en un <iframe>.
- *
- * Ojo con el vencimiento: el visor del panel usa esta URL desde el navegador,
- * así que tiene que durar lo que dure el rato en que alguien mira el
- * comprobante y decide. Cinco minutos es corto para eso y quince es de sobra;
- * lo elige quien llama.
- */
 export async function firmarLectura(path, segundos, descargarComo) {
   const { supabase } = leerConfig();
 
-  // Este endpoint no es PostgREST, así que no pasa por `pedir()`.
   const respuesta = await fetch(
     `${supabase.url}/storage/v1/object/sign/comprobantes/${path}`,
     {

@@ -1,15 +1,3 @@
-/**
- * api/_lib/http.js
- * ---------------------------------------------------------------------------
- * Lo repetido en todos los endpoints del panel: responder JSON, exigir un
- * método, leer el body y traducir un error a una respuesta.
- *
- * Es hermano del `pago/api/_lib/http.js`, pero deliberadamente separado: son
- * dos proyectos de Vercel distintos y compartir el archivo obligaría a un
- * paquete común o a un symlink que Vercel no sigue. Duplicar 60 líneas sale
- * más barato que eso.
- */
-
 export class ErrorVisible extends Error {
   constructor(status, mensaje, codigo) {
     super(mensaje);
@@ -26,7 +14,6 @@ export function json(res, status, cuerpo) {
   res.send(JSON.stringify(cuerpo));
 }
 
-/** Acepta un método o una lista. */
 export function exigirMetodo(req, res, metodos) {
   const permitidos = Array.isArray(metodos) ? metodos : [metodos];
   if (permitidos.includes(req.method)) return true;
@@ -47,20 +34,6 @@ export function leerBody(req) {
   return req.body;
 }
 
-/**
- * Política de errores del panel.
- *
- * A diferencia del checkout, del otro lado hay una sola persona y es la dueña
- * del sistema: acá el mensaje puede ser específico y decir qué falló, porque no
- * hay a quién filtrarle información.
- *
- * Los ErrorDeConfig salen COMPLETOS, con el nombre de la variable y la pista de
- * cómo arreglarla. Ninguno de esos mensajes contiene un valor —  nombran
- * variables y dan instrucciones— y esconderlos solo lograba que un
- * "SUPABASE_SERVICE_ROLE_KEY tiene una clave pública" llegara al panel como un
- * "revisá las variables de entorno" que obliga a ir a buscar los logs de
- * Vercel para enterarse de cuál.
- */
 export function manejarError(res, evento, error) {
   if (error instanceof ErrorVisible) {
     console.warn(`[${evento}] rechazado: ${error.codigo} — ${error.message}`);
@@ -79,21 +52,18 @@ export function manejarError(res, evento, error) {
   });
 }
 
-/** El entero que llega por body, validado. Devuelve null si no sirve. */
 export function entero(valor, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const n = Number(valor);
   if (!Number.isInteger(n) || n < min || n > max) return null;
   return n;
 }
 
-/** El porcentaje que llega por body (admite un decimal). null si no sirve. */
 export function porcentaje(valor) {
   const n = Number(valor);
   if (!Number.isFinite(n) || n < 0 || n > 100) return null;
   return Math.round(n * 100) / 100;
 }
 
-/** "2027-01-15" y nada más. null si no es una fecha ISO. */
 export function fechaISO(valor) {
   const s = String(valor || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;

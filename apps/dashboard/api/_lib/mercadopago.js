@@ -1,12 +1,3 @@
-/**
- * api/_lib/mercadopago.js
- * ---------------------------------------------------------------------------
- * Lo único que el panel le pide a MercadoPago: devolver plata y consultar un
- * pago. Con `fetch` contra la API REST, sin el SDK — son dos llamadas.
- *
- * El Access Token no sale de este archivo.
- */
-
 import crypto from "node:crypto";
 import { leerConfig } from "./env.js";
 
@@ -41,25 +32,10 @@ async function mp(ruta, opciones = {}) {
   return datos;
 }
 
-/** GET /v1/payments/{id} — la fuente de verdad sobre el estado de un pago. */
 export function consultarPago(paymentId) {
   return mp(`/v1/payments/${encodeURIComponent(paymentId)}`);
 }
 
-/**
- * POST /v1/payments/{id}/refunds — devolución total o parcial.
- *
- * Sin `monto` devuelve todo. Con `monto`, esa parte: MercadoPago admite varias
- * devoluciones parciales sobre el mismo pago mientras la suma no supere lo
- * cobrado.
- *
- * La clave de idempotencia lleva el monto adentro a propósito. Dos devoluciones
- * parciales distintas sobre el mismo pago tienen que poder convivir (devolver
- * $10.000 hoy y $5.000 mañana son dos operaciones legítimas), pero un doble
- * clic sobre LA MISMA no puede devolver la plata dos veces. Con el monto en la
- * clave, el reintento exacto es idempotente y las devoluciones distintas no se
- * pisan.
- */
 export function devolver(paymentId, monto = null) {
   const clave = crypto
     .createHash("sha256")

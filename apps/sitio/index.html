@@ -16,8 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
       rel="stylesheet"
     />
-    <!-- Leaflet primero: así style.css gana los empates de especificidad
-         y los estilos propios mandan sobre los de la librería. -->
+
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -32,64 +31,64 @@
     ></script>
   </head>
   <body>
-    <!-- ============ SPRITE DE ÍCONOS ============ -->
+
     <svg class="icon-sprite" aria-hidden="true">
       <defs>
-        <!-- beach_access.svg -->
+
         <symbol id="ic-umbrella" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M786-120 532-374l56-56 254 254-56 56Zm-546-28q-100-98-117.5-230T168-625q3 34 17 76.5t38.5 89.5q24.5 47 58.5 96.5t75 97.5L240-148Zm172-172q-48-48-84-104.5T271.5-534q-20.5-53-23-96.5T267-695q21-22 64.5-20t97 22.5q53.5 20.5 110 57T643-551L412-320Zm286-286q-47-41-96.5-74t-96-58q-46.5-25-89-39.5T340-795q115-60 246.5-41.5T814-722L698-606Z"
           />
         </symbol>
-        <!-- whatsapp.svg -->
+
         <symbol id="ic-whatsapp" viewBox="0 0 640 640" fill="currentColor">
           <path
             d="M476.9 161.1C435 119.1 379.2 96 319.9 96C197.5 96 97.9 195.6 97.9 318C97.9 357.1 108.1 395.3 127.5 429L96 544L213.7 513.1C246.1 530.8 282.6 540.1 319.8 540.1L319.9 540.1C442.2 540.1 544 440.5 544 318.1C544 258.8 518.8 203.1 476.9 161.1zM319.9 502.7C286.7 502.7 254.2 493.8 225.9 477L219.2 473L149.4 491.3L168 423.2L163.6 416.2C145.1 386.8 135.4 352.9 135.4 318C135.4 216.3 218.2 133.5 320 133.5C369.3 133.5 415.6 152.7 450.4 187.6C485.2 222.5 506.6 268.8 506.5 318.1C506.5 419.9 421.6 502.7 319.9 502.7zM421.1 364.5C415.6 361.7 388.3 348.3 383.2 346.5C378.1 344.6 374.4 343.7 370.7 349.3C367 354.9 356.4 367.3 353.1 371.1C349.9 374.8 346.6 375.3 341.1 372.5C308.5 356.2 287.1 343.4 265.6 306.5C259.9 296.7 271.3 297.4 281.9 276.2C283.7 272.5 282.8 269.3 281.4 266.5C280 263.7 268.9 236.4 264.3 225.3C259.8 214.5 255.2 216 251.8 215.8C248.6 215.6 244.9 215.6 241.2 215.6C237.5 215.6 231.5 217 226.4 222.5C221.3 228.1 207 241.5 207 268.8C207 296.1 226.9 322.5 229.6 326.2C232.4 329.9 268.7 385.9 324.4 410C359.6 425.2 373.4 426.5 391 423.9C401.7 422.3 423.8 410.5 428.4 397.5C433 384.5 433 373.4 431.6 371.1C430.3 368.6 426.6 367.2 421.1 364.5z"
           />
         </symbol>
-        <!-- wifi.svg -->
+
         <symbol id="ic-wifi" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M409-149q-29-29-29-71t29-71q29-29 71-29t71 29q29 29 29 71t-29 71q-29 29-71 29t-71-29ZM254-346l-84-86q59-59 138.5-93.5T480-560q92 0 171.5 35T790-430l-84 84q-44-44-102-69t-124-25q-66 0-124 25t-102 69ZM84-516 0-600q92-94 215-147t265-53q142 0 265 53t215 147l-84 84q-77-77-178.5-120.5T480-680q-116 0-217.5 43.5T84-516Z"
           />
         </symbol>
-        <!-- tv.svg -->
+
         <symbol id="ic-tv" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M320-120v-80H160q-33 0-56.5-23.5T80-280v-480q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v480q0 33-23.5 56.5T800-200H640v80H320ZM160-280h640v-480H160v480Zm0 0v-480 480Z"
           />
         </symbol>
-        <!-- kitchen.svg -->
+
         <symbol id="ic-kitchen" viewBox="0 0 640 640" fill="currentColor">
           <path
             d="M272 208C272 155 229 112 176 112C123 112 80 155 80 208C80 261 123 304 176 304C229 304 272 261 272 208zM316.4 240C301.9 304.1 244.5 352 176 352C96.5 352 32 287.5 32 208C32 128.5 96.5 64 176 64C244.5 64 301.9 111.9 316.4 176L388.2 176C397 166.2 409.8 160 424 160L528 160C554.5 160 576 181.5 576 208C576 234.5 554.5 256 528 256L424 256C409.8 256 397 249.8 388.2 240L316.4 240zM176 144C211.3 144 240 172.7 240 208C240 243.3 211.3 272 176 272C140.7 272 112 243.3 112 208C112 172.7 140.7 144 176 144zM432 304C445.3 304 456 314.7 456 328L456 336L552 336C565.3 336 576 346.7 576 360C576 373.3 565.3 384 552 384L312 384C298.7 384 288 373.3 288 360C288 346.7 298.7 336 312 336L408 336L408 328C408 314.7 418.7 304 432 304zM320 528L320 416L544 416L544 528C544 554.5 522.5 576 496 576L368 576C341.5 576 320 554.5 320 528zM80 384L208 384C234.5 384 256 405.5 256 432C256 458.5 234.5 480 208 480L192 480C192 497.7 177.7 512 160 512L96 512C78.3 512 64 497.7 64 480L64 400C64 391.2 71.2 384 80 384zM208 448C216.8 448 224 440.8 224 432C224 423.2 216.8 416 208 416L192 416L192 448L208 448zM56 528L232 528C245.3 528 256 538.7 256 552C256 565.3 245.3 576 232 576L56 576C42.7 576 32 565.3 32 552C32 538.7 42.7 528 56 528z"
           />
         </symbol>
-        <!-- air_conditioning.svg -->
+
         <symbol id="ic-fan" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M160-480q-33 0-56.5-23.5T80-560v-240q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v240q0 33-23.5 56.5T800-480h-80v-160q0-33-23.5-56.5T640-720H320q-33 0-56.5 23.5T240-640v160h-80Zm120 80h80q0 83-58.5 141.5T160-200v-80q50 0 85-35t35-85Zm40-80v-160h320v160H320Zm120 320v-240h80v240h-80Zm160-240h80q0 50 35 85t85 35v80q-83 0-141.5-58.5T600-400Z"
           />
         </symbol>
-        <!-- fireplace.svg -->
+
         <symbol id="ic-flame" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M424-282q13 11 27.5 15.5T480-262q29 0 52.5-18.5T560-334q5-47-29-69.5T480-462q-5 14-5 26t3 26q3 17 7 32t1 32q-5 18-22 37t-40 27ZM80-80v-800h800v800H80Zm80-80h80v-80h90q-23-29-36.5-61T280-362q0-46 10-86.5t36.5-78.5q26.5-38 73.5-75.5T520-680q-11 44 9.5 93.5T606-496q33 24 53.5 56.5T680-360q0 35-11 64.5T640-240h80v80h80v-640H160v640Z"
           />
         </symbol>
-        <!-- car.svg -->
+
         <symbol id="ic-car" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M240-200v40q0 17-11.5 28.5T200-120h-40q-17 0-28.5-11.5T120-160v-320l84-240q6-18 21.5-29t34.5-11h440q19 0 34.5 11t21.5 29l84 240v320q0 17-11.5 28.5T800-120h-40q-17 0-28.5-11.5T720-160v-40H240Zm-8-360h496l-42-120H274l-42 120Zm68 240q25 0 42.5-17.5T360-380q0-25-17.5-42.5T300-440q-25 0-42.5 17.5T240-380q0 25 17.5 42.5T300-320Zm360 0q25 0 42.5-17.5T720-380q0-25-17.5-42.5T660-440q-25 0-42.5 17.5T600-380q0 25 17.5 42.5T660-320Z"
           />
         </symbol>
-        <!-- elevator.svg -->
+
         <symbol id="ic-elevator" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M280-240h120v-160h40v-100q0-33-23.5-56.5T360-580h-40q-33 0-56.5 23.5T240-500v100h40v160Zm95.5-394.5Q390-649 390-670t-14.5-35.5Q361-720 340-720t-35.5 14.5Q290-691 290-670t14.5 35.5Q319-620 340-620t35.5-14.5ZM520-520h200L620-680 520-520Zm100 240 100-160H520l100 160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"
           />
         </symbol>
-        <!-- flatware.svg -->
+
         <symbol id="ic-cutlery" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M200-120v-400q-33 0-56.5-23.5T120-600v-212q0-12 8-20t20-8q12 0 20 8t8 20v132h36v-132q0-12 8-20t20-8q12 0 20 8t8 20v132h36v-132q0-12 8-20t20-8q12 0 20 8t8 20v212q0 33-23.5 56.5T280-520v400h-80Zm280 0v-404q-42-20-61-62.5T400-676q0-63 31.5-113.5T520-840q57 0 88.5 50.5T640-676q0 47-19 89.5T560-524v404h-80Zm200 0v-720q66 0 113 47t47 113v240h-80v320h-80Z"
@@ -100,7 +99,7 @@
             d="M798-120q-125 0-247-54.5T329-329Q229-429 174.5-551T120-798q0-18 12-30t30-12h162q14 0 25 9.5t13 22.5l26 140q2 16-1 27t-11 19l-97 98q20 37 47.5 71.5T387-386q31 31 65 57.5t72 48.5l94-94q9-9 23.5-13.5T670-390l138 28q14 4 23 14.5t9 23.5v162q0 18-12 30t-30 12Z"
           />
         </symbol>
-        <!-- location.svg -->
+
         <symbol id="ic-pin" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M536.5-503.5Q560-527 560-560t-23.5-56.5Q513-640 480-640t-56.5 23.5Q400-593 400-560t23.5 56.5Q447-480 480-480t56.5-23.5ZM480-80Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z"
@@ -112,19 +111,18 @@
           />
         </symbol>
 
-        <!-- zoom_in.svg -->
         <symbol id="ic-zoom" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Zm-40-60v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"
           />
         </symbol>
-        <!-- calendar.svg -->
+
         <symbol id="ic-calendar" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z"
           />
         </symbol>
-        <!-- star.svg -->
+
         <symbol id="ic-star" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"
@@ -135,23 +133,23 @@
             d="M828-246 194-880h606q33 0 56.5 23.5T880-800v480q0 26-14.5 45.5T828-246Zm-8 218L606-240H240L80-80v-688l-52-52 56-56L876-84l-56 56Z"
           />
         </symbol>
-        <!-- block.svg -->
+
         <symbol id="ic-alert" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5ZM480-160q54 0 104-17.5t92-50.5L228-676q-33 42-50.5 92T160-480q0 134 93 227t227 93Zm252-124q33-42 50.5-92T800-480q0-134-93-227t-227-93q-54 0-104 17.5T284-732l448 448ZM480-480Z"
           />
         </symbol>
-        <!-- cancel.svg -->
+
         <symbol id="ic-close" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="m336-280 144-144 144 144 56-56-144-144 144-144-56-56-144 144-144-144-56 56 144 144-144 144 56 56ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"
           />
         </symbol>
-        <!-- arrow_forward.svg -->
+
         <symbol id="ic-chevron" viewBox="0 -960 960 960" fill="currentColor">
           <path d="m321-80-71-71 329-329-329-329 71-71 400 400L321-80Z" />
         </symbol>
-        <!-- sin equivalente en assets/icons -->
+
         <symbol
           id="ic-check"
           viewBox="0 0 24 24"
@@ -163,7 +161,7 @@
         >
           <path d="m5 12 5 5L19 8" />
         </symbol>
-        <!-- sin equivalente en assets/icons -->
+
         <symbol id="ic-quote" viewBox="0 0 24 24" fill="currentColor">
           <path
             d="M9.5 5C6 6.2 4 9 4 12.5v6.5h6.5V12H7.3C7.6 9.7 8.7 8 10.5 7.2L9.5 5Zm9 0c-3.5 1.2-5.5 4-5.5 7.5v6.5H19.5V12h-3.2c.3-2.3 1.4-4 3.2-4.8L18.5 5Z"
@@ -172,7 +170,6 @@
       </defs>
     </svg>
 
-    <!-- ============ HEADER ============ -->
     <header class="site-header" id="siteHeader">
       <div class="wrap header-inner">
         <a href="#inicio" class="brand">
@@ -192,7 +189,7 @@
     </header>
 
     <main>
-      <!-- ============ HERO ============ -->
+
       <section class="hero" id="inicio">
         <div
           class="hero-media"
@@ -236,18 +233,16 @@
         </svg>
       </section>
 
-      <!-- ============ GALERÍA ============ -->
       <section class="section" id="fotos">
         <div class="wrap">
           <p class="section-eyebrow">Recorré cada rincón</p>
           <h2 class="section-title">Fotos del departamento</h2>
           <div class="masonry" id="masonry">
-            <!-- generado por JS -->
+
           </div>
         </div>
       </section>
 
-      <!-- ============ EL DEPARTAMENTO ============ -->
       <section class="section section-alt" id="departamento">
         <div class="wrap">
           <div class="depto-layout">
@@ -339,7 +334,6 @@
         </div>
       </section>
 
-      <!-- ============ UBICACIÓN ============ -->
       <section class="section" id="ubicacion">
         <div class="wrap">
           <p class="section-eyebrow">Dónde vas a estar</p>
@@ -371,7 +365,6 @@
         </div>
       </section>
 
-      <!-- ============ RESERVA / FORMULARIO ============ -->
       <section class="section section-alt" id="reserva">
         <div class="wrap">
           <p class="section-eyebrow">Estamos para ayudarte</p>
@@ -553,7 +546,6 @@
         </div>
       </section>
 
-      <!-- ============ RESEÑAS ============ -->
       <section class="section" id="resenas">
         <div class="wrap">
           <div class="section-header-row">
@@ -566,7 +558,6 @@
             </button>
           </div>
 
-          <!-- Estado vacío: se muestra cuando todavía no hay reseñas -->
           <div class="reviews-empty" id="reviewsEmpty" hidden>
             <svg class="reviews-empty-icon"><use href="#ic-bubble-off" /></svg>
             <p class="reviews-empty-title">Todavía no hay reseñas</p>
@@ -588,7 +579,7 @@
               <svg class="ic-sm rot180"><use href="#ic-chevron" /></svg>
             </button>
             <div class="reviews-track" id="reviewsTrack">
-              <!-- generado por JS -->
+
             </div>
             <button
               type="button"
@@ -604,7 +595,6 @@
       </section>
     </main>
 
-    <!-- ============ FOOTER ============ -->
     <footer class="site-footer">
       <div class="wrap footer-inner">
         <div class="top-footer">
@@ -612,10 +602,7 @@
             <svg class="brand-icon"><use href="#ic-umbrella" /></svg>
             <span>Depto San Juan 2530</span>
           </div>
-          <!-- <p class="footer-address">
-            <svg class="ic-sm"><use href="#ic-pin" /></svg> San Juan 2530, San
-            Bernardo del Tuyú, Buenos Aires — +54 9 11 5936-7822
-          </p> -->
+
           <div class="footer-address">
             <span>
               <svg class="ic-sm"><use href="#ic-pin" /></svg>
@@ -653,7 +640,6 @@
       </div>
     </footer>
 
-    <!-- ============ MODAL: DISPONIBILIDAD ============ -->
     <div class="modal-overlay" id="modalDisponibilidad" hidden>
       <div
         class="modal-card"
@@ -676,7 +662,6 @@
       </div>
     </div>
 
-    <!-- ============ MODAL: SELECCIÓN DE FECHAS (form) ============ -->
     <div class="modal-overlay" id="modalFechas" hidden>
       <div
         class="modal-card"
@@ -700,7 +685,6 @@
       </div>
     </div>
 
-    <!-- ============ MODAL: LIGHTBOX ============ -->
     <div class="modal-overlay lightbox-overlay" id="lightbox" hidden>
       <button type="button" class="modal-close" data-close-modal>
         <svg class="ic-sm"><use href="#ic-close" /></svg>
@@ -725,7 +709,6 @@
       <p class="lightbox-count" id="lightboxCount"></p>
     </div>
 
-    <!-- ============ MODAL: DEJAR RESEÑA ============ -->
     <div class="modal-overlay" id="modalResena" hidden>
       <div
         class="modal-card"
@@ -740,10 +723,7 @@
         <form id="resenaForm">
           <div class="field">
             <label for="resenaNombre">Tu nombre</label>
-            <!-- minlength/maxlength espejan los `check` de la tabla reviews
-                 (name entre 2 y 40). El navegador frena antes de mandar; el JS
-                 vuelve a chequear sobre el valor YA trimmeado, que es lo que
-                 mira Postgres y lo que `minlength` por sí solo no ve. -->
+
             <input
               type="text"
               id="resenaNombre"
@@ -799,7 +779,7 @@
           </div>
           <div class="field">
             <label for="resenaComentario">Comentario</label>
-            <!-- Igual que el nombre: reviews.text tiene check entre 5 y 180. -->
+
             <textarea
               id="resenaComentario"
               rows="3"
@@ -822,10 +802,7 @@
               </span>
             </div>
           </div>
-          <!-- El texto del botón dice "Enviar" y no "Publicar" porque las
-               reseñas pasan por moderación: entran con approved = false y las
-               publica el panel. Prometer "publicar" acá hacía esperar que la
-               reseña apareciera en el carrusel al instante. -->
+
           <button
             type="submit"
             class="btn btn-primary btn-block"
@@ -840,10 +817,6 @@
       </div>
     </div>
 
-    <!-- ============ AVISOS FLOTANTES (toasts) ============
-         Vacío a propósito: lo llena mostrarToast() en script.js. Vive al
-         final del body y con position:fixed, así ningún contenedor con
-         overflow lo puede recortar. -->
     <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

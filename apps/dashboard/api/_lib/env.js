@@ -1,20 +1,3 @@
-/**
- * api/_lib/env.js
- * ---------------------------------------------------------------------------
- * Las variables de entorno del panel, leídas y validadas en un solo lugar.
- *
- * El panel es un proyecto de Vercel aparte del sitio y del checkout, así que
- * tiene sus propias variables. Necesita cuatro cosas:
- *
- *   PANEL_CODIGO                 el código de acceso (lo que se tipea en el login)
- *   PANEL_SESION_SECRET          con qué se firma la cookie de sesión
- *   SUPABASE_URL                 la misma que el resto del proyecto
- *   SUPABASE_SERVICE_ROLE_KEY    la misma que el checkout: saltea RLS
- *   MP_ACCESS_TOKEN              solo para las devoluciones
- *
- * Ninguna de estas sale nunca al navegador.
- */
-
 export class ErrorDeConfig extends Error {
   constructor(mensaje, pista) {
     super(pista ? `${mensaje}\n  → ${pista}` : mensaje);
@@ -29,7 +12,6 @@ function requerida(nombre, pista) {
   return valor;
 }
 
-/** Cuánto dura la sesión sin volver a pedir el código. */
 export const HORAS_DE_SESION = 12;
 
 let cache = null;
@@ -74,13 +56,6 @@ export function leerConfig() {
       "tablas con RLS cerrado; con la anon no puede hacer nada.",
   );
 
-  /**
-   * Freno de mano: si acá pegaron la clave PÚBLICA por error, el panel entra
-   * igual (el login solo necesita el código) y recién falla al pedir datos, con
-   * un "permission denied" de PostgREST que no dice nada de claves. Es el error
-   * más fácil de cometer y el más difícil de diagnosticar, así que se detecta
-   * al leer la configuración y se dice con todas las letras.
-   */
   const pareceAnon =
     serviceRoleKey.startsWith("sb_publishable_") ||
     (serviceRoleKey.startsWith("eyJ") && /"role"\s*:\s*"anon"/.test(decodificarJwt(serviceRoleKey)));
@@ -98,9 +73,7 @@ export function leerConfig() {
     codigo,
     secreto,
     supabase: { url: supabaseUrl, serviceRoleKey },
-    // Lazy: solo lo necesita el endpoint de cancelación. Si se exigiera acá, un
-    // MP_ACCESS_TOKEN faltante tiraría abajo el panel entero — no se podrían ni
-    // ver las tarifas por no poder devolver plata.
+
     get mpAccessToken() {
       return requerida(
         "MP_ACCESS_TOKEN",
@@ -113,7 +86,6 @@ export function leerConfig() {
   return cache;
 }
 
-/** El payload de un JWT, sin validar la firma: solo para mirar el `role`. */
 function decodificarJwt(token) {
   const partes = token.split(".");
   if (partes.length !== 3) return "";
@@ -124,14 +96,6 @@ function decodificarJwt(token) {
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Chequeo del .env sin levantar nada:
-
-       node --env-file=.env api/_lib/env.js
-       npm run env:check
-
-   No imprime ninguna credencial ni el código: solo dice si cierra.
-   --------------------------------------------------------------------------- */
 if (process.argv[1] && process.argv[1].endsWith("env.js")) {
   try {
     const c = leerConfig();

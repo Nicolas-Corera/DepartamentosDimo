@@ -1,33 +1,10 @@
-/**
- * api/_lib/mensajes.js
- * ---------------------------------------------------------------------------
- * Traduce el par (status, status_detail) que devuelve la API de pagos a algo
- * que una persona entienda y, sobre todo, a algo que le diga QUÉ HACER.
- *
- * "cc_rejected_bad_filled_security_code" no le sirve a nadie. "Revisá el código
- * de seguridad" sí. Y la diferencia entre "probá otra tarjeta" y "llamá a tu
- * banco" es lo que decide si esa venta se recupera o se pierde.
- *
- * Referencia: MercadoPago -> Checkout API -> Manejo de respuestas.
- */
-
-/**
- * `accion` le dice al front qué ofrecer:
- *   reintentar   -> el mismo formulario sirve, es un dato mal cargado
- *   otra_tarjeta -> hay que cambiar de medio de pago
- *   contactar    -> el problema está del lado del banco del cliente
- *   esperar      -> no hay nada que hacer, se resuelve solo
- *   ninguna      -> terminó bien
- */
 const POR_DETALLE = {
-  /* --- aprobados --------------------------------------------------------- */
   accredited: {
     titulo: "¡Listo! Tu pago fue aprobado",
     detalle: "Te va a llegar el comprobante por mail. Ya podés cerrar esta página.",
     accion: "ninguna",
   },
 
-  /* --- pendientes / en revisión ------------------------------------------ */
   pending_contingency: {
     titulo: "Estamos procesando tu pago",
     detalle:
@@ -46,7 +23,6 @@ const POR_DETALLE = {
     accion: "esperar",
   },
 
-  /* --- rechazos por datos mal cargados (se arreglan reintentando) --------- */
   cc_rejected_bad_filled_card_number: {
     titulo: "Revisá el número de la tarjeta",
     detalle: "El número no coincide con ninguna tarjeta. Verificalo y probá de nuevo.",
@@ -74,7 +50,6 @@ const POR_DETALLE = {
     accion: "reintentar",
   },
 
-  /* --- rechazos del banco / del emisor ------------------------------------ */
   cc_rejected_call_for_authorize: {
     titulo: "Tu banco tiene que autorizar el pago",
     detalle:
@@ -145,7 +120,6 @@ const POR_DETALLE = {
     accion: "reintentar",
   },
 
-  /* --- devoluciones y cancelaciones --------------------------------------- */
   refunded: {
     titulo: "El pago fue devuelto",
     detalle: "El importe vuelve a tu tarjeta. Puede tardar hasta 2 resúmenes según el banco.",
@@ -163,7 +137,6 @@ const POR_DETALLE = {
   },
 };
 
-/** Cuando no conocemos el detalle, respondemos según el estado general. */
 const POR_ESTADO = {
   approved: {
     titulo: "¡Listo! Tu pago fue aprobado",
@@ -218,10 +191,6 @@ const GENERICO = {
   accion: "contactar",
 };
 
-/**
- * Los tres grupos en los que el front decide qué pantalla mostrar.
- * Es más estable que mirar el status crudo en 12 lugares distintos.
- */
 export function grupoDeEstado(status) {
   if (status === "approved") return "aprobado";
   if (status === "in_process" || status === "pending" || status === "authorized") return "pendiente";

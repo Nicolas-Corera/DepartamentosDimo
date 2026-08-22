@@ -67,3 +67,16 @@ proyecto; en local viven en archivos `.env` que están en `.gitignore`.
 La única clave que llega al navegador es la **publishable/anon** de Supabase, y
 llega a través de `apps/sitio/supabase-config.js`, que se genera con
 `npm run config` y tampoco se commitea: lo regenera Vercel en cada build.
+
+## Una nota sobre los comentarios
+
+El código no lleva comentarios: se sacaron todos a propósito. Lo que explicaban
+está en `docs/`, y cada documento termina con una sección **Trampas del código**
+con lo que no se deduce leyendo.
+
+Si necesitás la versión comentada de un archivo, sigue en el historial:
+
+```bash
+git log --oneline -- apps/pago/pago.js
+git show <sha>:apps/pago/pago.js
+```

@@ -1,5 +1,4 @@
 :root {
-  /* Colors */
   --primary: #00566b;
   --surface-tint: #10677e;
   --inverse-surface: #343026;
@@ -54,7 +53,6 @@
   --surface-dim: #e1d9cb;
   --surface-container-low: #fbf3e4;
 
-  /* Spacing */
   --stack-md: 20px;
   --container-max: 1180px;
   --container-more: 1500px;
@@ -64,7 +62,6 @@
   --gutter: 20px;
   --sidebar-width: 250px;
 
-  /* Shadows */
   --soft-tint:
     0 10px 25px -5px rgba(22, 50, 56, 0.15),
     0 8px 10px -6px rgba(22, 50, 56, 0.1);
@@ -76,21 +73,6 @@
   padding: 0;
 }
 
-/**
- * El atributo `hidden` gana siempre.
- *
- * La hoja del navegador lo aplica como `[hidden] { display: none }`, que es un
- * selector de atributo: cualquier regla de CLASE que fije `display` le gana por
- * especificidad. Y como acá casi todo lo que se muestra y se esconde es un flex
- * o un grid (.cargando-bloque, .form-grid, .totales-fila, .rate-summary,
- * .aviso-huecos), poner `elemento.hidden = true` no escondía nada: el
- * "Cargando la configuración…" quedaba fijo en pantalla y el aviso de fechas
- * sin temporada se veía aunque no hubiera ninguna.
- *
- * El `!important` es a propósito y es el patrón habitual para esto: `hidden`
- * significa "esto no es relevante ahora", y no hay ningún caso en el que una
- * regla de layout deba poder contradecirlo.
- */
 [hidden] {
   display: none !important;
 }
@@ -129,7 +111,6 @@ body {
   transform: rotate(180deg);
 }
 
-/* Sidebar Styles */
 .sidebar {
   width: var(--sidebar-width);
   background-color: var(--surface-container-lowest);
@@ -196,11 +177,10 @@ body {
   color: var(--on-primary);
 }
 
-/* Main Content Area */
 .main-wrapper {
   margin-left: var(--sidebar-width);
   flex-grow: 1;
-  min-width: 0; /* evita que un hijo ancho (ej. la tabla) empuje todo el layout */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -300,10 +280,9 @@ body {
   max-width: var(--container-more);
   margin: 0 auto;
   width: 100%;
-  padding: 40px var(--gutter); /* Reduced top padding for dashboard feel */
+  padding: 40px var(--gutter);
 }
 
-/* Typography */
 h1,
 h2 {
   font-family: "Outfit", sans-serif;
@@ -351,7 +330,6 @@ h2 {
   text-transform: uppercase;
 }
 
-/* Layout & Components */
 .header-section {
   display: flex;
   flex-direction: row;
@@ -361,7 +339,6 @@ h2 {
   margin-bottom: var(--stack-lg);
 }
 
-/* Contenedor para cuando una cabecera tiene más de un chip de resumen. */
 .header-chips {
   display: flex;
   flex-wrap: wrap;
@@ -495,15 +472,7 @@ select {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 16px;
   color: var(--on-surface);
-  /**
-   * Solo lo del foco, no `all`.
-   *
-   * Con `transition: all` también se anima el `background-color`, y en un
-   * <select> que se habilita y se deshabilita por código (el de cuotas, que
-   * solo aplica en crédito) Chrome dejaba el valor pegado en el gris de
-   * :disabled: al volver a habilitarlo seguía viéndose apagado, como si no se
-   * pudiera tocar.
-   */
+
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
@@ -515,13 +484,6 @@ input[type="number"] {
   color: var(--tinta);
 }
 
-/**
- * El <select> nativo ignora casi todo el estilo de la caja en Windows y
- * Chrome —  incluidos el borde y el radio— salvo que se le saque el aspecto
- * de sistema. Al sacarlo también desaparece la flecha, así que se dibuja una
- * como fondo. Va en un data URI y no en un SVG aparte para no sumar un
- * archivo y un pedido más por una flecha de doce bytes.
- */
 select {
   appearance: none;
   -webkit-appearance: none;
@@ -559,7 +521,6 @@ select:focus {
   line-height: 1.3;
 }
 
-/* Special Dates Carousel */
 .special-dates-header {
   display: flex;
   align-items: center;
@@ -590,11 +551,7 @@ select:focus {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  /**
-   * Estaba comentado, y sin el tipo en el contenedor el `scroll-snap-align` de
-   * las tarjetas no hace nada: arrastrando con el dedo o con el trackpad el
-   * carrusel quedaba donde lo soltaras, mostrando media tarjeta y media otra.
-   */
+
   scroll-snap-type: x mandatory;
   gap: 16px;
   padding-bottom: 16px;
@@ -610,13 +567,11 @@ select:focus {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  /* `start` y no `center`: las tarjetas ocupan el ancho completo, y centrar
-     con un gap de por medio las deja corridas media separación. */
+
   scroll-snap-align: start;
-  /* background-color: var(--surface-container-low); */
-  /* padding: 16px; */
+
   border-radius: 8px;
-  /* border: 1px solid rgba(228, 210, 168, 0.5); */
+
   overflow: hidden;
 }
 
@@ -689,9 +644,6 @@ select:focus {
   transition: background-color 0.3s;
 }
 
-/* En PC no hay drag en el carousel, así que los dots son la única forma
-   de navegarlo: mostramos cursor pointer para que se note clickeable.
-   En mobile se deja el swipe tal cual, sin tocar el cursor. */
 @media (min-width: 769px) {
   .dot {
     cursor: pointer;
@@ -702,7 +654,6 @@ select:focus {
   background-color: var(--primary);
 }
 
-/* Global Actions */
 .action-container {
   grid-column: 1 / -1;
   display: flex;
@@ -741,7 +692,6 @@ select:focus {
   }
 }
 
-/* Footer */
 .footer {
   text-align: center;
   width: 100%;
@@ -750,7 +700,6 @@ select:focus {
   margin-top: auto;
 }
 
-/* Table Styles for Alquileres */
 .table-container {
   background-color: var(--blanco);
   border-radius: 28px 8px 28px 8px;
@@ -783,9 +732,6 @@ td {
 }
 
 .status-badge {
-  /* inline-block + nowrap: como `inline`, un texto de dos palabras se partia en
-     dos lineas y el fondo redondeado se cortaba al medio — se veian dos medias
-     pastillas apiladas ("COMPROBANTE" arriba, "RECHAZADO" abajo). */
   display: inline-block;
   white-space: nowrap;
   padding: 4px 12px;
@@ -806,7 +752,6 @@ td {
   color: var(--madera);
 }
 
-/* Reviews Grid */
 .reviews-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -843,7 +788,6 @@ td {
   color: var(--tinta);
 }
 
-/* Puntaje de una reseña: las cinco estrellas + el "4/5" al lado. */
 .review-rating {
   display: flex;
   align-items: center;
@@ -862,11 +806,6 @@ td {
   font-variation-settings: "FILL" 1;
 }
 
-/* La estrella apagada. Es el mismo glifo `star` con el eje FILL en 0: queda
-   el contorno. Antes esto se intentaba cambiando el nombre del icono a
-   `star_outline`, y no funcionaba — la regla de arriba le seguía aplicando
-   FILL 1 y salía rellena igual, así que las cinco se veían encendidas
-   sin importar el puntaje. */
 .stars .material-symbols-outlined.is-off {
   font-variation-settings: "FILL" 0;
   opacity: 0.4;
@@ -878,7 +817,7 @@ td {
   font-size: 14px;
   line-height: 1;
   color: var(--madera);
-  /* Cifras de ancho fijo: si no, el bloque se mueve entre un 1/5 y un 4/5. */
+
   font-variant-numeric: tabular-nums;
 }
 
@@ -984,14 +923,7 @@ td {
     animation: none;
   }
 }
-/* ==========================================================================
-   RESPONSIVE
-   Sistema consolidado, mobile-first para ajustes puntuales, con 3 puntos
-   de corte: escritorio grande (>1024px, estilos base de arriba),
-   tablet (≤1024px), mobile (≤768px) y mobile chico (≤480px).
-   ========================================================================== */
 
-/* ---------- Tablet: 769px – 1024px ---------- */
 @media (max-width: 1024px) {
   :root {
     --sidebar-width: 210px;
@@ -1010,9 +942,7 @@ td {
   }
 }
 
-/* ---------- Mobile: hasta 768px ---------- */
 @media (max-width: 768px) {
-  /* Layout: sidebar fuera, barra inferior visible */
   .sidebar {
     display: none;
   }
@@ -1026,7 +956,7 @@ td {
   }
 
   .footer {
-    margin-bottom: 96px; /* deja lugar para la bottom-navbar fija */
+    margin-bottom: 96px;
   }
 
   .container {
@@ -1034,7 +964,6 @@ td {
     padding: 24px 14px;
   }
 
-  /* Encabezados de sección */
   .header-section {
     flex-direction: column;
     align-items: flex-start;
@@ -1060,7 +989,6 @@ td {
     line-height: 1.5;
   }
 
-  /* Resumen de tarifa activa */
   .rate-summary {
     width: 100%;
     padding: 12px;
@@ -1084,7 +1012,6 @@ td {
     font-size: 13px;
   }
 
-  /* Cards de temporadas */
   .card {
     padding: 18px;
     border-radius: 22px 8px 22px 8px;
@@ -1144,7 +1071,6 @@ td {
     justify-content: center;
   }
 
-  /* Tabla de alquileres: scroll horizontal en vez de achicar columnas */
   .table-container {
     max-width: 100%;
     border-radius: 22px 8px 22px 8px;
@@ -1164,7 +1090,6 @@ td {
     white-space: nowrap;
   }
 
-  /* Reseñas */
   .review-card {
     padding: 18px;
     border-radius: 22px 8px 22px 8px;
@@ -1180,7 +1105,6 @@ td {
   }
 }
 
-/* ---------- Mobile chico: hasta 480px ---------- */
 @media (max-width: 480px) {
   .sidebar-logo {
     font-size: 20px;
@@ -1202,7 +1126,6 @@ td {
     font-size: 18px;
   }
 
-  /* Fechas Desde/Hasta apiladas para que no queden ilegibles */
   .input-row {
     grid-template-columns: 1fr;
   }
@@ -1222,7 +1145,6 @@ td {
   }
 }
 
-/* En pantallas chicas ocupa el ancho completo menos los margenes. */
 @media (max-width: 520px) {
   .toast-stack {
     left: 12px;
@@ -1231,12 +1153,6 @@ td {
     width: auto;
   }
 }
-
-/* ===========================================================================
-   Panel funcional — bloques que no existían en la maqueta
-   =========================================================================== */
-
-/* --- Estados de carga y de vacío ------------------------------------------ */
 
 .cargando-bloque {
   display: flex;
@@ -1273,8 +1189,6 @@ td {
   font-size: 18px;
 }
 
-/* Ocupa las dos columnas de .form-grid: los medios de pago y la calculadora
-   son bloques anchos y en media columna quedan apretados. */
 @media (min-width: 768px) {
   .card-ancho {
     grid-column: 1 / -1;
@@ -1286,8 +1200,6 @@ td {
   background-color: var(--outline-variant);
   margin: 24px 0;
 }
-
-/* --- Aviso de huecos en las temporadas ------------------------------------ */
 
 .aviso-huecos {
   display: flex;
@@ -1315,8 +1227,6 @@ td {
   font-size: 14px;
   line-height: 1.6;
 }
-
-/* --- Medios de pago ------------------------------------------------------- */
 
 .icon-medios {
   background-color: rgba(0, 86, 107, 0.12);
@@ -1376,7 +1286,6 @@ td {
   color: var(--on-surface-variant);
 }
 
-/* Interruptor de habilitado / deshabilitado. */
 .interruptor {
   display: inline-flex;
   align-items: center;
@@ -1393,8 +1302,6 @@ td {
   accent-color: var(--primary);
   cursor: pointer;
 }
-
-/* --- Cuotas --------------------------------------------------------------- */
 
 .cuotas-header {
   display: flex;
@@ -1440,8 +1347,6 @@ td {
   margin: 0;
   width: 100%;
 }
-
-/* --- Calculadora ---------------------------------------------------------- */
 
 .calc-entradas {
   display: grid;
@@ -1512,8 +1417,6 @@ td {
   color: var(--madera);
   font-style: italic;
 }
-
-/* --- Alquileres ----------------------------------------------------------- */
 
 .totales-fila {
   display: grid;
@@ -1591,8 +1494,6 @@ td {
   cursor: not-allowed;
 }
 
-/* --- Reseñas -------------------------------------------------------------- */
-
 .review-card[data-aprobada="false"] {
   border-color: var(--madera);
 }
@@ -1618,8 +1519,6 @@ td {
 .btn-action-approve:hover {
   background-color: rgba(111, 207, 192, 0.15);
 }
-
-/* --- Modal ---------------------------------------------------------------- */
 
 .modal-fondo {
   position: fixed;
@@ -1726,11 +1625,6 @@ td {
   cursor: not-allowed;
 }
 
-/* --- Comprobantes de transferencia ---------------------------------------- */
-
-/* "Esperando aprobación": ni cobrado ni cancelado. Es el mismo ámbar que usa
-   el chip de reseñas sin aprobar — en el panel, ámbar significa siempre lo
-   mismo: hay algo que espera una decisión de una persona. */
 .status-espera {
   background-color: rgba(185, 137, 83, 0.18);
   color: var(--madera);
@@ -1744,8 +1638,6 @@ td {
   color: var(--primary);
 }
 
-/* El visor necesita más ancho que el diálogo de cancelación: adentro va una
-   foto de un comprobante, no tres opciones de texto. */
 .modal--ancho {
   max-width: 720px;
 }
@@ -1764,8 +1656,6 @@ td {
   border-radius: 16px 4px 16px 4px;
 }
 
-/* La foto entra entera y sin deformarse: un comprobante recortado no sirve
-   para compararlo contra el extracto. */
 .comprobante-imagen {
   max-width: 100%;
   max-height: 50vh;
@@ -1781,9 +1671,6 @@ td {
   background-color: var(--blanco);
 }
 
-/* Cuatro controles no entran en el `flex-end` del modal de cancelación.
-   Descargar es la acción secundaria y se va sola a la izquierda; las tres
-   decisiones quedan juntas a la derecha. */
 .modal-acciones--tres {
   flex-wrap: wrap;
   gap: 8px;
@@ -1801,8 +1688,6 @@ td {
   font-size: 18px;
 }
 
-/* Mientras la URL firmada no llegó, el link no lleva a ningún lado: se apaga
-   en vez de dar un clic que no hace nada. */
 .modal-acciones--tres #comprobante-descargar:not([href]) {
   opacity: 0.45;
   pointer-events: none;
@@ -1813,12 +1698,6 @@ td {
   color: var(--tinta);
 }
 
-/* Una transferencia aprobada tiene dos acciones —ver y cancelar— y entran una
-   al lado de la otra.
-
-   Esto es un <div> DENTRO del <td>, nunca el <td>. Un `display: flex` sobre una
-   celda la saca del algoritmo de tabla —deja de ser `table-cell`— y la fila
-   pierde ahi su alto y su borde inferior. */
 .celda-acciones {
   display: flex;
   align-items: center;

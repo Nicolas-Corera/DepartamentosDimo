@@ -1,15 +1,6 @@
-/**
- * api/_lib/http.js
- * ---------------------------------------------------------------------------
- * Cuatro cosas repetidas en los tres endpoints: responder JSON, exigir un
- * método, leer el body y traducir un error interno a una respuesta que se le
- * pueda mostrar a una persona.
- */
-
 import { log } from "./log.js";
 import { ErrorDeConfig } from "./env.js";
 
-/** Error con mensaje pensado para mostrarle al visitante. */
 export class ErrorVisible extends Error {
   constructor(status, mensaje, codigo) {
     super(mensaje);
@@ -33,10 +24,6 @@ export function exigirMetodo(req, res, metodo) {
   return false;
 }
 
-/**
- * Vercel ya parsea el JSON en req.body, pero en `vercel dev` y con algunos
- * content-type llega como string. Esto normaliza los dos casos.
- */
 export function leerBody(req) {
   if (!req.body) return {};
   if (typeof req.body === "string") {
@@ -49,14 +36,6 @@ export function leerBody(req) {
   return req.body;
 }
 
-/**
- * Una sola política de errores para todos los endpoints:
- *   - ErrorVisible      -> su status y su mensaje, tal cual.
- *   - ErrorDeConfig     -> 500 genérico afuera, mensaje completo en el log.
- *                          Un problema de credenciales es nuestro, no del que
- *                          está pagando, y su detalle no se publica.
- *   - cualquier otro    -> 500 genérico.
- */
 export function manejarError(res, evento, error, datos) {
   if (error instanceof ErrorVisible) {
     log.warn(`${evento}.rechazado`, { ...datos, codigo: error.codigo, motivo: error.message });

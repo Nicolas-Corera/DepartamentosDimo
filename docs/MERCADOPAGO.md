@@ -729,3 +729,33 @@ sql/                        se corren a mano en el SQL Editor de Supabase
 
 docs/MERCADOPAGO.md         este archivo
 ```
+---
+
+## Trampas del código
+
+El código no lleva comentarios. Lo que sigue es lo que no se deduce leyéndolo, y
+lo que más de una vez ya se rompió por no saberlo.
+
+### El vigía de 12 segundos del Brick
+
+Con una public key inválida, el SDK de MercadoPago rechaza una promesa interna
+y la que devuelve `create()` **se queda colgada para siempre**. Sin el
+`setTimeout` de 12 segundos, quien está pagando se queda mirando "Cargando el
+formulario seguro…" sin más. Con una key válida el Brick monta en uno o dos
+segundos, así que el vigía nunca se dispara de más.
+
+`fallaAlCargarElBrick()` es idempotente por lo mismo: la pueden llamar el
+`catch` y el vigía a la vez.
+
+### `mostrarResultado()` desmonta el Brick en el próximo tick
+
+Con `setTimeout(desmontarBrick, 0)`. La función se puede estar ejecutando dentro
+de un callback del propio Brick, y desmontarlo en el medio es pedirle que se
+saque la silla de abajo.
+
+### El monto del Brick es solo para mostrar
+
+`initialization.amount` es el total del plan elegido, y sirve únicamente para lo
+que se ve en pantalla. El importe que se cobra lo recalcula `/api/pagos` del
+lado del servidor, a partir de la reserva y de las tarifas. Del navegador nunca
+viaja un monto.

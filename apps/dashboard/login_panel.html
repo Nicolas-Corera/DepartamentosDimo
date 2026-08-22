@@ -5,22 +5,21 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Acceso al Panel - DepartamentosDimo</title>
-    <!-- Google Fonts -->
+
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap"
       rel="stylesheet"
     />
-    <!-- Material Symbols -->
+
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
       rel="stylesheet"
     />
-    <!-- GSAP for Animations -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
-      /* CSS Reset & Custom Properties */
       :root {
         --background: #fff8ef;
         --blanco: #fffdf8;
@@ -53,7 +52,6 @@
         overflow: hidden;
       }
 
-      /* Background Element */
       .bg-shape-container {
         position: absolute;
         top: 0;
@@ -75,7 +73,6 @@
         transform: rotate(12deg);
       }
 
-      /* Card Layout */
       .login-card {
         background-color: var(--blanco);
         width: 100%;
@@ -93,7 +90,6 @@
         align-items: center;
       }
 
-      /* Header */
       .brand-header {
         display: flex;
         align-items: center;
@@ -121,7 +117,6 @@
         letter-spacing: -0.02em;
       }
 
-      /* Typography */
       .text-context {
         text-align: center;
         margin-bottom: 40px;
@@ -145,7 +140,6 @@
         line-height: 1.65;
       }
 
-      /* Form */
       .otp-form {
         width: 100%;
         display: flex;
@@ -153,11 +147,10 @@
         gap: 40px;
       }
 
-      /* OTP Inputs - Visually Together */
       .otp-container {
         display: flex;
         justify-content: space-between;
-        gap: 8px; /* Slightly reduced gap to keep them together visually */
+        gap: 8px;
         width: 100%;
       }
 
@@ -182,7 +175,6 @@
         outline: none;
       }
 
-      /* Hide spinners */
       .otp-input::-webkit-outer-spin-button,
       .otp-input::-webkit-inner-spin-button {
         -webkit-appearance: none;
@@ -192,7 +184,6 @@
         appearance: textfield;
       }
 
-      /* Actions */
       .actions-container {
         display: flex;
         flex-direction: column;
@@ -293,10 +284,10 @@
       .sacudir {
         animation: sacudir 0.3s ease;
       }
-    </style>
+</style>
   </head>
   <body>
-    <!-- Decorative Organic Background Element -->
+
     <div class="bg-shape-container">
       <svg
         class="bg-shape"
@@ -310,9 +301,9 @@
         ></path>
       </svg>
     </div>
-    <!-- Main Login Card -->
+
     <main class="login-card" id="login-card">
-      <!-- Brand Header -->
+
       <div class="brand-header">
         <div class="brand-icon">
           <span class="material-symbols-outlined" style="font-size: 24px"
@@ -321,16 +312,16 @@
         </div>
         <span class="brand-title">DepartamentosDimo</span>
       </div>
-      <!-- Typography Context -->
+
       <div class="text-context">
         <h1 class="main-heading">Acceso al Panel</h1>
         <p class="sub-text">
           Ingresá el código de acceso de 6 dígitos del panel.
         </p>
       </div>
-      <!-- Form Area -->
+
       <form class="otp-form" id="otp-form">
-        <!-- OTP Input Container -->
+
         <div class="otp-container" id="otp-container">
           <input
             autofocus=""
@@ -378,7 +369,6 @@
         </div>
         <p class="error-login" id="error-login" role="alert" hidden></p>
 
-        <!-- Actions Container -->
         <div class="actions-container">
           <button class="btn-primary" id="submit-btn" type="button">
             Verificar y Entrar
@@ -391,7 +381,6 @@
     </main>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        // Entrance Animation
         gsap.to("#login-card", {
           y: 0,
           opacity: 1,
@@ -400,7 +389,6 @@
           delay: 0.1,
         });
 
-        // Button Animation
         const submitBtn = document.getElementById("submit-btn");
         submitBtn.addEventListener("mousedown", () => {
           gsap.to(submitBtn, { scale: 0.98, duration: 0.1 });
@@ -411,19 +399,6 @@
         submitBtn.addEventListener("mouseleave", () => {
           gsap.to(submitBtn, { scale: 1, duration: 0.1 });
         });
-
-        /* ==================================================================
-           Código de acceso
-
-           El código NO se compara acá. Viaja a /api/login, que lo mide contra
-           PANEL_CODIGO del lado del servidor y devuelve una cookie firmada.
-
-           Compararlo en el navegador no protegería nada: el código quedaría
-           escrito en este archivo, que cualquiera descarga, y aunque no
-           estuviera, saltear un `if` desde la consola es trivial. Lo que de
-           verdad está protegido no es esta pantalla sino los endpoints — y
-           cada uno de ellos exige la cookie antes de devolver un solo dato.
-           ================================================================== */
 
         const inputs = [...document.querySelectorAll(".otp-input")];
         const boton = document.getElementById("submit-btn");
@@ -436,8 +411,7 @@
           error.textContent = mensaje;
           error.hidden = false;
           tarjeta.classList.remove("sacudir");
-          // Reiniciar la animación: sin este reflow, dos errores seguidos solo
-          // sacuden la tarjeta la primera vez.
+
           void tarjeta.offsetWidth;
           tarjeta.classList.add("sacudir");
         }
@@ -488,8 +462,6 @@
               return;
             }
 
-            // `replace` y no `href`: así el botón de atrás del navegador no
-            // vuelve al login ya autenticado.
             window.location.replace("/index.html");
           } catch {
             bloquear(false);
@@ -505,8 +477,7 @@
             if (e.target.value !== "" && indice < inputs.length - 1) {
               inputs[indice + 1].focus();
             }
-            // Con el último dígito puesto, se envía solo: es lo que uno espera
-            // de un campo de código y ahorra el viaje al botón.
+
             if (codigoTipeado().length === inputs.length) entrar();
           });
 
@@ -538,15 +509,13 @@
 
         boton.addEventListener("click", entrar);
 
-        // Si la sesión sigue viva, no tiene sentido pedir el código de nuevo.
         fetch("/api/sesion")
           .then((r) => {
             if (r.ok) window.location.replace("/index.html");
           })
           .catch(() => {
-            /* sin red: se muestra el formulario igual */
           });
       });
-    </script>
+</script>
   </body>
 </html>

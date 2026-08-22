@@ -1,17 +1,3 @@
-/**
- * GET    /api/resenas  — todas, aprobadas y pendientes
- * PATCH  /api/resenas  — { id, aprobada: true } aprueba
- * DELETE /api/resenas  — { id } la borra de la base
- * ---------------------------------------------------------------------------
- * La tabla `reviews` tiene RLS: el sitio público solo puede LEER las aprobadas
- * e INSERTAR con `approved = false`. No hay política de UPDATE ni de DELETE,
- * así que moderarlas desde el navegador es imposible por diseño. El panel lo
- * hace con service_role, que saltea RLS — y por eso este endpoint exige sesión.
- *
- * Aprobar es lo que las publica en el sitio: hasta entonces la reseña existe
- * pero `fetchReviews()` no la trae, porque filtra por `approved = true`.
- */
-
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
 import { exigirSesion } from "./_lib/sesion.js";
 import { seleccionar, actualizar, borrar } from "./_lib/supabase.js";
@@ -32,10 +18,7 @@ export default async function handler(req, res) {
   try {
     exigirSesion(req);
 
-    // ---------------------------------------------------------------- GET
     if (req.method === "GET") {
-      // Las pendientes primero: son las que piden una decisión. Dentro de cada
-      // grupo, las más nuevas arriba.
       const filas =
         (await seleccionar(
           "reviews",
@@ -58,10 +41,7 @@ export default async function handler(req, res) {
     const cuerpo = leerBody(req);
     const id = exigirId(cuerpo);
 
-    // -------------------------------------------------------------- PATCH
     if (req.method === "PATCH") {
-      // Solo se toca `approved`. El nombre, el puntaje y el texto son de quien
-      // los escribió: el panel modera, no edita reseñas ajenas.
       const aprobada = cuerpo.aprobada !== false;
       const filas = await actualizar("reviews", `id=eq.${id}`, { approved: aprobada });
 
@@ -73,7 +53,6 @@ export default async function handler(req, res) {
       return json(res, 200, { ok: true, id, aprobada });
     }
 
-    // ------------------------------------------------------------- DELETE
     const filas = await borrar("reviews", `id=eq.${id}`);
     if (!filas?.length) {
       throw new ErrorVisible(404, "Esa reseña ya no existe.", "resena_inexistente");

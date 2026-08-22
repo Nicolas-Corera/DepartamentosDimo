@@ -1,6 +1,3 @@
-/* ============================================
-   TOKENS
-=============================================== */
 :root {
   --celeste: #3fa7c7;
   --celeste-deep: #1f6f87;
@@ -15,7 +12,6 @@
   --font-display: "Outfit", sans-serif;
   --font-body: "Plus Jakarta Sans", sans-serif;
 
-  /* Marcador del mapa (el JS lee --marker-size para anclar el pin). */
   --marker-color: var(--coral);
   --marker-ring: var(--blanco);
   --marker-size: 40px;
@@ -32,8 +28,7 @@
 *::after {
   box-sizing: border-box;
 }
-/* Muchos bloques del formulario usan display:flex/grid y eso le gana al
-   display:none que el navegador aplica por defecto al atributo hidden. */
+
 [hidden] {
   display: none !important;
 }
@@ -119,9 +114,6 @@ p {
   outline-offset: 2px;
 }
 
-/* ============================================
-   BOTONES
-=============================================== */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -183,9 +175,6 @@ p {
   width: 100%;
 }
 
-/* ============================================
-   HEADER
-=============================================== */
 .site-header {
   position: sticky;
   top: 0;
@@ -225,9 +214,6 @@ p {
   }
 }
 
-/* ============================================
-   HERO
-=============================================== */
 .hero {
   position: relative;
   min-height: 100svh;
@@ -340,9 +326,6 @@ p {
   fill: var(--arena);
 }
 
-/* ============================================
-   SECCIONES GENERALES
-=============================================== */
 .section {
   padding: 84px 0;
 }
@@ -373,13 +356,10 @@ p {
   margin-bottom: 0;
 }
 
-/* ============================================
-   GALERÍA MASONRY
-=============================================== */
 .masonry {
   display: grid;
   grid-template-columns: 1fr;
-  /* alto de la fila-unidad: cada foto ocupa 2..5 filas segun su forma */
+
   grid-auto-rows: 24vw;
   grid-auto-flow: dense;
   gap: 16px;
@@ -407,7 +387,7 @@ p {
   position: relative;
   background: var(--arena-deep);
 }
-/* verticales y panoramicas */
+
 .masonry-item.is-tall {
   grid-row: span 3;
 }
@@ -422,7 +402,7 @@ p {
     grid-column: span 2;
   }
 }
-/* mobile: 1 columna, spans afinados al ratio real de cada foto */
+
 @media (max-width: 559px) {
   .masonry-item.is-std {
     grid-row: span 3;
@@ -438,7 +418,7 @@ p {
   .masonry-item.is-wide {
     grid-column: span 2;
   }
-  /* cierra la ultima fila a lo ancho para no dejar hueco */
+
   .masonry-item.is-std:last-child {
     grid-column: span 2;
   }
@@ -474,9 +454,6 @@ p {
   opacity: 1;
 }
 
-/* ============================================
-   EL DEPARTAMENTO
-=============================================== */
 .depto-layout {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -585,9 +562,6 @@ p {
   margin: 0;
 }
 
-/* ============================================
-   UBICACIÓN
-=============================================== */
 .location-highlights {
   display: grid;
   gap: 14px;
@@ -614,8 +588,7 @@ p {
 }
 .map-frame {
   position: relative;
-  /* `isolate` mantiene el z-index del overlay dentro del marco y evita
-     que compita con el header sticky. */
+
   isolation: isolate;
   width: 100%;
   height: clamp(320px, 45vh, 450px);
@@ -630,7 +603,6 @@ p {
   background: var(--arena);
 }
 
-/* ---- Marcador personalizado (divIcon + sprite SVG) ---------------- */
 .map-marker {
   background: none;
   border: 0;
@@ -669,7 +641,6 @@ p {
   transform: scale(1.12);
 }
 
-/* Halo pulsante en la base del ícono. */
 .map-marker__inner::after {
   content: "";
   position: absolute;
@@ -698,7 +669,6 @@ p {
   }
 }
 
-/* ---- Tooltip y popup del marcador -------------------------------- */
 .leaflet-tooltip.map-tooltip {
   max-width: 260px;
   padding: 10px 14px;
@@ -776,7 +746,6 @@ p {
   margin-top: 1rem;
 }
 
-/* ---- Overlay de bloqueo de zoom ---------------------------------- */
 .map-overlay {
   position: absolute;
   inset: 0;
@@ -790,9 +759,9 @@ p {
   transition:
     opacity 0.3s ease,
     visibility 0.3s ease;
-  /* No debe interceptar el cursor ni los gestos táctiles. */
+
   pointer-events: none;
-  /* Por encima de los controles de Leaflet (z-index 1000). */
+
   z-index: 1200;
 }
 
@@ -801,8 +770,6 @@ p {
   visibility: visible;
 }
 
-/* Mientras el overlay está activo el tooltip del marcador no debe
-   asomarse por encima del velo. */
 .map-frame.is-locked .leaflet-tooltip {
   display: none !important;
 }
@@ -848,9 +815,6 @@ p {
   }
 }
 
-/* ============================================
-   FORMULARIO DE RESERVA
-=============================================== */
 .booking-form {
   background: var(--arena);
   border: 1.5px solid var(--arena-deep);
@@ -873,8 +837,7 @@ p {
   flex-direction: column;
   gap: 7px;
 }
-/* Campo que ocupa las dos columnas de la grilla. Lo usa "Cantidad total de
-   personas": justo abajo se abren adultos y ninos, uno en cada columna. */
+
 .field-full {
   grid-column: 1 / -1;
 }
@@ -971,7 +934,6 @@ p {
   outline: none;
 }
 
-/* Ayuda breve debajo de un campo (cupo restante, aclaraciones). */
 .field-hint {
   margin: 0;
   font-size: 0.78rem;
@@ -1007,7 +969,7 @@ p {
   margin: 8px 0 0 29px;
   line-height: 1.5;
 }
-/* Segunda parte del cartel: es una advertencia, va en rojo. */
+
 .fine-print-alert {
   display: flex;
   align-items: flex-start;
@@ -1043,7 +1005,6 @@ p {
   grid-column: 1 / -1;
 }
 
-/* Contadores del textarea */
 .counter-row {
   display: flex;
   flex-wrap: wrap;
@@ -1093,9 +1054,6 @@ p {
   color: #b83c18;
 }
 
-/* ============================================
-   RESEÑAS
-=============================================== */
 .reviews-carousel-wrap {
   position: relative;
   display: flex;
@@ -1104,14 +1062,10 @@ p {
 }
 .reviews-track {
   display: flex;
-  /* El track SIEMPRE ocupa todo el ancho disponible. Sin esto su ancho lo
-     define el contenido, y con pocas tarjetas colapsaba: el flex-basis en
-     % de .review-card se calculaba sobre ese ancho chico y las tarjetas
-     salían finitas y altas en vez de cuadradas. */
+
   flex: 1 1 auto;
   min-width: 0;
-  /* flex-start (y no el stretch por defecto) para que el aspect-ratio de
-     las tarjetas mande sobre el alto y no se estiren entre sí. */
+
   align-items: flex-start;
   gap: 20px;
   overflow-x: auto;
@@ -1122,16 +1076,12 @@ p {
 .reviews-track::-webkit-scrollbar {
   display: none;
 }
-/* Todas las tarjetas miden lo mismo (cuadrado) sin importar el largo del
-   texto: el alto sale del aspect-ratio, el comentario ocupa el espacio
-   sobrante y el nombre queda siempre pegado abajo. El límite de caracteres
-   del formulario (180 / 35 palabras) está calculado para entrar acá. */
+
 .review-card {
   scroll-snap-align: start;
   flex: 0 0 100%;
   aspect-ratio: 1 / 1;
-  /* Piso de alto: en pantallas muy angostas el cuadrado quedaría tan chico
-     que no entraría el texto. */
+
   min-height: 330px;
   display: flex;
   flex-direction: column;
@@ -1148,9 +1098,7 @@ p {
   min-height: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
-  /* Red de contención: si por lo que sea entra un texto más largo (una
-     reseña vieja, o cargada a mano en la base), se recorta en vez de
-     deformar la tarjeta. */
+
   display: -webkit-box;
   line-clamp: 7;
   -webkit-box-orient: vertical;
@@ -1210,10 +1158,7 @@ p {
   background: var(--celeste-deep);
   color: var(--blanco);
 }
-/* Cuando no hay loop las flechas no sirven y se sacan del layout. En
-   desktop eso pasa hasta las 3 reseñas inclusive: recién con la 4ta entra
-   el loop y aparecen (en tablet, con 2 tarjetas por vista, aparecen a
-   partir de la 3ra). */
+
 .carousel-nav:disabled {
   display: none;
 }
@@ -1258,10 +1203,7 @@ p {
     color 0.15s ease,
     transform 0.15s ease;
 }
-/* .is-on / .is-preview los pone el JS sobre TODAS las estrellas hasta la
-   elegida (o hasta la que está bajo el mouse), para que se enciendan en
-   progresión y no solo la que se toca. El :hover nativo no sirve acá porque
-   solo alcanza al botón apuntado. */
+
 .star-picker button.is-on,
 .star-picker button.is-preview {
   color: var(--coral);
@@ -1275,7 +1217,6 @@ p {
   border-radius: 6px;
 }
 
-/* ---- Reseñas: estado vacío ---- */
 .reviews-empty {
   display: flex;
   flex-direction: column;
@@ -1304,9 +1245,6 @@ p {
   margin-bottom: 8px;
 }
 
-/* ============================================
-   FOOTER
-=============================================== */
 .site-footer {
   background: var(--tinta);
   color: rgba(255, 253, 248, 0.85);
@@ -1367,9 +1305,6 @@ p {
   color: rgba(255, 253, 248, 0.55);
 }
 
-/* ============================================
-   MODALES
-=============================================== */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1423,7 +1358,6 @@ p {
   margin-bottom: 16px;
 }
 
-/* Calendario */
 .calendar {
   margin: 18px 0;
 }
@@ -1499,7 +1433,6 @@ p {
   background: rgba(63, 167, 199, 0.22);
 }
 
-/* Aclaracion del horario de corte, debajo de la grilla. */
 .cal-note {
   margin: 12px 0 0;
   font-size: 0.78rem;
@@ -1514,7 +1447,6 @@ p {
   padding: 10px 12px;
 }
 
-/* Lightbox */
 .lightbox-overlay {
   background: rgba(10, 25, 28, 0.92);
   flex-direction: column;
@@ -1563,14 +1495,6 @@ p {
   }
 }
 
-/* ============================================
-   AVISOS FLOTANTES (toasts)
-
-   Esquina inferior izquierda, por encima de todo (el header sticky
-   esta en 9999 y los modales en 100). El stack no recibe clicks para
-   no tapar lo que hay debajo; cada toast si, porque se cierra al
-   tocarlo.
-=============================================== */
 .toast-stack {
   position: fixed;
   left: 20px;
@@ -1636,7 +1560,7 @@ p {
     animation: none;
   }
 }
-/* En pantallas chicas ocupa el ancho completo menos los margenes. */
+
 @media (max-width: 520px) {
   .toast-stack {
     left: 12px;

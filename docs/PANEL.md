@@ -409,3 +409,49 @@ dashboard/
         ├── supabase.js     PostgREST con fetch, sin SDK
         └── mercadopago.js  devoluciones
 ```
+---
+
+## Trampas del código
+
+El código no lleva comentarios. Lo que sigue es lo que no se deduce leyéndolo, y
+lo que más de una vez ya se rompió por no saberlo.
+
+### `display: flex` en un `<td>` rompe la fila
+
+Poner `display: flex` sobre una celda la saca del algoritmo de tabla: deja de
+ser `table-cell` y con eso pierde el alto y el borde inferior de la fila. Se ve
+como la línea divisoria cortada justo en esa columna.
+
+Cuando una celda necesita dos controles al lado, van en un `<div>` **adentro**
+de la celda. Es lo que hace `.celda-acciones` con el ojito y el botón de
+cancelar de las transferencias.
+
+### `.status-badge` tiene que ser `inline-block`
+
+Como `inline`, un estado de dos palabras se parte en el salto de línea y el
+fondo redondeado se corta al medio: quedan dos medias pastillas apiladas. Va
+con `display: inline-block` y `white-space: nowrap`.
+
+### `[hidden] { display: none !important }`
+
+Está en el CSS a propósito y el `!important` también. Todo lo que en el panel se
+esconde con `elemento.hidden = true` es además un `flex` o un `grid`, y esas
+reglas de layout le ganan al atributo `hidden`: sin esta regla, el "Cargando la
+configuración…" quedaba fijo en pantalla.
+
+`hidden` significa "esto no es relevante ahora", y no hay ningún caso en el que
+una regla de layout deba poder contradecirlo.
+
+### Las estrellas usan el eje FILL, no otro icono
+
+Las cinco son siempre el glifo `star` de Material Symbols. Lo que cambia entre
+encendida y apagada es `font-variation-settings: "FILL"` (1 u 0), no el nombre
+del icono. Usar `star_outline` no funciona: la regla de `.stars` le aplica
+`FILL 1` igual y sale rellena.
+
+### El orden de escritura al resolver un comprobante
+
+Primero el comprobante, después la reserva. Si falla el segundo paso queda un
+comprobante resuelto con la reserva en su estado anterior — visible y
+corregible. Al revés quedaría una reserva confirmada por un comprobante que
+sigue figurando como pendiente, y esa nadie la mira.

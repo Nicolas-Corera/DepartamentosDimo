@@ -15,12 +15,7 @@
       rel="stylesheet"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <!--
-      SDK de MercadoPago v2. Es lo que monta el Card Payment Brick.
-      Los campos de tarjeta que dibuja son iframes servidos por MercadoPago:
-      el número, el vencimiento y el CVV nunca tocan este sitio ni nuestro
-      backend. Lo único que sale de acá es un token de un solo uso.
-    -->
+
     <script src="https://sdk.mercadopago.com/js/v2"></script>
     <style>
       :root {
@@ -153,7 +148,6 @@
         margin-right: 8px;
       }
 
-      /* User Data Grid */
       .user-data-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -189,7 +183,6 @@
         color: var(--color-on-surface);
       }
 
-      /* Tabs */
       .tabs-container {
         display: flex;
         flex-wrap: wrap;
@@ -230,13 +223,12 @@
         margin-right: 8px;
       }
 
-      /* Forms */
       .form-container {
         background-color: var(--color-surface-container-low);
         border-radius: 12px;
         padding: 24px;
         border: 1px solid var(--color-arena-deep);
-        overflow: hidden; /* For animation */
+        overflow: hidden;
       }
 
       .form-content {
@@ -284,10 +276,6 @@
         color: var(--color-on-surface);
       }
 
-      /* Campo de archivo del comprobante. El input nativo de tipo file se ve
-         distinto en cada navegador; lo que se puede peinar de forma pareja es
-         el botón interno (::file-selector-button), así que el marco lo pone el
-         input y el botón queda adentro. */
       .file-input {
         width: 100%;
         background-color: var(--color-blanco);
@@ -323,8 +311,6 @@
         outline-offset: 2px;
       }
 
-      /* Con archivo válido el marco se cierra: es la señal de que el botón de
-         pago se acaba de habilitar. */
       .file-input.tiene-archivo {
         border-style: solid;
         border-color: var(--color-primary);
@@ -382,11 +368,6 @@
         margin-bottom: 8px;
       }
 
-      /* ------------------------------------------------------------------
-         Card Payment Brick
-         El Brick trae sus propios estilos; acá solo se le da el marco y se
-         reserva alto mientras carga, para que no salte el layout.
-         ------------------------------------------------------------------ */
       .brick-wrapper {
         min-height: 320px;
         position: relative;
@@ -403,7 +384,6 @@
         font-size: 14px;
       }
 
-      /* Velo mientras se procesa el pago: evita el doble envío por clic */
       .procesando-velo {
         position: absolute;
         inset: 0;
@@ -433,7 +413,6 @@
         color: var(--color-on-surface-variant);
       }
 
-      /* Spinner */
       .spinner {
         width: 36px;
         height: 36px;
@@ -455,9 +434,6 @@
         }
       }
 
-      /* ------------------------------------------------------------------
-         Avisos (error de pago sobre el formulario)
-         ------------------------------------------------------------------ */
       .aviso {
         border-radius: 12px;
         padding: 16px 20px;
@@ -503,7 +479,6 @@
         color: var(--color-exito);
       }
 
-      /* Right Column (Summary) */
       .summary-card {
         background-color: var(--color-surface-container);
         border-radius: 24px;
@@ -582,17 +557,10 @@
         margin-bottom: 24px;
       }
 
-      /* Selector de cuotas propio, arriba del formulario de tarjeta. */
       .cuotas-selector {
         margin-bottom: 20px;
       }
 
-      /**
-       * `appearance: none` no es cosmético: sin eso, Chrome en Windows ignora
-       * el borde y el radio del <select> y lo dibuja con el aspecto del
-       * sistema, que no se parece en nada al resto del formulario. Al sacarlo
-       * también desaparece la flecha, así que va dibujada de fondo.
-       */
       .cuotas-selector select {
         width: 100%;
         margin-top: 6px;
@@ -617,7 +585,6 @@
         outline-offset: 1px;
       }
 
-      /* Nota de la pestaña activa: "en crédito podés pagar en cuotas", etc. */
       .nota-metodo {
         font-size: 14px;
         color: var(--color-on-surface-variant);
@@ -636,7 +603,6 @@
         color: var(--color-madera);
       }
 
-      /* Desglose noche por noche */
       .detalle-noches {
         font-size: 13px;
         color: var(--color-on-surface-variant);
@@ -696,7 +662,6 @@
         vertical-align: middle;
       }
 
-      /* La fila de cuotas cambia con lo que elige la persona en el formulario */
       .price-row--cuotas {
         font-weight: 600;
         color: var(--color-primary);
@@ -762,9 +727,6 @@
         font-size: 18px;
       }
 
-      /* ------------------------------------------------------------------
-         Pantallas de estado (carga, error de la reserva, resultado del pago)
-         ------------------------------------------------------------------ */
       .pantalla {
         background-color: var(--color-blanco);
         border-radius: 24px;
@@ -860,7 +822,6 @@
         padding: 14px 28px;
       }
 
-      /* Skeleton de carga */
       .skeleton {
         background: linear-gradient(
           90deg,
@@ -879,7 +840,6 @@
         }
       }
 
-      /* Footer */
       .footer {
         width: 100%;
         padding: 24px;
@@ -894,7 +854,6 @@
         color: var(--color-on-surface-variant);
       }
 
-      /* Solo para lectores de pantalla: los cambios de estado se anuncian */
       .sr-only {
         position: absolute;
         width: 1px;
@@ -906,7 +865,7 @@
         white-space: nowrap;
         border: 0;
       }
-    </style>
+</style>
   </head>
   <body>
     <main class="page-container">
@@ -917,16 +876,13 @@
         </p>
       </div>
 
-      <!-- Anuncios de estado para lectores de pantalla -->
       <p class="sr-only" role="status" aria-live="polite" id="anuncio"></p>
 
-      <!-- ============ 1. Cargando la reserva ============ -->
       <section class="pantalla" id="pantalla-carga">
         <div class="spinner"></div>
         <p class="pantalla-detalle">Buscando tu reserva…</p>
       </section>
 
-      <!-- ============ 2. No se pudo cargar la reserva ============ -->
       <section class="pantalla" id="pantalla-error" hidden>
         <div class="pantalla-icono pantalla-icono--error">
           <span class="material-symbols-rounded">link_off</span>
@@ -941,11 +897,10 @@
         </div>
       </section>
 
-      <!-- ============ 3. Checkout ============ -->
       <div class="layout-grid" id="checkout" hidden>
-        <!-- Left Column -->
+
         <div class="left-column">
-          <!-- Datos Section -->
+
           <section class="card-section">
             <h2 class="section-title">
               <span class="material-symbols-rounded">person</span>
@@ -971,14 +926,12 @@
             </div>
           </section>
 
-          <!-- Metodo Pago Section -->
           <section class="card-section" id="seccion-pago">
             <h2 class="section-title">
               <span class="material-symbols-rounded">payment</span>
               Método de Pago
             </h2>
 
-            <!-- Resultado de un intento fallido: se muestra sobre el formulario -->
             <div class="aviso aviso--error" id="aviso-pago" hidden>
               <span class="material-symbols-rounded">error</span>
               <div>
@@ -987,12 +940,6 @@
               </div>
             </div>
 
-            <!--
-              Tres pestañas, no dos: crédito y débito comparten formulario pero
-              NO condiciones. En crédito se ofrecen cuotas; en débito el cobro
-              es siempre en un pago. Separarlas evita que alguien entre con la
-              débito esperando cuotas.
-            -->
             <div class="tabs-container">
               <button class="tab-btn active" data-metodo="credito" type="button">
                 <span class="material-symbols-rounded">credit_card</span>
@@ -1009,25 +956,10 @@
             </div>
 
             <div class="form-container">
-              <!--
-                Un solo Brick para las dos pestañas de tarjeta: al cambiar de
-                pestaña se vuelve a montar con otra configuración de cuotas y
-                de tipos de tarjeta permitidos.
-              -->
+
               <div class="form-content active" id="form-card">
                 <p class="nota-metodo" id="nota-metodo"></p>
 
-                <!--
-                  El selector de cuotas es NUESTRO, no el del Brick.
-
-                  El recargo de cada plan lo definimos nosotros desde el
-                  dashboard, así que el importe que se cobra cambia con la
-                  cantidad de cuotas. El Brick recibe el monto en el momento de
-                  montarse y no lo recalcula: si la persona eligiera las cuotas
-                  adentro del formulario, el importe que le mostraría sería el
-                  de otro plan. Eligiéndolas acá, arriba y antes de cargar la
-                  tarjeta, el Brick se monta ya con el monto definitivo.
-                -->
                 <div class="cuotas-selector" id="cuotas-selector" hidden>
                   <label class="input-label" for="selector-cuotas">Cantidad de cuotas</label>
                   <select id="selector-cuotas"></select>
@@ -1042,7 +974,6 @@
                 </div>
               </div>
 
-              <!-- Transferencia -->
               <div class="form-content" id="form-transfer">
                 <div class="form-grid">
                   <div class="input-group">
@@ -1069,17 +1000,6 @@
                     </p>
                   </div>
 
-                  <!--
-                    El comprobante habilita el botón de pago del resumen. Sin
-                    archivo no hay nada que mandar, así que el botón arranca
-                    deshabilitado. Lo maneja `aplicarMetodo()` en pago.js.
-
-                    `accept` filtra el diálogo del sistema, no valida: es una
-                    sugerencia que se puede saltear eligiendo "todos los
-                    archivos". El tipo lo vuelve a mirar el JS antes de subir y,
-                    del lado del servidor, Storage (que solo acepta los MIME del
-                    bucket) y /api/comprobante sobre el archivo YA subido.
-                  -->
                   <div class="input-group col-span-2">
                     <label class="input-label" for="comprobante-archivo">
                       Comprobante de la transferencia
@@ -1100,7 +1020,6 @@
           </section>
         </div>
 
-        <!-- Right Column -->
         <div class="right-column">
           <div class="summary-card">
             <div class="property-image">
@@ -1120,12 +1039,6 @@
                 <span id="resumen-alojamiento">—</span>
               </div>
 
-              <!--
-                Las noches ya no valen todas lo mismo: hay temporada alta, media
-                y baja, y los fines de semana largo tienen su propia tarifa. Si
-                la estadía cruza tarifas distintas, el desglose noche por noche
-                es lo único que explica de dónde sale el total.
-              -->
               <details class="detalle-noches" id="detalle-noches" hidden>
                 <summary>Ver detalle por noche</summary>
                 <div id="detalle-noches-lista"></div>
@@ -1140,13 +1053,11 @@
                 <span id="resumen-checkout">—</span>
               </div>
 
-              <!-- Recargo del medio de pago elegido. Sin recargo no aparece. -->
               <div class="price-row price-row--cuotas" id="fila-recargo" hidden>
                 <span id="resumen-recargo-label">Recargo</span>
                 <span id="resumen-recargo">—</span>
               </div>
 
-              <!-- Cuántas cuotas y de cuánto. Solo en crédito con más de una. -->
               <div class="price-row price-row--cuotas" id="fila-cuotas" hidden>
                 <span>Cuotas</span>
                 <span id="resumen-cuotas">—</span>
@@ -1159,11 +1070,6 @@
             </div>
             <p class="nota-total" id="nota-total" hidden></p>
 
-            <!--
-              EL ÚNICO botón de pago. El del Brick se oculta con
-              hidePaymentButton y el envío se dispara desde acá con
-              getFormData(), así no hay dos botones que hagan lo mismo.
-            -->
             <button class="submit-btn" type="button" id="btn-pagar">
               <span class="material-symbols-rounded">lock</span>
               <span id="btn-pagar-texto">Confirmar y Pagar</span>
@@ -1190,7 +1096,6 @@
         </div>
       </div>
 
-      <!-- ============ 4. Resultado del pago ============ -->
       <section class="pantalla" id="pantalla-resultado" hidden>
         <div class="pantalla-icono" id="resultado-icono">
           <span class="material-symbols-rounded" id="resultado-icono-glifo">check_circle</span>
@@ -1209,18 +1114,6 @@
       </p>
     </footer>
 
-    <!--
-      Ruta RELATIVA, no "/pago/pago.js".
-
-      El proyecto de Vercel de este sitio tiene Root Directory = "pago", así que
-      esta carpeta es la raíz del dominio: el archivo se sirve en /pago.js y una
-      ruta absoluta /pago/pago.js da 404 (la página queda colgada en "Buscando
-      tu reserva…" porque el script nunca carga).
-
-      Relativa funciona en los dos casos: acá resuelve a /pago.js, y si algún
-      día la página se sirviera desde el sitio principal en /pago/, resolvería
-      a /pago/pago.js.
-    -->
     <script src="pago.js" type="module"></script>
   </body>
 </html>
