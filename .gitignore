@@ -29,6 +29,8 @@ Thumbs.db
 # de los secrets del proveedor:
 apps/sitio/supabase-config.js
 
+sql/
+
 # Link local del proyecto de Vercel (lo crea el CLI)
 .vercel/
 
