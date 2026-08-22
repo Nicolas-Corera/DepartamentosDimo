@@ -357,9 +357,24 @@ textos.
 **"Pagar con otro medio" no recarga la página**, y esa es toda la diferencia. Un
 F5 volvería a pedir la reserva, el backend volvería a contar que el comprobante
 está rechazado y la pantalla volvería a ser esa misma: un botón que no lleva a
-ningún lado. En vez de eso vuelve al checkout, que ya está montado abajo —por
-eso `cargarReserva()` arma el checkout **antes** de poner el cartel de
-rechazado—, y limpia el archivo elegido, que es justamente el que se rechazó.
+ningún lado. En vez de eso monta el checkout ahí mismo y limpia el archivo
+elegido, que es justamente el que se rechazó.
+
+**El cartel se muestra sin montar el checkout por debajo.** Armarlo primero y
+taparlo después hacía que el formulario apareciera un segundo entero y recién
+ahí fuera reemplazado — un parpadeo bien visible en cada carga. El checkout se
+arma recién cuando hace falta, dentro de `volverAlCheckout()`.
+
+**Y la decisión se recuerda.** Quien ya vio el cartel y apretó "Pagar con otro
+medio" no lo tiene que volver a descartar en cada recarga: queda una marca en
+`localStorage` con la clave `dimo:transferencia-descartada:<id del
+comprobante>`, y `cargarReserva()` la mira antes de decidir qué muestra.
+
+Vive en `localStorage` y no en la base porque no es un dato del negocio: es una
+preferencia de quien está mirando la pantalla, en ese navegador. Y lleva el id
+del comprobante adentro, así que si sube otro y ese también se rechaza, el
+cartel vuelve a aparecer una vez — que es lo correcto, porque es una novedad
+distinta.
 
 Un comprobante rechazado deja subir otro: el que manda es el más nuevo.
 

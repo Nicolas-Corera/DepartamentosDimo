@@ -57,6 +57,7 @@ const CONSULTA =
  */
 const CONSULTA_COMPROBANTES =
   "select=id,booking_id,mime,bytes,monto_declarado,estado,created_at,revisado_en," +
+  "devuelto,devuelto_en," +
   "booking_requests(id,nombre,email,dni,telefono,procedencia,check_in,check_out," +
   "personas,adultos,ninos,estado)" +
   "&order=created_at.desc";
@@ -64,6 +65,12 @@ const CONSULTA_COMPROBANTES =
 function comprobanteComoAlquiler(c) {
   const r = c.booking_requests || null;
   const monto = Number(c.monto_declarado || 0);
+
+  /* `devuelto` acá es plata que devolvió una persona a mano desde MercadoPago y
+     después anotó en el panel. La API no la puede mover —esa plata nunca pasó
+     por MercadoPago— pero sin anotarla el registro seguiría diciendo que se
+     cobró todo. Ver dashboard/api/cancelar.js. */
+  const devuelto = Number(c.devuelto || 0);
 
   return {
     origen: "transferencia",
@@ -78,12 +85,22 @@ function comprobanteComoAlquiler(c) {
     // pendiente | confirmado | rechazado. Es lo que decide el cartel y los
     // botones de la fila.
     estadoComprobante: c.estado,
-    estadoPago: c.estado === "confirmado" ? "approved" : "pending",
+
+    /* Se traduce al vocabulario de `payments` para que la tabla del panel pinte
+       las dos igual. Devuelto por completo es 'refunded', igual que una tarjeta:
+       así sale del neto del reporte sin que el front tenga que saber de dónde
+       vino la fila. */
+    estadoPago:
+      c.estado !== "confirmado"
+        ? "pending"
+        : devuelto >= monto && monto > 0
+          ? "refunded"
+          : "approved",
 
     monto,
-    devuelto: 0,
-    neto: monto,
-    devueltoEn: null,
+    devuelto,
+    neto: Math.max(0, monto - devuelto),
+    devueltoEn: c.devuelto_en || null,
     moneda: "ARS",
     metodo: "transferencia",
     tipo: "bank_transfer",
@@ -181,7 +198,9 @@ export default async function handler(req, res) {
        Un comprobante pendiente es alguien diciendo "ya transferí": la fila se
        ve, pero sumarla al cobrado inventaría plata que nadie verificó. Y uno
        rechazado es plata que no entró nunca. */
-    const cuentanPlata = alquileres.filter((a) => a.estadoComprobante !== "pendiente" && a.estadoComprobante !== "rechazado");
+    const cuentanPlata = alquileres.filter(
+      (a) => a.estadoComprobante !== "pendiente" && a.estadoComprobante !== "rechazado",
+    );
     const cobrado = cuentanPlata.reduce((s, a) => s + a.monto, 0);
     const devuelto = cuentanPlata.reduce((s, a) => s + a.devuelto, 0);
     const pendientes = alquileres.filter((a) => a.estadoComprobante === "pendiente");

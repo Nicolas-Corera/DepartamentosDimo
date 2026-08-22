@@ -211,20 +211,55 @@ async function cargarReserva() {
      Esto es lo que hace que la pantalla sobreviva a un F5. Antes el estado
      vivía solo en la memoria de la pestaña: quien recargaba volvía al
      formulario de pago como si nunca hubiera subido nada, y lo razonable era
-     pensar que tenía que transferir de nuevo. */
-  if (cuerpo.transferencia && cuerpo.transferencia.estado !== "rechazado") {
-    mostrarEstadoDeTransferencia(cuerpo.transferencia);
+     pensar que tenía que transferir de nuevo.
+
+     `descartado` es el caso del rechazado que YA decidió seguir pagando: le
+     mostramos el cartel una vez, apretó "Pagar con otro medio", y desde
+     entonces el link le abre el formulario. Repetirle el cartel en cada recarga
+     sería hacerle apretar el mismo botón todas las veces. */
+  const enCurso = cuerpo.transferencia;
+  if (enCurso && !fueDescartado(enCurso)) {
+    // Se muestra el cartel SIN montar el checkout. Montarlo primero hacía que
+    // el formulario apareciera un segundo y después fuera reemplazado, que es
+    // exactamente el parpadeo que no queremos. El checkout se arma recién si
+    // aprieta "Pagar con otro medio".
+    mostrarEstadoDeTransferencia(enCurso);
     return;
   }
 
   mostrarPantalla("checkout");
   await aplicarMetodo("credito");
+}
 
-  // Rechazado es el único estado que deja seguir pagando, así que el checkout
-  // se arma primero y el cartel se pone encima: el botón "Pagar con otro
-  // medio" solo tiene adónde volver si abajo ya hay un formulario montado.
-  if (cuerpo.transferencia?.estado === "rechazado") {
-    mostrarEstadoDeTransferencia(cuerpo.transferencia);
+/* --- "Ya vi el cartel, quiero pagar igual" ---------------------------------
+
+   Vive en localStorage y no en la base porque no es un dato del negocio: es
+   una preferencia de quien está mirando la pantalla, en este navegador. La
+   clave lleva el id del comprobante, así que si mañana sube uno nuevo y ese
+   también se rechaza, el cartel vuelve a aparecer una vez — que es lo
+   correcto: es una novedad distinta.
+   --------------------------------------------------------------------------- */
+
+const CLAVE_DESCARTE = "dimo:transferencia-descartada:";
+
+function fueDescartado(transferencia) {
+  // Solo el rechazado se puede descartar. Un comprobante pendiente o aprobado
+  // no tiene botón para seguir pagando, así que su cartel es el final.
+  if (transferencia.estado !== "rechazado") return false;
+  try {
+    return localStorage.getItem(CLAVE_DESCARTE + transferencia.id) === "1";
+  } catch {
+    // Modo incógnito con storage bloqueado: se pierde la preferencia y el
+    // cartel vuelve a aparecer. Molesto, no roto.
+    return false;
+  }
+}
+
+function marcarDescartado(transferencia) {
+  try {
+    localStorage.setItem(CLAVE_DESCARTE + transferencia.id, "1");
+  } catch {
+    /* ver arriba */
   }
 }
 
@@ -1212,6 +1247,10 @@ function mostrarResultado(mensaje, pago) {
  * rechazó, y dejarlo cargado habilitaría el botón de enviarlo de nuevo.
  */
 async function volverAlCheckout() {
+  // Se recuerda la decisión ANTES de mover nada: si recarga la página, el link
+  // le tiene que abrir el formulario y no el cartel que acaba de descartar.
+  if (estado.datos?.transferencia) marcarDescartado(estado.datos.transferencia);
+
   estado.comprobante = null;
   const input = $("comprobante-archivo");
   if (input) {

@@ -1807,3 +1807,12 @@ td {
   background-color: var(--turquesa);
   color: var(--tinta);
 }
+
+/* Una transferencia aprobada tiene dos acciones —ver y cancelar— y en la
+   celda entran una al lado de la otra. */
+.celda-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}

@@ -95,3 +95,28 @@ revoke all on table public.transfer_receipts from anon, authenticated;
 --
 --   await db.storage.from('comprobantes').list()
 -- ===========================================================================
+
+-- ===========================================================================
+-- AMPLIACIÓN: registrar la devolución de una transferencia
+-- ===========================================================================
+-- Cancelar un alquiler pagado por transferencia no puede devolver la plata:
+-- esa plata nunca pasó por la API de MercadoPago, así que no hay `refund` que
+-- pedir. La devolución la hace una persona, a mano, desde la cuenta.
+--
+-- Pero si no queda registrada en ningún lado, el registro de alquileres sigue
+-- diciendo que se cobraron $480.000 para siempre, aunque se hayan devuelto.
+-- Estas dos columnas son para eso: no mueven plata, la anotan.
+--
+-- Es el mismo par que ya tiene `payments`, y por eso el panel puede tratar a
+-- las dos igual — la única diferencia es quién ejecuta la devolución.
+-- ===========================================================================
+
+alter table public.transfer_receipts
+  add column if not exists devuelto numeric(12,2) not null default 0
+    check (devuelto >= 0);
+
+alter table public.transfer_receipts
+  add column if not exists devuelto_en timestamptz;
+
+comment on column public.transfer_receipts.devuelto is
+  'Cuánto se devolvió de esta transferencia. Lo anota el panel; la devolución la hace una persona a mano desde MercadoPago.';

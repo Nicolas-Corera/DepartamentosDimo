@@ -246,6 +246,32 @@ Decidir dos veces sobre el mismo comprobante devuelve `409`: casi siempre es un
 doble clic o dos pestañas abiertas. Una vez resuelto, el ojito sigue abriendo el
 archivo pero sin los botones de decidir.
 
+#### Cancelar un alquiler pagado por transferencia
+
+Una transferencia **aprobada** es un alquiler cobrado como cualquier otro, y se
+cancela igual que uno de tarjeta: el botón **Cancelar** aparece al lado del
+ojito, con el mismo diálogo de siempre. Mientras el comprobante está pendiente o
+rechazado no hay alquiler que cancelar, así que el botón ni aparece.
+
+Lo que cambia es lo que significa "devolver". El diálogo lo dice con otras
+palabras según de dónde vino la plata:
+
+| | Tarjeta | Transferencia |
+| --- | --- | --- |
+| Opciones | Devolver todo / una parte / nada | **Ya devolví** todo / una parte / nada |
+| Qué hace | Le pide el `refund` a MercadoPago: **la plata sale** | **Solo lo anota** |
+| Aviso | "No se puede revertir" | "La tenés que devolver vos, a mano" |
+
+Anotarlo no es un detalle burocrático: sin eso el registro seguiría diciendo que
+se cobraron $80.000 para siempre, aunque se hayan devuelto. Las columnas
+`devuelto` y `devuelto_en` de `transfer_receipts` son las mismas que ya tiene
+`payments`, y por eso la tabla del panel pinta las dos filas igual —
+*Devuelto en parte*, *Devuelto*, el neto que baja— sin saber de dónde vino cada
+una. La única diferencia es quién ejecuta la devolución.
+
+El tope lo pone el servidor con el mismo criterio que la otra rama: no se puede
+anotar más de lo que entró.
+
 #### ⚠️ Aprobar y rechazar NO mueven plata
 
 Y es la diferencia importante con el botón de cancelar de al lado.

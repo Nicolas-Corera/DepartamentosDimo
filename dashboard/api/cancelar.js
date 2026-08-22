@@ -3,12 +3,27 @@
  * ---------------------------------------------------------------------------
  * Cancela una reserva ya paga y, si se pide, devuelve la plata.
  *
- *     { "paymentId": "1327928212", "devolver": true, "monto": 40000 }
+ *     { "paymentId": "1327928212",   "devolver": true, "monto": 40000 }
+ *     { "comprobanteId": "<uuid>",   "devolver": true, "monto": 40000 }
  *
  * `monto` es opcional: sin él se devuelve todo lo que quede por devolver.
  * `devolver: false` cancela la reserva sin tocar la plata — para cuando la
- * devolución se hace por otro lado (transferencia, efectivo) o directamente no
- * corresponde.
+ * devolución no corresponde.
+ *
+ * ---------------------------------------------------------------------------
+ * DOS ORÍGENES, DOS SIGNIFICADOS DE "DEVOLVER"
+ *
+ * Con `paymentId` (MercadoPago) la plata SALE de verdad: se le pide un `refund`
+ * a la API y recién después se escribe en la base.
+ *
+ * Con `comprobanteId` (transferencia) la plata NO sale: esa transferencia nunca
+ * pasó por MercadoPago, no hay `payment` con id contra el cual pedir un refund,
+ * y no hay forma de hacerlo desde acá. La devolución la hace una persona, a
+ * mano, desde la cuenta. Lo único que hace este endpoint es **anotar cuánto se
+ * devolvió**, para que el registro no siga diciendo que se cobró todo.
+ *
+ * Las dos ramas terminan igual: la reserva pasa a 'cancelada' y las noches se
+ * liberan.
  *
  * ---------------------------------------------------------------------------
  * ESTO MUEVE PLATA DE VERDAD Y NO SE PUEDE DESHACER
@@ -40,6 +55,90 @@ function aCentavos(n) {
   return Math.round(Number(n) * 100);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * La rama de las transferencias.
+ *
+ * No le pide nada a MercadoPago porque no hay nada que pedirle: anota lo que
+ * dice el operador que ya devolvió a mano, y cancela la reserva.
+ *
+ * El tope lo pone igual el servidor, con el mismo criterio que la otra rama:
+ * no se puede anotar una devolución mayor a lo que entró.
+ */
+async function cancelarTransferencia(res, comprobanteId, conDevolucion, montoPedido) {
+  const filas = await seleccionar(
+    "transfer_receipts",
+    `select=id,booking_id,estado,monto_declarado,devuelto&id=eq.${comprobanteId}`,
+  );
+  const comprobante = filas?.[0];
+
+  if (!comprobante) {
+    throw new ErrorVisible(404, "No encontramos ese comprobante.", "comprobante_inexistente");
+  }
+  if (comprobante.estado !== "confirmado") {
+    throw new ErrorVisible(
+      409,
+      "Ese comprobante todavía no está aprobado: no hay ningún alquiler que cancelar.",
+      "comprobante_no_aprobado",
+    );
+  }
+
+  const cobrado = aCentavos(comprobante.monto_declarado);
+  const yaDevuelto = aCentavos(comprobante.devuelto || 0);
+  const disponible = cobrado - yaDevuelto;
+
+  let devolucion = null;
+
+  if (conDevolucion) {
+    if (disponible <= 0) {
+      throw new ErrorVisible(409, "Esta transferencia ya figura devuelta por completo.", "ya_devuelto");
+    }
+
+    let montoCentavos = disponible;
+    if (montoPedido != null && montoPedido !== "") {
+      montoCentavos = aCentavos(montoPedido);
+      if (!Number.isInteger(montoCentavos) || montoCentavos <= 0) {
+        throw new ErrorVisible(400, "El monto a devolver tiene que ser mayor a 0.", "monto_invalido");
+      }
+      if (montoCentavos > disponible) {
+        throw new ErrorVisible(
+          400,
+          `No se puede anotar más de lo que queda ($${(disponible / 100).toLocaleString("es-AR")}).`,
+          "monto_excedido",
+        );
+      }
+    }
+
+    await actualizar("transfer_receipts", `id=eq.${comprobanteId}`, {
+      devuelto: (yaDevuelto + montoCentavos) / 100,
+      devuelto_en: new Date().toISOString(),
+    });
+
+    devolucion = { monto: montoCentavos / 100, manual: true };
+  }
+
+  if (comprobante.booking_id) {
+    await actualizar("booking_requests", `id=eq.${comprobante.booking_id}`, {
+      estado: "cancelada",
+    });
+  }
+
+  console.log(`[cancelar] reserva cancelada — comprobante ${comprobanteId}`);
+
+  return json(res, 200, {
+    ok: true,
+    devolucion,
+    cancelada: Boolean(comprobante.booking_id),
+    // Lo dice el backend para que el aviso no dependa de que alguien se acuerde
+    // de escribirlo en la pantalla.
+    avisoDevolucion: devolucion
+      ? "Quedó anotado, pero la plata no salió de ningún lado: la transferencia " +
+        "la tenés que devolver vos a mano desde MercadoPago."
+      : null,
+  });
+}
+
 export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "POST")) return;
 
@@ -50,7 +149,16 @@ export default async function handler(req, res) {
 
     const cuerpo = leerBody(req);
     paymentId = String(cuerpo.paymentId || "").trim();
+    const comprobanteId = String(cuerpo.comprobanteId || "").trim();
     const conDevolucion = cuerpo.devolver !== false;
+
+    // Las transferencias se van por otro camino: no hay plata que mover.
+    if (comprobanteId) {
+      if (!UUID_RE.test(comprobanteId)) {
+        throw new ErrorVisible(400, "El id del comprobante no es válido.", "id_invalido");
+      }
+      return await cancelarTransferencia(res, comprobanteId, conDevolucion, cuerpo.monto);
+    }
 
     if (!paymentId) {
       throw new ErrorVisible(400, "Falta el número de operación.", "sin_payment_id");

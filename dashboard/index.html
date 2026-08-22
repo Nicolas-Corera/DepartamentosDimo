@@ -616,25 +616,27 @@
           <label class="radio-linea">
             <input checked name="modo-cancelacion" type="radio" value="total" />
             <span>
-              <strong>Devolver todo</strong>
+              <strong id="modal-label-total">Devolver todo</strong>
               <em id="modal-monto-total"></em>
             </span>
           </label>
           <label class="radio-linea">
             <input name="modo-cancelacion" type="radio" value="parcial" />
             <span>
-              <strong>Devolver una parte</strong>
+              <strong id="modal-label-parcial">Devolver una parte</strong>
               <em>Por ejemplo, reteniendo la seña.</em>
             </span>
           </label>
           <div class="input-group modal-parcial" id="modal-parcial" hidden>
-            <label class="label-md" for="modal-monto">Monto a devolver ($)</label>
+            <label class="label-md" for="modal-monto" id="modal-label-monto"
+            >Monto a devolver ($)</label
+          >
             <input id="modal-monto" min="1" step="1" type="number" />
           </div>
           <label class="radio-linea">
             <input name="modo-cancelacion" type="radio" value="ninguna" />
             <span>
-              <strong>No devolver nada</strong>
+              <strong id="modal-label-ninguna">No devolver nada</strong>
               <em>Solo cancela la reserva y libera las fechas.</em>
             </span>
           </label>
@@ -642,7 +644,12 @@
 
         <p class="modal-aviso">
           <span class="material-symbols-outlined">warning</span>
-          Una devolución en MercadoPago no se puede revertir.
+          <!-- Cambia según de dónde vino el pago: con tarjeta la plata sale de
+               verdad y no se puede revertir; con transferencia no sale nada,
+               solo queda anotado. Lo escribe `abrirModalCancelar()`. -->
+          <span id="modal-aviso-texto">
+            Una devolución en MercadoPago no se puede revertir.
+          </span>
         </p>
 
         <div class="modal-acciones">

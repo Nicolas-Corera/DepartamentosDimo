@@ -1017,6 +1017,8 @@ function accionesDeAlquiler(a, esTransferencia) {
   const td = document.createElement("td");
 
   if (esTransferencia) {
+    td.className = "celda-acciones";
+
     const ver = document.createElement("button");
     ver.className = "btn-action btn-action-ver";
     ver.type = "button";
@@ -1031,6 +1033,25 @@ function accionesDeAlquiler(a, esTransferencia) {
     ver.innerHTML = '<span class="material-symbols-outlined">visibility</span>';
     ver.addEventListener("click", () => abrirModalComprobante(a));
     td.appendChild(ver);
+
+    /* Una transferencia aprobada es un alquiler cobrado como cualquier otro, y
+       se cancela igual que uno de tarjeta. La diferencia está adentro del
+       modal: la plata no la puede devolver el panel, solo anotarla.
+
+       Mientras el comprobante está pendiente o rechazado no hay alquiler que
+       cancelar, así que el botón ni aparece. */
+    if (a.estadoComprobante === "confirmado") {
+      const cancelar = document.createElement("button");
+      cancelar.className = "btn-cancelar-reserva";
+      cancelar.type = "button";
+
+      const sinPendiente = a.neto <= 0 && a.estadoReserva === "cancelada";
+      cancelar.textContent = sinPendiente ? "—" : "Cancelar";
+      cancelar.disabled = sinPendiente;
+      if (!sinPendiente) cancelar.addEventListener("click", () => abrirModalCancelar(a));
+      td.appendChild(cancelar);
+    }
+
     return td;
   }
 
@@ -1196,6 +1217,29 @@ async function resolverComprobante(accion) {
 function abrirModalCancelar(alquiler) {
   estado.cancelando = alquiler;
 
+  /* El mismo diálogo dice dos cosas distintas según de dónde vino la plata.
+
+     Con tarjeta, "devolver" es una orden: el refund sale por la API y no se
+     puede revertir. Con transferencia es una anotación: la plata la mueve una
+     persona desde MercadoPago y acá solo queda registrada, para que el registro
+     no siga diciendo que se cobró todo. Prometer "Devolver todo" en ese caso
+     sería mentir sobre lo que hace el botón. */
+  const esTransferencia = alquiler.origen === "transferencia";
+
+  $("modal-label-total").textContent = esTransferencia ? "Ya devolví todo" : "Devolver todo";
+  $("modal-label-parcial").textContent = esTransferencia
+    ? "Devolví una parte"
+    : "Devolver una parte";
+  $("modal-label-ninguna").textContent = esTransferencia
+    ? "No devolví nada"
+    : "No devolver nada";
+  $("modal-label-monto").textContent = esTransferencia
+    ? "Monto que devolviste ($)"
+    : "Monto a devolver ($)";
+  $("modal-aviso-texto").textContent = esTransferencia
+    ? "Acá solo queda anotado. La transferencia la tenés que devolver vos, a mano, desde MercadoPago."
+    : "Una devolución en MercadoPago no se puede revertir.";
+
   $("modal-detalle").textContent =
     `${alquiler.huesped.nombre || "Sin nombre"} — ` +
     `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(alquiler.checkOut)}. ` +
@@ -1268,7 +1312,12 @@ async function confirmarCancelacion() {
     const respuesta = await api("/cancelar", {
       method: "POST",
       body: JSON.stringify({
-        paymentId: alquiler.paymentId,
+        // Uno de los dos, nunca los dos: el backend elige la rama por cuál
+        // viene. Una transferencia no tiene paymentId porque no hubo pago de
+        // MercadoPago.
+        ...(alquiler.origen === "transferencia"
+          ? { comprobanteId: alquiler.comprobanteId }
+          : { paymentId: alquiler.paymentId }),
         devolver: modo !== "ninguna",
         monto,
       }),
@@ -1278,10 +1327,21 @@ async function confirmarCancelacion() {
 
     if (respuesta.aviso) {
       mostrarToast(respuesta.aviso, "error");
+    } else if (respuesta.devolucion?.manual) {
+      // Transferencia: la plata no salió de ningún lado, solo quedó anotada.
+      mostrarToast(
+        `Anotados ${pesos.format(respuesta.devolucion.monto)} devueltos. Reserva cancelada.`,
+      );
     } else if (respuesta.devolucion) {
       mostrarToast(`Devueltos ${pesos.format(respuesta.devolucion.monto)}. Reserva cancelada.`);
     } else {
       mostrarToast("Reserva cancelada. Las fechas quedaron libres.");
+    }
+
+    // El recordatorio de que la devolución sigue pendiente de hacerse a mano va
+    // aparte y después: es lo único que le queda por hacer al operador.
+    if (respuesta.avisoDevolucion) {
+      setTimeout(() => mostrarToast(respuesta.avisoDevolucion, "error"), 400);
     }
 
     await cargarAlquileres();
