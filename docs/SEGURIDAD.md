@@ -7,7 +7,7 @@ encontró y qué quedó configurado. Se actualiza al cerrar cada parte.
 | --- | --- | --- |
 | **A** | Supabase: RLS, políticas, claves, storage, red y Auth | ✅ cerrada |
 | **B** | Vercel: variables, previews, sesión en las rutas y fugas de error | ✅ cerrada |
-| C | — | pendiente |
+| **C** | MercadoPago: firma, idempotencia y reintentos | ✅ cerrada |
 | D | — | pendiente |
 | E | — | pendiente |
 
@@ -363,6 +363,141 @@ lugar donde va.
 
 ---
 
+## Parte C — MercadoPago
+
+Todo se verificó **contra el webhook de producción**, firmando pedidos a mano con
+la clave real y mirando qué contesta.
+
+### Por qué el simulador de MercadoPago daba error
+
+Dos cosas distintas, una detrás de la otra.
+
+**Primero, `308`.** La URL estaba cargada como
+`…/api/webhook/`, con barra final. `apps/pago/vercel.json` tiene
+`"trailingSlash": false`, así que Vercel redirige `/api/webhook/` →
+`/api/webhook`. El simulador no sigue redirecciones: lo toma como fallo.
+
+**Después, sacando la barra, `500`.** Y acá lo importante: **eso no era un
+error de configuración.** El simulador manda siempre `data.id: "123456"`, un id
+inventado. El webhook hace lo que tiene que hacer —le pregunta a MercadoPago por
+ese pago— y MercadoPago contesta `404 Payment not found`. El código no
+distinguía ese caso de una falla real y devolvía `500`.
+
+O sea: **el simulador no puede dar verde contra este webhook**, justamente
+porque el webhook no le cree al aviso y va a verificar. Un webhook que devolviera
+`200` a ese pedido sería uno que no verifica nada.
+
+La bisección que lo confirma, con firma válida en los tres casos:
+
+| Pedido | Antes | Por qué |
+| --- | --- | --- |
+| `type=payment`, `data.id=123456` | `500` | Consulta a MercadoPago y recibe 404 |
+| `type=plan` | `200` | Se descarta antes de consultar |
+| Firma inválida | `401` | Ni llega a consultar |
+
+Que el de `plan` diera `200` y el de `payment` `500` prueba que la firma validaba
+bien: si el problema fuera la clave, los tres habrían dado `401`.
+
+### C.14 — Firma del webhook
+
+Se valida con `WebhookSignatureValidator` del SDK oficial, **antes de tocar
+nada**. Por dentro hace HMAC-SHA256 y compara con `crypto.timingSafeEqual`, que
+es comparación en tiempo constante — el punto pedía explícitamente que no fuera
+`==`, y no lo es.
+
+> **Una corrección al checklist: MercadoPago no firma el body.** El punto pedía
+> validar "usando el body crudo previo al parseo a JSON". Así funciona Stripe.
+> MercadoPago firma otra cosa: arma el texto
+> `id:<data.id>;request-id:<x-request-id>;ts:<ts>;` y de eso saca el HMAC. El
+> cuerpo del pedido no entra en la cuenta.
+>
+> Eso tiene una consecuencia que conviene tener clara: **una firma válida no
+> dice nada sobre el contenido del aviso.** Por eso volver a consultarle el pago
+> a MercadoPago (C.16) no es una precaución extra, es la única forma de saber
+> qué pasó de verdad.
+
+**Lo que faltaba: la ventana de replay.** El SDK acepta un `toleranceSeconds`
+opcional y el código no lo pasaba, así que el `ts` de la firma no se miraba
+nunca. Con eso, cualquiera que capturara una notificación válida podía
+reenviarla para siempre y seguía dando por buena.
+
+Ahora se pasa una tolerancia de **15 minutos**. Es holgada a propósito: si el
+reloj del servidor se corre unos minutos, un aviso legítimo no se pierde.
+
+Verificado: una firma válida de hace 2 horas ahora devuelve `401`; una de hace
+5 minutos sigue pasando.
+
+### C.15 — Idempotencia
+
+Bien resuelta en las dos mitades, y con dos mecanismos distintos porque son dos
+problemas distintos.
+
+**El registro del pago.** `payments` tiene `UNIQUE (mp_payment_id)` y
+`guardarPago()` hace `upsert` con `onConflict: "mp_payment_id"`. El segundo aviso
+del mismo pago actualiza la fila, no crea otra.
+
+**Los mails.** Acá un `upsert` no alcanza: el problema no es duplicar una fila,
+es mandar el mail dos veces. `enviarUnaVez()` **reserva antes de mandar**:
+inserta la clave en `emails_enviados` (que tiene `PRIMARY KEY (clave)`) y, si el
+insert choca con un `23505`, quiere decir que otro ya lo mandó y se sale sin
+enviar. Si el envío falla, borra la reserva para que se pueda reintentar.
+
+Las claves son por pago y por destinatario: `reserva:<referencia>:inquilino`,
+`reserva:<referencia>:duenos`, `pago:<referencia>:inquilino`, etc.
+
+Probado contra la base: la primera reserva devuelve `true`, la segunda y la
+tercera `false`, y después de liberar vuelve a dar `true`.
+
+Aparte, el cobro tiene su propia idempotencia contra MercadoPago:
+`claveIdempotencia()` arma un hash de `ref:token` y `esPedidoDuplicado()`
+reconoce el `423 resource_already_locked` para recuperar el pago en vez de
+cobrar de nuevo.
+
+### C.16 — No confiar en el frontend
+
+Ya verificado en [B.12](#b12--sesión-y-permisos-al-inicio-de-cada-ruta): el
+monto sale de `calcularPrecio()` con las fechas guardadas y las tarifas de la
+base, y el webhook re-consulta el pago con `consultarPago(dataId)` en vez de
+leer el estado del body. Del navegador no viaja ningún monto.
+
+### C.17 — Responder rápido y no forzar reintentos
+
+Acá estaba el problema real, y es el mismo que hacía fallar el simulador.
+
+**Un `500` le dice a MercadoPago "volvé a intentar".** Como el código devolvía
+`500` ante un pago que MercadoPago no encuentra, cualquier aviso de un pago
+inexistente, borrado o de otra cuenta entraba en un ciclo de reintentos que no
+terminaba nunca.
+
+Ahora se distingue:
+
+| Situación | Respuesta | Qué hace MercadoPago |
+| --- | --- | --- |
+| Pago inexistente (404 de MercadoPago) | `200` | Lo da por entregado |
+| Tipo de evento que no nos interesa | `200` | Lo da por entregado |
+| Firma inválida | `401` | No reintenta |
+| Falla transitoria (red, base, 5xx) | `500` | Reintenta, que es lo que queremos |
+
+#### Sobre procesar de forma asíncrona
+
+El punto pedía además responder `200` enseguida y procesar después. **Se dejó
+sincrónico, a propósito.**
+
+Medido contra producción, la ida y vuelta completa a MercadoPago tarda **~0,3 s**;
+el camino entero, con base y mails, queda muy por debajo del tiempo que
+MercadoPago espera. No hay apuro que justifique el cambio.
+
+Y el cambio tendría un costo concreto: si se responde `200` antes de procesar y
+el procesamiento falla, **MercadoPago no reintenta nunca** y el pago se pierde
+en silencio. Hoy los reintentos juegan a favor, porque tanto el registro como
+los mails son idempotentes: reintentar es gratis y arregla fallas pasajeras.
+
+Si algún día el procesamiento se vuelve pesado, la forma correcta acá es
+`waitUntil()` de `@vercel/functions` **más** una cola o una tabla de pendientes
+para no perder lo que falle. Mientras tanto, sincrónico es más seguro.
+
+---
+
 ## Los dos frenos contra el abuso
 
 Salieron del hallazgo abierto en [B.12](#lo-que-sí-falta-nadie-limita-los-endpoints-que-mandan-mails).
@@ -445,6 +580,23 @@ manda a escribir por WhatsApp — no un error técnico.
 ---
 
 ## Lo que queda a mano
+
+### De la Parte C — en el panel de MercadoPago
+
+1. **Rotar la clave secreta del webhook.** La de modo prueba quedó visible en una
+   captura de pantalla. Se cambia con el botón de refrescar que está al lado del
+   campo *Clave secreta*, y después hay que actualizar `MP_WEBHOOK_SECRET` en el
+   proyecto `departamentosdimopagoweb` de Vercel. **Ojo:** modo prueba y modo
+   productivo tienen claves distintas — la de producción no se tocó.
+
+2. **Cargar la URL sin barra final**, en los dos modos:
+   `https://pago.departamentosdimo.com.ar/api/webhook`. Con barra da `308` y
+   MercadoPago lo toma como fallo.
+
+> Con el fix de [C.17](#c17--responder-rápido-y-no-forzar-reintentos) deployado,
+> el simulador pasa a dar `200`: el pago inventado se reconoce como inexistente y
+> se responde que no hay nada que hacer. **Antes de deployar va a seguir dando
+> `500`, y eso no quiere decir que esté mal configurado.**
 
 ### De la Parte B — decisión pendiente
 

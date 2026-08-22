@@ -1,6 +1,11 @@
 import { leerConfig } from "./_lib/env.js";
 import { exigirMetodo, json, leerBody } from "./_lib/http.js";
-import { validarFirmaWebhook, consultarPago, resumirPago } from "./_lib/mercadopago.js";
+import {
+  validarFirmaWebhook,
+  consultarPago,
+  resumirPago,
+  esPagoInexistente,
+} from "./_lib/mercadopago.js";
 import {
   guardarPago,
   confirmarReserva,
@@ -154,7 +159,16 @@ export default async function handler(req, res) {
       return json(res, 200, { ok: true, ignorado: tipo || "sin tipo" });
     }
 
-    const pago = await consultarPago(dataId);
+    let pago;
+    try {
+      pago = await consultarPago(dataId);
+    } catch (error) {
+      if (!esPagoInexistente(error)) throw error;
+
+      log.warn("webhook.pago_inexistente", { data_id: dataId, tipo });
+      return json(res, 200, { ok: true, ignorado: "pago inexistente" });
+    }
+
     const resumen = resumirPago(pago);
 
     const bookingId = esUuid(resumen.external_reference) ? resumen.external_reference : null;

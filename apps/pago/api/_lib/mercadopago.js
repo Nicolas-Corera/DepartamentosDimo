@@ -142,6 +142,15 @@ function normalizarCuotas(valor) {
   return Number.isInteger(n) && n >= 1 && n <= 24 ? n : null;
 }
 
+const TOLERANCIA_FIRMA_S = 15 * 60;
+
+export function esPagoInexistente(error) {
+  if (!error) return false;
+  if (Number(error.status || error.statusCode) === 404) return true;
+  if (error.error === "not_found") return true;
+  return Array.isArray(error.cause) && error.cause.some((c) => Number(c?.code) === 2000);
+}
+
 export function validarFirmaWebhook({ signatureHeader, requestId, dataId, secreto }) {
   if (!secreto) return { valido: false, motivo: "no hay MP_WEBHOOK_SECRET configurado" };
   if (!dataId) return { valido: false, motivo: "falta data.id" };
@@ -154,7 +163,7 @@ export function validarFirmaWebhook({ signatureHeader, requestId, dataId, secret
       xRequestId: requestId,
       dataId,
       secret: secreto,
-
+      toleranceSeconds: TOLERANCIA_FIRMA_S,
     });
     return { valido: true, ts };
   } catch (error) {
