@@ -146,11 +146,11 @@ async function api(ruta, opciones = {}) {
    =========================================================================== */
 
 const estado = {
-  tarifas: null,     // lo último que devolvió GET /api/tarifas
+  tarifas: null, // lo último que devolvió GET /api/tarifas
   alquileres: [],
   totales: null,
   resenas: [],
-  cancelando: null,  // el alquiler que está abierto en el modal de cancelación
+  cancelando: null, // el alquiler que está abierto en el modal de cancelación
   comprobante: null, // la transferencia abierta en el visor de comprobante
 };
 
@@ -165,7 +165,8 @@ async function cargarTarifas() {
     $("tarifas-cargando").hidden = true;
     $("tarifas-form").hidden = false;
   } catch (error) {
-    $("tarifas-cargando").textContent = `No se pudo cargar la configuración: ${error.message}`;
+    $("tarifas-cargando").textContent =
+      `No se pudo cargar la configuración: ${error.message}`;
     mostrarToast(error.message, "error");
   }
 }
@@ -239,7 +240,10 @@ function pintarMedios(medios) {
       recargo.max = "100";
       recargo.step = "0.5";
       recargo.value = m.recargoPorcentaje;
-      recargo.setAttribute("aria-label", `Recargo de ${m.nombre} en porcentaje`);
+      recargo.setAttribute(
+        "aria-label",
+        `Recargo de ${m.nombre} en porcentaje`,
+      );
       recargo.addEventListener("input", recalcularCalculadora);
 
       const sufijo = document.createElement("span");
@@ -270,7 +274,9 @@ function leerMedios() {
  */
 function pintarCuotas(maxCuotas, planes) {
   const grid = $("cuotas-grid");
-  const porCuota = new Map((planes || []).map((p) => [p.cuotas, p.recargoPorcentaje]));
+  const porCuota = new Map(
+    (planes || []).map((p) => [p.cuotas, p.recargoPorcentaje]),
+  );
 
   // Lo que ya esté escrito en pantalla gana sobre lo que vino de la base: es lo
   // que la persona acaba de tipear y todavía no guardó.
@@ -394,7 +400,11 @@ function agregarEspecial() {
   // contenedor con scroll-snap le mueve la geometría al scroller mientras dura
   // la animación, y el navegador vuelve a snapear en el medio del scroll que
   // acabamos de pedir.
-  gsap.fromTo(tarjeta, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
+  gsap.fromTo(
+    tarjeta,
+    { opacity: 0 },
+    { opacity: 1, duration: 0.3, ease: "power2.out" },
+  );
 
   // Primero el scroll, y el foco SIN scroll automático: si se le deja hacer el
   // suyo, el navegador acomoda el input con el mínimo desplazamiento posible y
@@ -416,7 +426,8 @@ function agregarEspecial() {
  */
 function pasoDelCarrusel(carrusel) {
   const tarjetas = carrusel.querySelectorAll(".special-date-card");
-  if (tarjetas.length > 1) return tarjetas[1].offsetLeft - tarjetas[0].offsetLeft;
+  if (tarjetas.length > 1)
+    return tarjetas[1].offsetLeft - tarjetas[0].offsetLeft;
   return carrusel.offsetWidth;
 }
 
@@ -481,7 +492,10 @@ function marcarPuntoActivo() {
   const puntos = document.querySelectorAll(".carousel-dots .dot");
   if (!carrusel || !puntos.length) return;
 
-  let i = Math.round(carrusel.scrollLeft / pasoDelCarrusel(carrusel));
+  const paso = pasoDelCarrusel(carrusel);
+  if (!paso) return;
+
+  let i = Math.round(carrusel.scrollLeft / paso);
   if (i >= puntos.length) i = puntos.length - 1;
   puntos.forEach((p, j) => p.classList.toggle("active", j === i));
 }
@@ -495,7 +509,9 @@ function validarRango(desde, hasta) {
   const mal = desde.value && hasta.value && hasta.value < desde.value;
 
   if (mal) {
-    hasta.setCustomValidity('La fecha "Hasta" no puede ser anterior a "Desde".');
+    hasta.setCustomValidity(
+      'La fecha "Hasta" no puede ser anterior a "Desde".',
+    );
     hasta.classList.add("input-error");
     if (!error) {
       error = document.createElement("span");
@@ -537,7 +553,9 @@ function configEnPantalla() {
   return {
     temporadas: ["alta", "media", "baja"].map((clave) => ({
       clave,
-      nombre: estado.tarifas?.temporadas.find((t) => t.clave === clave)?.nombre || clave,
+      nombre:
+        estado.tarifas?.temporadas.find((t) => t.clave === clave)?.nombre ||
+        clave,
       desde: $(`${clave}-desde`).value,
       hasta: $(`${clave}-hasta`).value,
       precio: Number($(`${clave}-precio`).value || 0),
@@ -562,18 +580,33 @@ function configEnPantalla() {
  */
 function precioDeLaNoche(iso, config) {
   const especial = config.especiales
-    .filter((e) => e.desde && e.hasta && iso >= e.desde && iso <= e.hasta && e.precio > 0)
+    .filter(
+      (e) =>
+        e.desde && e.hasta && iso >= e.desde && iso <= e.hasta && e.precio > 0,
+    )
     .sort((a, b) => b.precio - a.precio)[0];
 
   if (especial) {
-    return { precio: especial.precio, etiqueta: especial.motivo || "Fecha especial", especial: true };
+    return {
+      precio: especial.precio,
+      etiqueta: especial.motivo || "Fecha especial",
+      especial: true,
+    };
   }
 
   const temporada = config.temporadas
-    .filter((t) => t.desde && t.hasta && iso >= t.desde && iso <= t.hasta && t.precio > 0)
+    .filter(
+      (t) =>
+        t.desde && t.hasta && iso >= t.desde && iso <= t.hasta && t.precio > 0,
+    )
     .sort((a, b) => b.precio - a.precio)[0];
 
-  if (temporada) return { precio: temporada.precio, etiqueta: temporada.nombre, especial: false };
+  if (temporada)
+    return {
+      precio: temporada.precio,
+      etiqueta: temporada.nombre,
+      especial: false,
+    };
 
   const baja = config.temporadas.find((t) => t.clave === "baja");
   return {
@@ -628,7 +661,11 @@ function revisarHuecos() {
   const baja = config.temporadas.find((t) => t.clave === "baja");
   const texto = huecos
     .slice(0, 3)
-    .map(([a, b]) => (a === b ? fechaCorta(aISO(a)) : `${fechaCorta(aISO(a))} al ${fechaCorta(aISO(b))}`))
+    .map(([a, b]) =>
+      a === b
+        ? fechaCorta(aISO(a))
+        : `${fechaCorta(aISO(a))} al ${fechaCorta(aISO(b))}`,
+    )
     .join(" · ");
 
   $("aviso-huecos-detalle").textContent =
@@ -651,11 +688,14 @@ function prepararCalculadora() {
       .map((m) => {
         const o = document.createElement("option");
         o.value = m.clave;
-        o.textContent = estado.tarifas?.medios.find((x) => x.clave === m.clave)?.nombre || m.clave;
+        o.textContent =
+          estado.tarifas?.medios.find((x) => x.clave === m.clave)?.nombre ||
+          m.clave;
         return o;
       }),
   );
-  if (elegido && [...medio.options].some((o) => o.value === elegido)) medio.value = elegido;
+  if (elegido && [...medio.options].some((o) => o.value === elegido))
+    medio.value = elegido;
 
   actualizarSelectorDeCuotasCalc();
   recalcularCalculadora();
@@ -695,7 +735,9 @@ function recalcularCalculadora() {
     return;
   }
   if (checkOut <= checkIn) {
-    salida.replaceChildren(crearVacio("El check-out tiene que ser posterior al check-in."));
+    salida.replaceChildren(
+      crearVacio("El check-out tiene que ser posterior al check-in."),
+    );
     return;
   }
 
@@ -703,7 +745,9 @@ function recalcularCalculadora() {
   const cantidad = Math.round((aUTC(checkOut) - aUTC(checkIn)) / UN_DIA);
 
   if (cantidad > 365) {
-    salida.replaceChildren(crearVacio("Son más de 365 noches: revisá las fechas."));
+    salida.replaceChildren(
+      crearVacio("Son más de 365 noches: revisá las fechas."),
+    );
     return;
   }
 
@@ -720,7 +764,10 @@ function recalcularCalculadora() {
   const cuotas = Number($("calc-cuotas").value || 1);
 
   const medio = config.medios.find((m) => m.clave === claveMedio);
-  const plan = claveMedio === "credito" ? config.planes.find((p) => p.cuotas === cuotas) : null;
+  const plan =
+    claveMedio === "credito"
+      ? config.planes.find((p) => p.cuotas === cuotas)
+      : null;
 
   const recargoMedio = Number(medio?.recargoPorcentaje || 0);
   const recargoCuotas = Number(plan?.recargoPorcentaje || 0);
@@ -730,15 +777,30 @@ function recalcularCalculadora() {
   const conFallback = noches.filter((n) => n.fallback).length;
 
   const lineas = [
-    linea(`${cantidad} ${cantidad === 1 ? "noche" : "noches"}`, pesos.format(base)),
+    linea(
+      `${cantidad} ${cantidad === 1 ? "noche" : "noches"}`,
+      pesos.format(base),
+    ),
   ];
 
   if (recargoMedio > 0) {
-    const nombre = estado.tarifas?.medios.find((m) => m.clave === claveMedio)?.nombre || claveMedio;
-    lineas.push(linea(`Recargo ${nombre} (+${pct(recargoMedio)}%)`, pesos.format(Math.round(base * recargoMedio / 100))));
+    const nombre =
+      estado.tarifas?.medios.find((m) => m.clave === claveMedio)?.nombre ||
+      claveMedio;
+    lineas.push(
+      linea(
+        `Recargo ${nombre} (+${pct(recargoMedio)}%)`,
+        pesos.format(Math.round((base * recargoMedio) / 100)),
+      ),
+    );
   }
   if (recargoCuotas > 0) {
-    lineas.push(linea(`Recargo ${cuotas} cuotas (+${pct(recargoCuotas)}%)`, pesos.format(Math.round(base * recargoCuotas / 100))));
+    lineas.push(
+      linea(
+        `Recargo ${cuotas} cuotas (+${pct(recargoCuotas)}%)`,
+        pesos.format(Math.round((base * recargoCuotas) / 100)),
+      ),
+    );
   }
   if (conFallback > 0) {
     lineas.push(
@@ -750,10 +812,14 @@ function recalcularCalculadora() {
     );
   }
 
-  lineas.push(linea("Total a cobrar", pesos.format(total), "calc-linea--total"));
+  lineas.push(
+    linea("Total a cobrar", pesos.format(total), "calc-linea--total"),
+  );
 
   if (cuotas > 1) {
-    lineas.push(linea(`${cuotas} cuotas de`, pesos.format(Math.round(total / cuotas))));
+    lineas.push(
+      linea(`${cuotas} cuotas de`, pesos.format(Math.round(total / cuotas))),
+    );
   }
 
   // El desglose noche por noche: es lo que explica un total que no es
@@ -884,7 +950,8 @@ async function cargarAlquileres() {
     estado.totales = datos.totales;
     pintarAlquileres();
   } catch (error) {
-    $("alquileres-cargando").textContent = `No se pudo cargar el registro: ${error.message}`;
+    $("alquileres-cargando").textContent =
+      `No se pudo cargar el registro: ${error.message}`;
     mostrarToast(error.message, "error");
   }
 }
@@ -914,7 +981,9 @@ function pintarAlquileres() {
       `${pesos.format(estado.totales.montoPendiente || 0)} · ${pendientes}`;
   }
 
-  $("alquileres-cuerpo").replaceChildren(...estado.alquileres.map(filaDeAlquiler));
+  $("alquileres-cuerpo").replaceChildren(
+    ...estado.alquileres.map(filaDeAlquiler),
+  );
 }
 
 /** El estado que se muestra: mezcla el del pago con el de la reserva. */
@@ -931,11 +1000,16 @@ function estadoDeAlquiler(a) {
     return { texto: "Comprobante rechazado", clase: "status-cancelado" };
   }
 
-  if (a.estadoPago === "charged_back") return { texto: "Contracargo", clase: "status-devuelto" };
-  if (a.estadoPago === "refunded") return { texto: "Devuelto", clase: "status-devuelto" };
-  if (a.devuelto > 0) return { texto: "Devuelto en parte", clase: "status-parcial" };
-  if (a.estadoReserva === "cancelada") return { texto: "Cancelada", clase: "status-cancelado" };
-  if (a.estadoReserva === "confirmada") return { texto: "Confirmada", clase: "status-confirmado" };
+  if (a.estadoPago === "charged_back")
+    return { texto: "Contracargo", clase: "status-devuelto" };
+  if (a.estadoPago === "refunded")
+    return { texto: "Devuelto", clase: "status-devuelto" };
+  if (a.devuelto > 0)
+    return { texto: "Devuelto en parte", clase: "status-parcial" };
+  if (a.estadoReserva === "cancelada")
+    return { texto: "Cancelada", clase: "status-cancelado" };
+  if (a.estadoReserva === "confirmada")
+    return { texto: "Confirmada", clase: "status-confirmado" };
   return { texto: "Pagada", clase: "status-pendiente" };
 }
 
@@ -965,12 +1039,19 @@ function filaDeAlquiler(a) {
   // hubo operación de MercadoPago. Poner "Op. null" sería peor que no poner
   // nada: parecería un pago roto en vez de otra forma de cobrar.
   tr.appendChild(
-    celda(fechaHora(a.fecha), esTransferencia ? "Transferencia" : `Op. ${a.paymentId}`),
+    celda(
+      fechaHora(a.fecha),
+      esTransferencia ? "Transferencia" : `Op. ${a.paymentId}`,
+    ),
   );
-  tr.appendChild(celda(a.huesped.nombre, a.huesped.email || a.huesped.telefono || ""));
+  tr.appendChild(
+    celda(a.huesped.nombre, a.huesped.email || a.huesped.telefono || ""),
+  );
   tr.appendChild(
     celda(
-      a.checkIn ? `Desde: ${fechaCorta(a.checkIn)} Hasta: ${fechaCorta(a.checkOut)}` : "—",
+      a.checkIn
+        ? `Desde: ${fechaCorta(a.checkIn)} Hasta: ${fechaCorta(a.checkOut)}`
+        : "—",
       a.huesped.procedencia || "",
     ),
   );
@@ -990,7 +1071,10 @@ function filaDeAlquiler(a) {
   );
 
   tr.appendChild(
-    celda(pesos.format(a.monto), a.devuelto > 0 ? `− ${pesos.format(a.devuelto)} devuelto` : ""),
+    celda(
+      pesos.format(a.monto),
+      a.devuelto > 0 ? `− ${pesos.format(a.devuelto)} devuelto` : "",
+    ),
   );
 
   const tdEstado = document.createElement("td");
@@ -1054,7 +1138,8 @@ function accionesDeAlquiler(a, esTransferencia) {
       const sinPendiente = a.neto <= 0 && a.estadoReserva === "cancelada";
       cancelar.textContent = sinPendiente ? "—" : "Cancelar";
       cancelar.disabled = sinPendiente;
-      if (!sinPendiente) cancelar.addEventListener("click", () => abrirModalCancelar(a));
+      if (!sinPendiente)
+        cancelar.addEventListener("click", () => abrirModalCancelar(a));
       grupo.appendChild(cancelar);
     }
 
@@ -1070,7 +1155,8 @@ function accionesDeAlquiler(a, esTransferencia) {
   const sinPendiente = a.neto <= 0 && a.estadoReserva === "cancelada";
   boton.textContent = sinPendiente ? "—" : "Cancelar";
   boton.disabled = sinPendiente;
-  if (!sinPendiente) boton.addEventListener("click", () => abrirModalCancelar(a));
+  if (!sinPendiente)
+    boton.addEventListener("click", () => abrirModalCancelar(a));
 
   td.appendChild(boton);
   return td;
@@ -1116,7 +1202,9 @@ async function abrirModalComprobante(alquiler) {
   try {
     // Las URLs son temporales y las firma el servidor recién ahora: el bucket
     // es privado y no hay ninguna URL permanente que se pueda filtrar.
-    const datos = await api(`/comprobantes?id=${encodeURIComponent(alquiler.comprobanteId)}`);
+    const datos = await api(
+      `/comprobantes?id=${encodeURIComponent(alquiler.comprobanteId)}`,
+    );
 
     const descargar = $("comprobante-descargar");
     descargar.href = datos.descargar;
@@ -1233,7 +1321,9 @@ function abrirModalCancelar(alquiler) {
      sería mentir sobre lo que hace el botón. */
   const esTransferencia = alquiler.origen === "transferencia";
 
-  $("modal-label-total").textContent = esTransferencia ? "Ya devolví todo" : "Devolver todo";
+  $("modal-label-total").textContent = esTransferencia
+    ? "Ya devolví todo"
+    : "Devolver todo";
   $("modal-label-parcial").textContent = esTransferencia
     ? "Devolví una parte"
     : "Devolver una parte";
@@ -1251,25 +1341,35 @@ function abrirModalCancelar(alquiler) {
     `${alquiler.huesped.nombre || "Sin nombre"} — ` +
     `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(alquiler.checkOut)}. ` +
     `Se cobraron ${pesos.format(alquiler.monto)}` +
-    (alquiler.devuelto > 0 ? `, de los que ya se devolvieron ${pesos.format(alquiler.devuelto)}.` : ".");
+    (alquiler.devuelto > 0
+      ? `, de los que ya se devolvieron ${pesos.format(alquiler.devuelto)}.`
+      : ".");
 
-  $("modal-monto-total").textContent = `${pesos.format(alquiler.neto)} — todo lo que queda por devolver.`;
+  $("modal-monto-total").textContent =
+    `${pesos.format(alquiler.neto)} — todo lo que queda por devolver.`;
 
   const monto = $("modal-monto");
   monto.max = String(alquiler.neto);
   monto.value = "";
   monto.placeholder = `Hasta ${alquiler.neto}`;
 
-  document.querySelector('input[name="modo-cancelacion"][value="total"]').checked = true;
+  document.querySelector(
+    'input[name="modo-cancelacion"][value="total"]',
+  ).checked = true;
   $("modal-parcial").hidden = true;
 
   // Sin plata pendiente, devolver no es una opción: solo queda cancelar.
-  const hayQueDevolver = alquiler.neto > 0 && alquiler.estadoPago === "approved";
-  for (const radio of document.querySelectorAll('input[name="modo-cancelacion"]')) {
+  const hayQueDevolver =
+    alquiler.neto > 0 && alquiler.estadoPago === "approved";
+  for (const radio of document.querySelectorAll(
+    'input[name="modo-cancelacion"]',
+  )) {
     if (radio.value !== "ninguna") radio.disabled = !hayQueDevolver;
   }
   if (!hayQueDevolver) {
-    document.querySelector('input[name="modo-cancelacion"][value="ninguna"]').checked = true;
+    document.querySelector(
+      'input[name="modo-cancelacion"][value="ninguna"]',
+    ).checked = true;
   }
 
   $("modal-cancelar").hidden = false;
@@ -1282,7 +1382,10 @@ function cerrarModal() {
 }
 
 function modoElegido() {
-  return document.querySelector('input[name="modo-cancelacion"]:checked')?.value || "total";
+  return (
+    document.querySelector('input[name="modo-cancelacion"]:checked')?.value ||
+    "total"
+  );
 }
 
 async function confirmarCancelacion() {
@@ -1300,7 +1403,10 @@ async function confirmarCancelacion() {
       return;
     }
     if (monto > alquiler.neto) {
-      mostrarToast(`No se puede devolver más de ${pesos.format(alquiler.neto)}.`, "error");
+      mostrarToast(
+        `No se puede devolver más de ${pesos.format(alquiler.neto)}.`,
+        "error",
+      );
       $("modal-monto").focus();
       return;
     }
@@ -1340,7 +1446,9 @@ async function confirmarCancelacion() {
         `Anotados ${pesos.format(respuesta.devolucion.monto)} devueltos. Reserva cancelada.`,
       );
     } else if (respuesta.devolucion) {
-      mostrarToast(`Devueltos ${pesos.format(respuesta.devolucion.monto)}. Reserva cancelada.`);
+      mostrarToast(
+        `Devueltos ${pesos.format(respuesta.devolucion.monto)}. Reserva cancelada.`,
+      );
     } else {
       mostrarToast("Reserva cancelada. Las fechas quedaron libres.");
     }
@@ -1378,12 +1486,19 @@ function descargarReporte() {
 
   const constructor = window.jspdf?.jsPDF;
   if (!constructor) {
-    mostrarToast("No se pudo cargar el generador de PDF. Revisá tu conexión.", "error");
+    mostrarToast(
+      "No se pudo cargar el generador de PDF. Revisá tu conexión.",
+      "error",
+    );
     return;
   }
 
   // Apaisado: son ocho columnas y en vertical el nombre y el mail se parten.
-  const doc = new constructor({ orientation: "landscape", unit: "pt", format: "a4" });
+  const doc = new constructor({
+    orientation: "landscape",
+    unit: "pt",
+    format: "a4",
+  });
   const ancho = doc.internal.pageSize.getWidth();
   const generado = fechaHora(new Date().toISOString());
 
@@ -1411,14 +1526,30 @@ function descargarReporte() {
 
   doc.autoTable({
     startY: 96,
-    head: [["Pago", "Inqulino", "Contacto", "Fechas", "Pers.", "Medio", "Monto", "Estado"]],
+    head: [
+      [
+        "Pago",
+        "Inqulino",
+        "Contacto",
+        "Fechas",
+        "Pers.",
+        "Medio",
+        "Monto",
+        "Estado",
+      ],
+    ],
     body: estado.alquileres.map((a) => [
       `${fechaHora(a.fecha)}\n${a.paymentId ? `Op. ${a.paymentId}` : "Transferencia"}`,
-      [a.huesped.nombre , a.huesped.dni].join("\n") || "—",
-      ["Email: " + a.huesped.email, "Tel.: " + a.huesped.telefono].filter(Boolean).join("\n") || "—",
-      a.checkIn ? `Desde: ${fechaCorta(a.checkIn)}\nHasta: ${fechaCorta(a.checkOut)}` : "—",
+      [a.huesped.nombre, a.huesped.dni].join("\n") || "—",
+      ["Email: " + a.huesped.email, "Tel.: " + a.huesped.telefono]
+        .filter(Boolean)
+        .join("\n") || "—",
+      a.checkIn
+        ? `Desde: ${fechaCorta(a.checkIn)}\nHasta: ${fechaCorta(a.checkOut)}`
+        : "—",
       a.personas == null ? "—" : String(a.personas),
-      (NOMBRE_MEDIO[a.tipo] || a.tipo || "—") + (a.cuotas > 1 ? `\n${a.cuotas} cuotas` : ""),
+      (NOMBRE_MEDIO[a.tipo] || a.tipo || "—") +
+        (a.cuotas > 1 ? `\n${a.cuotas} cuotas` : ""),
       a.devuelto > 0
         ? `${pesos.format(a.monto)}\n− ${pesos.format(a.devuelto)}`
         : pesos.format(a.monto),
@@ -1437,9 +1568,14 @@ function descargarReporte() {
       const pagina = doc.internal.getNumberOfPages();
       doc.setFontSize(8);
       doc.setTextColor(140);
-      doc.text(`Página ${pagina}`, ancho - 40, doc.internal.pageSize.getHeight() - 20, {
-        align: "right",
-      });
+      doc.text(
+        `Página ${pagina}`,
+        ancho - 40,
+        doc.internal.pageSize.getHeight() - 20,
+        {
+          align: "right",
+        },
+      );
       void datos;
     },
   });
@@ -1459,7 +1595,8 @@ async function cargarResenas() {
     estado.resenas = datos.resenas;
     pintarResenas(datos.pendientes);
   } catch (error) {
-    $("resenas-cargando").textContent = `No se pudieron cargar las reseñas: ${error.message}`;
+    $("resenas-cargando").textContent =
+      `No se pudieron cargar las reseñas: ${error.message}`;
     mostrarToast(error.message, "error");
   }
 }
@@ -1477,8 +1614,13 @@ function pintarResenas(pendientes) {
   // escribe la gente, no solo lo que ya se dejó salir al sitio.
   $("resenas-promedio-chip").hidden = !hay;
   if (hay) {
-    const suma = estado.resenas.reduce((acc, r) => acc + (Number(r.puntaje) || 0), 0);
-    $("resenas-promedio").textContent = puntajes.format(suma / estado.resenas.length);
+    const suma = estado.resenas.reduce(
+      (acc, r) => acc + (Number(r.puntaje) || 0),
+      0,
+    );
+    $("resenas-promedio").textContent = puntajes.format(
+      suma / estado.resenas.length,
+    );
   }
 
   $("resenas-grid").replaceChildren(...estado.resenas.map(tarjetaDeResena));
@@ -1570,7 +1712,8 @@ function tarjetaDeResena(r) {
     aprobar.className = "btn-action btn-action-approve";
     aprobar.type = "button";
     aprobar.title = "Aprobar y publicar";
-    aprobar.innerHTML = '<span class="material-symbols-outlined">check_circle</span>';
+    aprobar.innerHTML =
+      '<span class="material-symbols-outlined">check_circle</span>';
     aprobar.addEventListener("click", () => aprobarResena(r, aprobar));
     acciones.appendChild(aprobar);
   }
@@ -1580,7 +1723,9 @@ function tarjetaDeResena(r) {
   eliminar.type = "button";
   eliminar.title = "Eliminar";
   eliminar.innerHTML = '<span class="material-symbols-outlined">delete</span>';
-  eliminar.addEventListener("click", () => eliminarResena(r, tarjeta, eliminar));
+  eliminar.addEventListener("click", () =>
+    eliminarResena(r, tarjeta, eliminar),
+  );
   acciones.appendChild(eliminar);
 
   tarjeta.append(cabecera, texto, fecha, acciones);
@@ -1606,11 +1751,19 @@ async function eliminarResena(resena, tarjeta, boton) {
   // Borrar es definitivo y no hay papelera: se pregunta, aunque sea con el
   // confirm del navegador. El diálogo lindo se lo lleva la cancelación de
   // reservas, que además mueve plata.
-  if (!window.confirm(`¿Eliminar la reseña de ${resena.nombre}? No se puede deshacer.`)) return;
+  if (
+    !window.confirm(
+      `¿Eliminar la reseña de ${resena.nombre}? No se puede deshacer.`,
+    )
+  )
+    return;
 
   boton.disabled = true;
   try {
-    await api("/resenas", { method: "DELETE", body: JSON.stringify({ id: resena.id }) });
+    await api("/resenas", {
+      method: "DELETE",
+      body: JSON.stringify({ id: resena.id }),
+    });
     gsap.to(tarjeta, {
       opacity: 0,
       y: -12,
@@ -1721,13 +1874,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Visor del comprobante ----------------------------------------------
   $("comprobante-volver").addEventListener("click", cerrarModalComprobante);
-  $("comprobante-aprobar").addEventListener("click", () => resolverComprobante("aprobar"));
-  $("comprobante-rechazar").addEventListener("click", () => resolverComprobante("rechazar"));
+  $("comprobante-aprobar").addEventListener("click", () =>
+    resolverComprobante("aprobar"),
+  );
+  $("comprobante-rechazar").addEventListener("click", () =>
+    resolverComprobante("rechazar"),
+  );
   $("modal-comprobante").addEventListener("click", (evento) => {
     if (evento.target === $("modal-comprobante")) cerrarModalComprobante();
   });
 
-  for (const radio of document.querySelectorAll('input[name="modo-cancelacion"]')) {
+  for (const radio of document.querySelectorAll(
+    'input[name="modo-cancelacion"]',
+  )) {
     radio.addEventListener("change", () => {
       $("modal-parcial").hidden = modoElegido() !== "parcial";
       if (modoElegido() === "parcial") $("modal-monto").focus();
