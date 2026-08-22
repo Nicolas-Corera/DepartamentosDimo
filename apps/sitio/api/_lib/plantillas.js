@@ -233,18 +233,79 @@ function textoPlano(html) {
     .trim();
 }
 
+export function telefonoParaWhatsapp(crudo) {
+  let n = String(crudo || "").replace(/\D/g, "");
+  if (!n) return "";
+
+  n = n.replace(/^00/, "");
+  if (n.startsWith("54")) return n;
+
+  n = n.replace(/^0/, "");
+  return n.startsWith("9") ? `54${n}` : `549${n}`;
+}
+
+export function linkDeWhatsapp(telefono, mensaje) {
+  const numero = telefonoParaWhatsapp(telefono);
+  if (!numero) return "";
+  return mensaje
+    ? `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`
+    : `https://wa.me/${numero}`;
+}
+
+export function contactoDelCliente({ contacto, reserva }) {
+  const mensaje = reserva
+    ? `Hola! Escribo por mi reserva del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)} (código ${String(reserva.id || "").slice(0, 8)}).`
+    : "Hola! Escribo por una consulta.";
+
+  return {
+    titulo: "¿Necesitás algo?",
+    bajada: "Escribinos por donde te quede más cómodo:",
+    mail: contacto?.mail || "",
+    telefono: contacto?.whatsapp || "",
+    whatsapp: linkDeWhatsapp(contacto?.whatsapp, mensaje),
+  };
+}
+
+export function contactoDelHuesped(reserva) {
+  return {
+    titulo: "Contacto del huésped",
+    bajada: "",
+    mail: reserva?.email || "",
+    telefono: reserva?.telefono || "",
+    whatsapp: linkDeWhatsapp(reserva?.telefono),
+  };
+}
+
+function pieDeContacto(contacto, pieExtra) {
+  if (!contacto || (!contacto.mail && !contacto.whatsapp)) return pieExtra || "";
+
+  const enlaces = [
+    contacto.mail
+      ? `<a href="mailto:${esc(contacto.mail)}" style="display:inline-block;margin:0 16px 6px 0;font-family:${FUENTE};font-size:13px;font-weight:700;color:${COLOR.celeste};text-decoration:none;">${esc(contacto.mail)}</a>`
+      : "",
+    contacto.whatsapp
+      ? `<a href="${esc(contacto.whatsapp)}" style="display:inline-block;margin:0 0 6px 0;font-family:${FUENTE};font-size:13px;font-weight:700;color:${COLOR.verde};text-decoration:none;">${esc(String(contacto.telefono || ''))} · WhatsApp</a>`
+      : "",
+  ].join("");
+
+  return `<div style="font-family:${FUENTE};font-size:13px;font-weight:700;color:${COLOR.tinta};margin:0 0 4px;">${esc(contacto.titulo || "Contacto")}</div>
+${contacto.bajada ? `<div style="font-family:${FUENTE};font-size:12px;color:${COLOR.suave};margin:0 0 8px;">${esc(contacto.bajada)}</div>` : ""}
+<div style="margin:0 0 12px;">${enlaces}</div>
+${pieExtra ? `<div style="font-family:${FUENTE};font-size:12px;color:${COLOR.suave};">${pieExtra}</div>` : ""}`;
+}
+
 function armar(subject, partesHtml, opciones = {}) {
   const html = layout({
     titulo: subject,
     preheader: opciones.preheader,
     encabezado: opciones.encabezado,
-    pie: opciones.pie,
+    pie: pieDeContacto(opciones.contacto, opciones.pie),
     cuerpo: partesHtml.filter(Boolean).join("\n"),
   });
   return { subject, html, texto: textoPlano(partesHtml.filter(Boolean).join("\n")) };
 }
 
-export function consultaInquilino({ reserva }) {
+export function consultaInquilino({ reserva, contacto }) {
   return armar(
     "Recibimos tu consulta — Departamentos Dimo",
     [
@@ -263,11 +324,13 @@ export function consultaInquilino({ reserva }) {
 <div style="padding:14px 16px;background:#f6f1e6;border-radius:12px;font-family:${FUENTE};font-size:14px;line-height:1.6;color:${COLOR.tinta};margin:0 0 20px;white-space:pre-wrap;">${esc(reserva.mensaje)}</div>`
         : "",
       nota(
-        "Si algo de estos datos está mal, respondé este mail y lo corregimos. " +
+        "Si algo de estos datos está mal, respondé este mail o escribinos por WhatsApp y lo corregimos. " +
           "Todavía no reservaste ni pagaste nada: esto es solo la consulta.",
       ),
     ],
     {
+      contacto: contactoDelCliente({ contacto, reserva }),
+      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
       preheader: `Tu consulta del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)} ya nos llegó.`,
       encabezado: "Consulta de reserva",
     },
@@ -317,14 +380,15 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
       ),
     ],
     {
+      contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} · ${cantidad} ${plural(cantidad, "noche", "noches")} · ${pesos(precio.total)}`,
       encabezado: "Aviso para los dueños",
-      pie: "Departamentos Dimo · aviso interno<br>Respondé este mail para escribirle directo al huésped.",
+      pie: "Departamentos Dimo · aviso interno<br>Respondé este mail para escribirle directo al huésped, o tocá el número para abrirle el WhatsApp.",
     },
   );
 }
 
-export function reservaInquilino({ reserva, pago, cobro, links }) {
+export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
   const faltaAlgo = cobro.saldo > 0;
 
   return armar(
@@ -362,9 +426,13 @@ export function reservaInquilino({ reserva, pago, cobro, links }) {
         : parrafo("<strong>Tu estadía ya está paga por completo.</strong> No queda saldo pendiente."),
       separador(),
       datosDeLaEstadia(reserva),
-      nota("Guardá este mail: es el comprobante de tu seña. Cualquier cosa, respondelo."),
+      nota(
+        "Guardá este mail: es el comprobante de tu seña. Cualquier cosa, respondelo o escribinos por WhatsApp.",
+      ),
     ],
     {
+      contacto: contactoDelCliente({ contacto, reserva }),
+      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
       preheader: `Seña de ${pesos(pago.monto)} recibida. ${faltaAlgo ? `Saldo pendiente: ${pesos(cobro.saldo)}.` : "Estadía paga por completo."}`,
       encabezado: "Reserva confirmada",
     },
@@ -400,6 +468,7 @@ export function reservaDueno({ reserva, pago, cobro, links }) {
         : parrafo("<strong>La estadía quedó paga por completo.</strong>"),
     ],
     {
+      contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} señó ${pesos(pago.monto)}. Falta ${pesos(cobro.saldo)}.`,
       encabezado: "Aviso para los dueños",
       pie: "Departamentos Dimo · aviso interno",
@@ -413,7 +482,7 @@ function conceptoTexto(concepto) {
   return "Total de la estadía";
 }
 
-export function pagoInquilino({ reserva, pago, cobro }) {
+export function pagoInquilino({ reserva, pago, cobro, contacto }) {
   const completo = cobro.saldo <= 0;
 
   return armar(
@@ -439,9 +508,14 @@ export function pagoInquilino({ reserva, pago, cobro }) {
       nota("Guardá este mail: es el comprobante del pago."),
       separador(),
       datosDeLaEstadia(reserva),
-      parrafo("Nos vemos en Mar del Plata. Cualquier cosa que necesites antes de llegar, respondé este mail."),
+      parrafo(
+        "Nos vemos en Mar del Plata. Cualquier cosa que necesites antes de llegar, " +
+          "respondé este mail o escribinos por WhatsApp.",
+      ),
     ],
     {
+      contacto: contactoDelCliente({ contacto, reserva }),
+      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
       preheader: `${conceptoTexto(pago.concepto)}: ${pesos(pago.monto)}. ${completo ? "Estadía paga." : `Saldo: ${pesos(cobro.saldo)}.`}`,
       encabezado: "Comprobante de pago",
     },
@@ -475,6 +549,7 @@ export function pagoDuenos({ reserva, pago, cobro, comprobanteAdjunto }) {
         : "",
     ],
     {
+      contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} pagó ${pesos(pago.monto)}. ${completo ? "Estadía paga." : `Falta ${pesos(cobro.saldo)}.`}`,
       encabezado: "Aviso para los dueños",
       pie: "Departamentos Dimo · aviso interno",
@@ -482,7 +557,7 @@ export function pagoDuenos({ reserva, pago, cobro, comprobanteAdjunto }) {
   );
 }
 
-export function comprobanteInquilino({ reserva, comprobante, cobro }) {
+export function comprobanteInquilino({ reserva, comprobante, cobro, contacto }) {
   return armar(
     "Recibimos tu comprobante de transferencia",
     [
@@ -509,6 +584,8 @@ export function comprobanteInquilino({ reserva, comprobante, cobro }) {
       ),
     ],
     {
+      contacto: contactoDelCliente({ contacto, reserva }),
+      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
       preheader: `Comprobante por ${pesos(comprobante.monto)} recibido. Lo estamos verificando.`,
       encabezado: "Transferencia en revisión",
     },
@@ -541,6 +618,7 @@ export function comprobanteDuenos({ reserva, comprobante, cobro, panelUrl }) {
       nota("Adjuntamos el archivo tal como lo subió el huésped."),
     ],
     {
+      contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} transfirió ${pesos(comprobante.monto)}. Falta aprobarlo en el panel.`,
       encabezado: "Aviso para los dueños",
       pie: "Departamentos Dimo · aviso interno",

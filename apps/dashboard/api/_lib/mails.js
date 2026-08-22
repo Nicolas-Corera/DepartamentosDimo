@@ -122,7 +122,7 @@ export async function avisarTransferenciaConfirmada(comprobante) {
     enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
       from: config.mails.de.pagos,
       replyTo: config.mails.duenos[0],
-      ...pagoInquilino(contexto),
+      ...pagoInquilino({ ...contexto, contacto: config.mails.contacto }),
     })),
 
     enviarUnaVez(`${clave}:duenos`, "pago_duenos", config.mails.duenos, async () => ({

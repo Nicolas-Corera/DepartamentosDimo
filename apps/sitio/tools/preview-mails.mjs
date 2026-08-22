@@ -30,6 +30,11 @@ const reserva = {
 };
 
 const precio = { total: 630000, cantidadNoches: 7 };
+
+const contacto = {
+  mail: "contacto@departamentosdimo.com.ar",
+  whatsapp: "5491159367822",
+};
 const links = p.linksDePago("https://pago.departamentosdimo.com.ar", reserva.id);
 
 const sinPagar = { porcentajeReserva: 30, montoTotal: 630000, montoReserva: 189000, pagado: 0, saldo: 630000, aCobrarBase: 189000 };
@@ -73,14 +78,14 @@ const resena = {
 };
 
 const MAILS = {
-  "consulta-inquilino": () => p.consultaInquilino({ reserva }),
+  "consulta-inquilino": () => p.consultaInquilino({ reserva, contacto }),
   "consulta-duenos": () => p.consultaDuenos({ reserva, precio, cobro: sinPagar, links }),
-  "reserva-inquilino": () => p.reservaInquilino({ reserva, pago: pagoSenia, cobro: conSenia, links }),
+  "reserva-inquilino": () => p.reservaInquilino({ reserva, pago: pagoSenia, cobro: conSenia, links, contacto }),
   "reserva-dueno": () => p.reservaDueno({ reserva, pago: pagoSenia, cobro: conSenia, links }),
-  "pago-inquilino": () => p.pagoInquilino({ reserva, pago: pagoSaldo, cobro: saldada }),
+  "pago-inquilino": () => p.pagoInquilino({ reserva, pago: pagoSaldo, cobro: saldada, contacto }),
   "pago-duenos": () =>
     p.pagoDuenos({ reserva, pago: pagoSaldo, cobro: saldada, comprobanteAdjunto: true }),
-  "comprobante-inquilino": () => p.comprobanteInquilino({ reserva, comprobante, cobro: sinPagar }),
+  "comprobante-inquilino": () => p.comprobanteInquilino({ reserva, comprobante, cobro: sinPagar, contacto }),
   "comprobante-duenos": () =>
     p.comprobanteDuenos({
       reserva,

@@ -154,6 +154,29 @@ al mail de los dueños.
 
 ---
 
+## 3 bis. Contacto en el pie de cada mail
+
+Todos los mails cierran con una vía de contacto, distinta según quién lo recibe:
+
+| Quién lo recibe | Qué ve |
+| --- | --- |
+| El inquilino | `MAIL_DE_CONTACTO` y `WHATSAPP_CONTACTO`. El link de WhatsApp viene con un mensaje precargado que dice de qué reserva se trata, con las fechas y el código |
+| Los dueños | El mail y el teléfono **del huésped**. El número abre WhatsApp directo, sin mensaje precargado |
+
+El número se normaliza para `wa.me`: se le sacan los símbolos, el `00` inicial y
+el `0` de la característica, y se le antepone `549` si no trae código de país.
+El texto que se muestra es el que cargó la persona, así que si la normalización
+falla igual se ve el número original.
+
+`contacto@departamentosdimo.com.ar` **hay que crearla en el proveedor de mail.**
+Resend solo envía: una dirección que solo existe como remitente no recibe nada,
+y los mensajes que manden ahí rebotan.
+
+El checkout muestra el mismo bloque en las pantallas de error y de resultado, y
+lo toma de `/api/reserva`.
+
+---
+
 ## 4. Que un mail no se mande dos veces
 
 MercadoPago reintenta el webhook. El huésped recarga la página. Alguien aprieta

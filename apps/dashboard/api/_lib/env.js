@@ -56,6 +56,11 @@ function leerConfigDeMails() {
       pagos: opcional("MAIL_DE_PAGOS", REMITENTES.pagos),
       resenas: opcional("MAIL_DE_RESENAS", REMITENTES.resenas),
     },
+
+    contacto: {
+      mail: opcional("MAIL_DE_CONTACTO", "contacto@departamentosdimo.com.ar"),
+      whatsapp: opcional("WHATSAPP_CONTACTO", "5491159367822"),
+    },
   };
 }
 

@@ -108,6 +108,11 @@ export default async function handler(req, res) {
     json(res, 200, {
       publicKey: config.mp.publicKey,
 
+      contacto: {
+        mail: config.mails.contacto.mail,
+        whatsapp: config.mails.contacto.whatsapp,
+      },
+
       supabaseUrl: config.supabase.url,
       maxCuotas: maximoDeCuotas(tarifasConfig.planes),
       reserva: {
