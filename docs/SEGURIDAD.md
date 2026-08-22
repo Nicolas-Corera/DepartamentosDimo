@@ -6,7 +6,7 @@ encontró y qué quedó configurado. Se actualiza al cerrar cada parte.
 | Parte | Alcance | Estado |
 | --- | --- | --- |
 | **A** | Supabase: RLS, políticas, claves, storage, red y Auth | ✅ cerrada |
-| B | — | pendiente |
+| **B** | Vercel: variables, previews, sesión en las rutas y fugas de error | ✅ cerrada |
 | C | — | pendiente |
 | D | — | pendiente |
 | E | — | pendiente |
@@ -168,7 +168,215 @@ Un intento de alta hoy devuelve:
 
 ---
 
+## Parte B — Vercel
+
+Tres proyectos, todos en el equipo `departamentos-dimo`, sin framework (JS
+plano + funciones en `api/`):
+
+| Proyecto | Root | Dominio |
+| --- | --- | --- |
+| `departamentosdimoweb` | `apps/sitio` | departamentosdimo.com.ar |
+| `departamentosdimopagoweb` | `apps/pago` | pago.departamentosdimo.com.ar |
+| `dashboarddepartamentosdimo` | `apps/dashboard` | dash.departamentosdimo.com.ar |
+
+Igual que en la Parte A, todo se verificó contra los proyectos reales: la
+configuración por la API de Vercel y los endpoints llamados desde afuera contra
+producción.
+
+### B.8 — Nada expuesto al cliente por prefijo
+
+Ninguna de las 42 variables de los tres proyectos empieza con `NEXT_PUBLIC_`.
+No es casualidad ni suerte: **ninguna app es Next.js**. Son HTML y JS planos con
+funciones serverless, así que no existe el paso de build que inyecta esas
+variables en el bundle. El riesgo no está mitigado, directamente no aplica.
+
+Lo único que llega al navegador con una clave adentro es
+`apps/sitio/supabase-config.js`, que tiene la `sb_publishable_` — pública por
+diseño. Ver [A.4](#a4--la-service_role-no-está-en-el-navegador).
+
+### B.9 — Todo secreto real está marcado como *Sensitive*
+
+| Variable | Dónde | Tipo |
+| --- | --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | las tres | `sensitive` |
+| `RESEND_API_KEY` | las tres | `sensitive` |
+| `MP_ACCESS_TOKEN` | pago, dashboard | `sensitive` |
+| `MP_WEBHOOK_SECRET` | pago | `sensitive` |
+| `PANEL_CODIGO` | dashboard | `sensitive` |
+| `PANEL_SESION_SECRET` | dashboard | `sensitive` |
+
+Las que quedaron como `encrypted` en vez de `sensitive` —`PRECIO_TEMPORADA_*`,
+`PORCENTAJE_A_COBRAR`, `MP_MAX_CUOTAS`, `TASA_LIMPIEZA_ARS`,
+`MP_STATEMENT_DESCRIPTOR`, `CONFIRMAR_RESERVA_AL_APROBAR`— **no son secretos**:
+son precios y configuración de negocio. Poder volver a verlas en el dashboard es
+una comodidad, no un riesgo.
+
+### B.10 — Preview usa las credenciales de producción
+
+Todas las variables secretas están cargadas con el mismo valor en `production` y
+en `preview`. Un deploy de preview de `pago` habla con la base de producción, con
+la cuenta de MercadoPago de producción y con el Resend de producción.
+
+El checklist lo marca como problema **porque asume que las URLs de preview son
+públicas**. Acá no lo son — ver [B.11](#b11--los-previews-están-detrás-del-sso-de-vercel).
+Eso baja el riesgo de "cualquiera en internet" a "cualquiera que tenga acceso al
+equipo de Vercel o a quien le pases el link". Con un solo integrante, es acotado.
+
+Queda anotado, no corregido, y a propósito: separarlo de verdad exige un segundo
+proyecto de Supabase y credenciales de test de MercadoPago para el entorno
+Preview. Es trabajo real, no un flag. **Si algún día se suma alguien más al
+equipo de Vercel, esto pasa a ser lo primero a arreglar.**
+
+### B.11 — Los previews están detrás del SSO de Vercel
+
+Los tres proyectos tienen `ssoProtection: all_except_custom_domains`: todo
+deploy que no sea un dominio propio pide login de Vercel.
+
+Verificado contra los previews vivos — los tres devuelven `302` hacia
+`vercel.com/sso-api`, tanto en la raíz como en las rutas de `api/`. Los dominios
+de producción responden normal.
+
+#### El agujero: un bypass que salteaba todo eso
+
+`departamentosdimopagoweb` tenía un **Protection Bypass for Automation** activo.
+Es un secreto que, mandado en el header `x-vercel-protection-bypass`, entra a
+cualquier deploy del proyecto salteando el SSO por completo.
+
+Confirmado a mano antes de tocarlo: con el secreto, el preview de `pago` —el que
+lleva las claves de producción de Supabase y MercadoPago— devolvía `200`.
+
+No lo usaba nadie: no aparece en ningún archivo del repo, ni como
+`VERCEL_AUTOMATION_BYPASS_SECRET` ni como header. Era un resto de alguna prueba.
+
+**Revocado.** El mismo pedido con el secreto viejo ahora devuelve `302`, y los
+tres dominios de producción siguen respondiendo `200`.
+
+> Si alguna vez hace falta uno de verdad (un monitor externo que chequee un
+> preview), se genera en Settings → Deployment Protection → Protection Bypass for
+> Automation. Ojo: sirve para *todo* el proyecto, no para un deploy puntual.
+
+### B.12 — Sesión y permisos al inicio de cada ruta
+
+**El panel.** Las cinco rutas que tocan datos llaman `exigirSesion(req)` como
+primera línea adentro del `try`, antes de leer el body y antes de cualquier
+consulta:
+
+| Ruta | Métodos | `exigirSesion` |
+| --- | --- | --- |
+| `alquileres.js` | GET | ✅ primera línea |
+| `cancelar.js` | POST | ✅ primera línea |
+| `comprobantes.js` | GET, PATCH | ✅ primera línea |
+| `resenas.js` | GET, PATCH, DELETE | ✅ primera línea |
+| `tarifas.js` | GET, PUT | ✅ primera línea |
+| `login.js` | POST | — es el login |
+| `sesion.js` | GET, DELETE | — chequea con `haySesion` |
+
+Probado en producción, sin cookie, llamando directo por HTTP —incluido el `PUT`
+de tarifas, el `DELETE` de reseñas y el `POST` de cancelación con devolución—:
+**las siete devuelven `401`**, con `{"error":"Tu sesión venció...","codigo":"sin_sesion"}`.
+
+La sesión en sí está bien armada: cookie firmada con HMAC-SHA256, comparada con
+`timingSafeEqual`, con `HttpOnly`, `SameSite=Strict`, `Secure` fuera de
+desarrollo y vencimiento adentro del payload firmado. El login compara el código
+en tiempo constante, agrega 500 ms de demora al fallar y bloquea la IP a los 8
+intentos en 10 minutos.
+
+**El checkout.** `pago` no tiene sesión —es público a propósito, se entra con el
+link del mail— así que lo que hay que mirar no es la sesión sino **si el cliente
+puede mentir sobre la plata**. No puede:
+
+- El precio sale de `calcularPrecio()` con las fechas guardadas en la reserva y
+  las tarifas de la base.
+- Lo ya pagado sale de `pagosAprobados()` y `transferenciasConfirmadas()`.
+- El recargo por medio y cuotas sale de la configuración de la base.
+
+El navegador manda `ref`, `modo` y el token de la tarjeta. **Ningún monto viaja
+desde el cliente.** Además valida que el medio esté habilitado, que el plan de
+cuotas exista, y corta con `409` si la reserva ya está paga.
+
+**El webhook de MercadoPago** valida la firma HMAC (`x-signature`) antes de
+hacer nada, y —lo importante— no le cree al body: vuelve a pedirle el pago a la
+API de MercadoPago con `consultarPago(dataId)`. Firma inválida es `401`.
+
+#### Lo que sí falta: nadie limita los endpoints que mandan mails
+
+`POST /api/consulta` y `POST /api/resena` del sitio son públicos, sin sesión,
+sin captcha y **sin rate limit**. Cada llamada escribe una fila en Supabase y
+dispara un mail por Resend a los dueños.
+
+El único freno son los `unique` de la base, que cortan el duplicado exacto
+(`23505`). Cambiando el DNI o una letra del comentario se esquiva sin esfuerzo.
+Un script en un rato llena la casilla, quema la cuota de Resend y ensucia
+`booking_requests`.
+
+No hay nada a nivel Vercel que lo cubra: los tres proyectos tienen el firewall
+sin reglas y sin OWASP. El único rate limit del repo es el del login del panel
+(`sesion.js`), y es en memoria — en serverless cada instancia tiene la suya, así
+que es best-effort.
+
+**Queda pendiente**, no es de la Parte B: el checklist pedía validar sesión y
+permisos, y eso está. Pero conviene resolverlo antes de que alguien lo
+encuentre.
+
+### B.13 — Mensajes de error al cliente
+
+`pago` y `sitio` ya lo hacían bien: `manejarError()` manda el detalle al log y
+devuelve un texto genérico.
+
+**El panel no.** Su `manejarError()` devolvía el mensaje interno tal cual:
+
+```js
+return json(res, 500, { error: error.message, codigo: "config" });
+...
+error: error?.message || "Algo falló del lado del servidor.",
+```
+
+Con eso, un error de la base llegaba al navegador así:
+
+```
+Supabase (401): JWT expired → Revisá SUPABASE_SERVICE_ROLE_KEY en Vercel:
+estas tablas tienen RLS activo y sin políticas...
+```
+
+Eso cuenta qué backend hay atrás, cómo se llaman las variables de entorno, qué
+archivos `.sql` hay que correr y cómo está armado el RLS. Son mensajes escritos
+para la consola que terminaban en la respuesta HTTP.
+
+La mayoría de esas rutas están detrás de `exigirSesion`, así que para verlo hay
+que tener el código del panel. Pero la rama de `ErrorDeConfig` **se alcanza sin
+sesión**: `GET /api/sesion` llama a `haySesion()`, que llama a `leerConfig()`. Si
+la configuración está rota, el detalle sale sin autenticar.
+
+Corregido en `apps/dashboard/api/_lib/http.js` — ahora el panel se comporta como
+las otras dos apps. Los `ErrorVisible` (los mensajes escritos para que los lea
+una persona) siguen pasando tal cual; el resto se va al log:
+
+| Error | Antes, al cliente | Ahora, al cliente |
+| --- | --- | --- |
+| `ErrorVisible` | el mensaje | el mensaje *(igual)* |
+| `ErrorDeConfig` | `SUPABASE_SERVICE_ROLE_KEY tiene una clave PÚBLICA…` | *"El panel no está bien configurado… el detalle está en los logs."* |
+| Cualquier otro | `Supabase (401): JWT expired → Revisá…` | *"Algo falló del lado del servidor…"* |
+
+Y el log pasó de guardar `error.message` a guardar el `error` entero, así que en
+Vercel ahora se ve el stack completo — no se perdió información, se movió al
+lugar donde va.
+
+---
+
 ## Lo que queda a mano
+
+### De la Parte B — decisiones, no ejecución
+
+3. **Rate limit en `/api/consulta` y `/api/resena`.** Ver
+   [B.12](#lo-que-sí-falta-nadie-limita-los-endpoints-que-mandan-mails). Son
+   públicos y mandan mails; hoy nada los frena. No entraba en el checklist de la
+   Parte B, pero es el hallazgo más aprovechable que quedó abierto.
+
+4. **Credenciales de test para el entorno Preview.** Ver
+   [B.10](#b10--preview-usa-las-credenciales-de-producción). Pasa a ser urgente
+   el día que entre alguien más al equipo de Vercel.
+
+### De la Parte A — en la cuenta de Supabase
 
 Dos cosas que no se pueden hacer por API — las tenés que hacer vos:
 

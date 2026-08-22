@@ -41,13 +41,18 @@ export function manejarError(res, evento, error) {
   }
 
   if (error?.name === "ErrorDeConfig") {
-    console.error(`[${evento}] configuración:`, error.message);
-    return json(res, 500, { error: error.message, codigo: "config" });
+    console.error(`[${evento}] configuración:`, error);
+    return json(res, 500, {
+      error:
+        "El panel no está bien configurado del lado del servidor. " +
+        "Revisá las variables en Vercel: el detalle está en los logs.",
+      codigo: "config",
+    });
   }
 
-  console.error(`[${evento}] error:`, error?.message || error);
+  console.error(`[${evento}] error:`, error);
   return json(res, 500, {
-    error: error?.message || "Algo falló del lado del servidor.",
+    error: "Algo falló del lado del servidor. Volvé a intentar en unos minutos.",
     codigo: "interno",
   });
 }
