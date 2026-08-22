@@ -413,7 +413,7 @@ function conceptoTexto(concepto) {
   return "Total de la estadía";
 }
 
-export function pagoInquilino({ reserva, pago, cobro, recibo }) {
+export function pagoInquilino({ reserva, pago, cobro }) {
   const completo = cobro.saldo <= 0;
 
   return armar(
@@ -429,7 +429,6 @@ export function pagoInquilino({ reserva, pago, cobro, recibo }) {
       ),
       bloque({ etiqueta: conceptoTexto(pago.concepto), valor: pesos(pago.monto), color: COLOR.verde }),
       filas([
-        { etiqueta: "Recibo N°", valor: recibo?.numeroTexto },
         { etiqueta: "Total de la estadía", valor: pesos(cobro.montoTotal) },
         { etiqueta: "Pagado", valor: pesos(cobro.pagado) },
         { etiqueta: "Saldo pendiente", valor: pesos(cobro.saldo) },
@@ -437,7 +436,7 @@ export function pagoInquilino({ reserva, pago, cobro, recibo }) {
         { etiqueta: "N° de operación", valor: pago.referencia },
         { etiqueta: "Fecha", valor: fechaLarga(pago.fecha) },
       ]),
-      recibo ? parrafo("Adjuntamos el <strong>recibo en PDF</strong> con el detalle completo.") : "",
+      nota("Guardá este mail: es el comprobante del pago."),
       separador(),
       datosDeLaEstadia(reserva),
       parrafo("Nos vemos en Mar del Plata. Cualquier cosa que necesites antes de llegar, respondé este mail."),
@@ -449,7 +448,7 @@ export function pagoInquilino({ reserva, pago, cobro, recibo }) {
   );
 }
 
-export function pagoDuenos({ reserva, pago, cobro, recibo, comprobanteAdjunto }) {
+export function pagoDuenos({ reserva, pago, cobro, comprobanteAdjunto }) {
   const completo = cobro.saldo <= 0;
 
   return armar(
@@ -462,7 +461,6 @@ export function pagoDuenos({ reserva, pago, cobro, recibo, comprobanteAdjunto })
       ),
       bloque({ etiqueta: "Cobrado", valor: pesos(pago.monto), color: COLOR.verde }),
       filas([
-        { etiqueta: "Recibo N°", valor: recibo?.numeroTexto },
         { etiqueta: "Total de la estadía", valor: pesos(cobro.montoTotal) },
         { etiqueta: "Pagado", valor: pesos(cobro.pagado) },
         { etiqueta: "Saldo pendiente", valor: pesos(cobro.saldo) },
@@ -472,10 +470,9 @@ export function pagoDuenos({ reserva, pago, cobro, recibo, comprobanteAdjunto })
       ]),
       datosDelHuesped(reserva),
       datosDeLaEstadia(reserva),
-      parrafo(
-        "Adjuntamos el <strong>recibo en PDF</strong>" +
-          (comprobanteAdjunto ? " y el <strong>comprobante de transferencia</strong> que subió el huésped." : "."),
-      ),
+      comprobanteAdjunto
+        ? parrafo("Adjuntamos el <strong>comprobante de transferencia</strong> que subió el huésped.")
+        : "",
     ],
     {
       preheader: `${reserva.nombre} pagó ${pesos(pago.monto)}. ${completo ? "Estadía paga." : `Falta ${pesos(cobro.saldo)}.`}`,

@@ -113,11 +113,9 @@ export default async function handler(req, res) {
 
     console.log(`[comprobantes] ${aprobado ? "aprobado" : "rechazado"} ${id}`);
 
-    let recibo = null;
     if (aprobado) {
       try {
-        const resultado = await avisarTransferenciaConfirmada({ ...fila, revisado_en: revisadoEn });
-        recibo = resultado?.recibo?.numeroTexto || null;
+        await avisarTransferenciaConfirmada({ ...fila, revisado_en: revisadoEn });
       } catch (error) {
         console.error(
           "[comprobantes] el comprobante quedó aprobado pero los mails fallaron:",
@@ -131,7 +129,6 @@ export default async function handler(req, res) {
       id,
       estado: aprobado ? "confirmado" : "rechazado",
       estadoReserva: aprobado ? "confirmada" : fila.booking_requests?.estado || null,
-      recibo,
 
       avisoDevolucion: aprobado
         ? null
