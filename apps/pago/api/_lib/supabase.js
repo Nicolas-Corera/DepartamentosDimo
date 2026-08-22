@@ -28,7 +28,11 @@ export async function buscarReserva(id) {
 
   const { data, error } = await db()
     .from("booking_requests")
-    .select("id, nombre, email, dni, check_in, check_out, personas, adultos, ninos, estado")
+    .select(
+      "id, nombre, email, dni, telefono, procedencia, check_in, check_out, " +
+        "personas, adultos, ninos, edades_ninos, vehiculo, vehiculo_marca, " +
+        "vehiculo_modelo, vehiculo_tipo, vehiculo_anio, mensaje, estado",
+    )
     .eq("id", id.trim())
     .maybeSingle();
 
@@ -208,4 +212,162 @@ export async function guardarComprobante(fila) {
     throw new Error(`No se pudo registrar el comprobante: ${error.message}`);
   }
   return data;
+}
+
+export async function leerPorcentajeDeReserva() {
+  const { data, error } = await db()
+    .from("configuracion_pagos")
+    .select("porcentaje_reserva")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    log.error("supabase.leerPorcentajeDeReserva", error, {});
+    throw new Error(
+      `No se pudo leer la configuración de cobro: ${error.message}. ` +
+        "Corré sql/fase4-pagos-y-mails.sql en Supabase.",
+    );
+  }
+
+  const pct = Number(data?.porcentaje_reserva);
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+    throw new Error(
+      "configuracion_pagos.porcentaje_reserva no es un porcentaje válido. " +
+        "Revisalo en el panel, pestaña Tarifas.",
+    );
+  }
+  return pct;
+}
+
+export async function pagosAprobados(bookingId) {
+  const { data, error } = await db()
+    .from("payments")
+    .select("mp_payment_id, monto, monto_base, concepto, metodo, cuotas, aprobado_en, created_at")
+    .eq("booking_id", bookingId)
+    .eq("status", "approved")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    log.error("supabase.pagosAprobados", error, { ref: bookingId });
+    throw new Error(`No se pudieron leer los pagos de la reserva: ${error.message}`);
+  }
+  return data || [];
+}
+
+export async function transferenciasConfirmadas(bookingId) {
+  const { data, error } = await db()
+    .from("transfer_receipts")
+    .select("id, monto_declarado, monto_base, concepto, created_at, revisado_en")
+    .eq("booking_id", bookingId)
+    .eq("estado", "confirmado")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    log.error("supabase.transferenciasConfirmadas", error, { ref: bookingId });
+    throw new Error(`No se pudieron leer las transferencias de la reserva: ${error.message}`);
+  }
+  return data || [];
+}
+
+export async function reservarEnvioDeMail(clave, tipo, destinatarios) {
+  const { error } = await db()
+    .from("emails_enviados")
+    .insert({ clave, tipo, destinatarios });
+
+  if (!error) return true;
+
+  if (error.code === "23505") return false;
+
+  log.warn("supabase.reservarEnvioDeMail", { clave, motivo: error.message });
+  return false;
+}
+
+export async function anotarResultadoDeMail(clave, { resendId, error }) {
+  const { error: falla } = await db()
+    .from("emails_enviados")
+    .update({ resend_id: resendId || null, error: error || null })
+    .eq("clave", clave);
+
+  if (falla) log.warn("supabase.anotarResultadoDeMail", { clave, motivo: falla.message });
+}
+
+export async function liberarEnvioDeMail(clave) {
+  const { error } = await db().from("emails_enviados").delete().eq("clave", clave);
+  if (error) log.warn("supabase.liberarEnvioDeMail", { clave, motivo: error.message });
+}
+
+export async function crearRecibo(fila) {
+  const columna = fila.mp_payment_id ? "mp_payment_id" : "transfer_receipt_id";
+  const valor = fila.mp_payment_id || fila.transfer_receipt_id;
+
+  const existente = await db()
+    .from("recibos")
+    .select("id, numero, created_at")
+    .eq(columna, valor)
+    .maybeSingle();
+
+  if (existente.data) return existente.data;
+
+  const { data, error } = await db()
+    .from("recibos")
+    .insert(fila)
+    .select("id, numero, created_at")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      const reintento = await db()
+        .from("recibos")
+        .select("id, numero, created_at")
+        .eq(columna, valor)
+        .maybeSingle();
+      if (reintento.data) return reintento.data;
+    }
+
+    log.error("supabase.crearRecibo", error, { [columna]: valor });
+    throw new Error(`No se pudo emitir el recibo: ${error.message}`);
+  }
+  return data;
+}
+
+export async function descargarComprobante(path) {
+  const { data, error } = await db().storage.from(BUCKET).download(path);
+
+  if (error) {
+    log.warn("supabase.descargarComprobante", { path, motivo: error.message });
+    return null;
+  }
+  return Buffer.from(await data.arrayBuffer());
+}
+
+export async function marcarComprobanteConCobro(id, { concepto, montoBase }) {
+  const { error } = await db()
+    .from("transfer_receipts")
+    .update({ concepto, monto_base: montoBase })
+    .eq("id", id);
+
+  if (error) log.warn("supabase.marcarComprobanteConCobro", { id, motivo: error.message });
+}
+
+export async function buscarPagoGuardado(mpPaymentId) {
+  const { data, error } = await db()
+    .from("payments")
+    .select("mp_payment_id, booking_id, status, monto, monto_base, concepto, metodo, cuotas, aprobado_en, created_at")
+    .eq("mp_payment_id", String(mpPaymentId))
+    .maybeSingle();
+
+  if (error) {
+    log.warn("supabase.buscarPagoGuardado", { mp_payment_id: mpPaymentId, motivo: error.message });
+    return null;
+  }
+  return data;
+}
+
+export async function completarDatosDePago(mpPaymentId, cambios) {
+  const { error } = await db()
+    .from("payments")
+    .update(cambios)
+    .eq("mp_payment_id", String(mpPaymentId));
+
+  if (error) log.warn("supabase.completarDatosDePago", { mp_payment_id: mpPaymentId, motivo: error.message });
 }

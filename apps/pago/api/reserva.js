@@ -2,12 +2,15 @@ import { leerConfig } from "./_lib/env.js";
 import { exigirMetodo, json, manejarError, ErrorVisible } from "./_lib/http.js";
 import {
   buscarReserva,
-  tienePagoAprobado,
   buscarTarifasEspeciales,
   leerConfigTarifas,
+  leerPorcentajeDeReserva,
+  pagosAprobados,
+  transferenciasConfirmadas,
   ultimoComprobante,
 } from "./_lib/supabase.js";
 import { calcularPrecio, calcularRecargo, maximoDeCuotas } from "./_lib/precios.js";
+import { calcularCobro, sumarPagado, normalizarModo, etiquetaDeConcepto } from "./_lib/cobro.js";
 import { log } from "./_lib/log.js";
 
 function enmascararDni(dni) {
@@ -20,6 +23,7 @@ export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "GET")) return;
 
   const ref = String(req.query?.ref || "").trim();
+  const modo = normalizarModo(req.query?.modo);
 
   try {
     if (!ref) {
@@ -32,22 +36,34 @@ export default async function handler(req, res) {
 
     const config = leerConfig();
     const reserva = await buscarReserva(ref);
-    const [tarifasConfig, especiales] = await Promise.all([
+
+    const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
       leerConfigTarifas(),
       buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
+      leerPorcentajeDeReserva(),
     ]);
 
     const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
-    const [pagoAprobado, comprobante] = await Promise.all([
-      tienePagoAprobado(reserva.id),
+
+    const [pagos, transferencias, comprobante] = await Promise.all([
+      pagosAprobados(reserva.id),
+      transferenciasConfirmadas(reserva.id),
       ultimoComprobante(reserva.id),
     ]);
 
+    const cobro = calcularCobro({
+      precioTotal: precio.total,
+      porcentajeReserva,
+      pagadoBase: sumarPagado({ pagos, transferencias }),
+      modo,
+    });
+
     const planesHabilitados = tarifasConfig.planes.filter((p) => p.habilitado);
+
     const medios = tarifasConfig.medios
       .filter((m) => m.habilitado)
       .map((m) => {
-        const base = calcularRecargo(precio.total, m, null);
+        const base = calcularRecargo(cobro.aCobrarBase, m, null);
         return {
           clave: m.clave,
           nombre: m.nombre,
@@ -58,7 +74,7 @@ export default async function handler(req, res) {
           planes:
             m.clave === "credito"
               ? planesHabilitados.map((p) => {
-                  const conPlan = calcularRecargo(precio.total, m, p);
+                  const conPlan = calcularRecargo(cobro.aCobrarBase, m, p);
                   return {
                     cuotas: p.cuotas,
                     recargoPorcentaje: conPlan.recargoPorcentaje,
@@ -80,11 +96,13 @@ export default async function handler(req, res) {
 
     log.info("reserva.consultada", {
       ref: reserva.id,
+      modo,
+      concepto: cobro.concepto,
       noches: precio.cantidadNoches,
       base: precio.total,
-      tarifa_uniforme: precio.tarifaUniforme,
-      especiales: precio.noches.filter((n) => n.motivo).length,
-      ya_pagada: Boolean(pagoAprobado),
+      pagado: cobro.pagado,
+      a_cobrar: cobro.aCobrarBase,
+      ya_pagada: cobro.yaPagada,
     });
 
     json(res, 200, {
@@ -106,8 +124,32 @@ export default async function handler(req, res) {
       },
       precio,
       medios,
-      pago: pagoAprobado
-        ? { yaPagada: true, paymentId: pagoAprobado.mp_payment_id, monto: pagoAprobado.monto }
+
+      cobro: {
+        modo: cobro.modo,
+        concepto: cobro.concepto,
+        etiqueta: etiquetaDeConcepto(cobro.concepto),
+        porcentajeReserva: cobro.porcentajeReserva,
+        montoTotal: cobro.montoTotal,
+        montoReserva: cobro.montoReserva,
+        pagado: cobro.pagado,
+        saldo: cobro.saldo,
+        aCobrarBase: cobro.aCobrarBase,
+        esParcial: cobro.esParcial,
+        seniaCubierta: cobro.seniaCubierta,
+      },
+
+      pagos: pagos.map((p) => ({
+        referencia: p.mp_payment_id,
+        concepto: p.concepto,
+        monto: Number(p.monto),
+        montoBase: Number(p.monto_base ?? p.monto),
+        fecha: p.aprobado_en || p.created_at,
+        medio: p.metodo,
+      })),
+
+      pago: cobro.yaPagada
+        ? { yaPagada: true, monto: cobro.pagado }
         : { yaPagada: false },
 
       transferencia: comprobante,

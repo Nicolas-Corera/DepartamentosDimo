@@ -1,15 +1,19 @@
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
 import {
   buscarReserva,
-  tienePagoAprobado,
   buscarTarifasEspeciales,
   leerConfigTarifas,
+  leerPorcentajeDeReserva,
+  pagosAprobados,
+  transferenciasConfirmadas,
   firmarSubidaDeComprobante,
   leerObjetoDeComprobante,
   borrarComprobante,
   guardarComprobante,
 } from "./_lib/supabase.js";
 import { calcularPrecio, calcularRecargo } from "./_lib/precios.js";
+import { calcularCobro, sumarPagado, normalizarModo } from "./_lib/cobro.js";
+import { avisarComprobanteSubido } from "./_lib/mails.js";
 import { log } from "./_lib/log.js";
 
 const FORMATOS = {
@@ -47,13 +51,27 @@ function exigirPathDeLaReserva(crudo, bookingId) {
   return path;
 }
 
-async function montoDeLaTransferencia(reserva) {
-  const [tarifasConfig, especiales] = await Promise.all([
+async function estadoDeCobro(reserva, modo) {
+  const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
     leerConfigTarifas(),
     buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
+    leerPorcentajeDeReserva(),
   ]);
 
   const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+
+  const [pagos, transferencias] = await Promise.all([
+    pagosAprobados(reserva.id),
+    transferenciasConfirmadas(reserva.id),
+  ]);
+
+  const cobro = calcularCobro({
+    precioTotal: precio.total,
+    porcentajeReserva,
+    pagadoBase: sumarPagado({ pagos, transferencias }),
+    modo,
+  });
+
   const medio = tarifasConfig.medios.find((m) => m.clave === "transferencia" && m.habilitado);
   if (!medio) {
     throw new ErrorVisible(
@@ -62,7 +80,8 @@ async function montoDeLaTransferencia(reserva) {
       "transferencia_deshabilitada",
     );
   }
-  return calcularRecargo(precio.total, medio, null).total;
+
+  return { cobro, importe: calcularRecargo(cobro.aCobrarBase, medio, null) };
 }
 
 export default async function handler(req, res) {
@@ -73,12 +92,13 @@ export default async function handler(req, res) {
   try {
     const cuerpo = leerBody(req);
     ref = String(cuerpo.ref || "").trim();
+    const modo = normalizarModo(cuerpo.modo);
 
     const reserva = await buscarReserva(ref);
+    const { cobro, importe } = await estadoDeCobro(reserva, modo);
 
-    const yaPaga = await tienePagoAprobado(reserva.id);
-    if (yaPaga) {
-      throw new ErrorVisible(409, "Esta reserva ya está paga.", "ya_pagada");
+    if (cobro.yaPagada) {
+      throw new ErrorVisible(409, "Esta reserva ya está paga por completo.", "ya_pagada");
     }
 
     if (cuerpo.accion === "firmar") {
@@ -89,7 +109,7 @@ export default async function handler(req, res) {
 
       const firma = await firmarSubidaDeComprobante(path);
 
-      log.info("comprobante.firmado", { ref: reserva.id, mime });
+      log.info("comprobante.firmado", { ref: reserva.id, mime, concepto: cobro.concepto });
       return json(res, 200, {
         path: firma.path,
         token: firma.token,
@@ -122,17 +142,48 @@ export default async function handler(req, res) {
         );
       }
 
-      const monto = await montoDeLaTransferencia(reserva);
       const fila = await guardarComprobante({
         booking_id: reserva.id,
         path,
         mime,
         bytes,
-        monto_declarado: monto,
+        monto_declarado: importe.total,
+        monto_base: importe.totalBase,
+        concepto: cobro.concepto,
       });
 
-      log.info("comprobante.registrado", { ref: reserva.id, bytes, mime });
-      return json(res, 201, { ok: true, comprobanteId: fila.id, monto });
+      log.info("comprobante.registrado", {
+        ref: reserva.id,
+        bytes,
+        mime,
+        concepto: cobro.concepto,
+        monto: importe.total,
+      });
+
+      try {
+        await avisarComprobanteSubido({
+          reserva,
+          comprobante: {
+            id: fila.id,
+            path,
+            mime,
+            monto: importe.total,
+            montoBase: importe.totalBase,
+            concepto: cobro.concepto,
+            subidoEn: fila.created_at,
+          },
+          cobro,
+        });
+      } catch (error) {
+        log.error("comprobante.mails_fallaron", error, { ref: reserva.id, comprobante: fila.id });
+      }
+
+      return json(res, 201, {
+        ok: true,
+        comprobanteId: fila.id,
+        monto: importe.total,
+        concepto: cobro.concepto,
+      });
     }
 
     throw new ErrorVisible(400, "Pedido incompleto.", "accion_invalida");

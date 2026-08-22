@@ -3,10 +3,12 @@ import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib
 import {
   buscarReserva,
   guardarPago,
-  tienePagoAprobado,
   confirmarReserva,
   buscarTarifasEspeciales,
   leerConfigTarifas,
+  leerPorcentajeDeReserva,
+  pagosAprobados,
+  transferenciasConfirmadas,
 } from "./_lib/supabase.js";
 import {
   calcularPrecio,
@@ -15,6 +17,7 @@ import {
   maximoDeCuotas,
   medioDePago,
 } from "./_lib/precios.js";
+import { calcularCobro, sumarPagado, normalizarModo, etiquetaDeConcepto } from "./_lib/cobro.js";
 import {
   crearPago,
   resumirPago,
@@ -23,6 +26,7 @@ import {
   tipoDeTarjeta,
 } from "./_lib/mercadopago.js";
 import { mensajeDePago } from "./_lib/mensajes.js";
+import { avisarSeniaPagada, avisarPagoCompletado, medioTexto } from "./_lib/mails.js";
 import { log, ofuscarEmail } from "./_lib/log.js";
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -33,9 +37,15 @@ function fechaCorta(iso) {
   return `${m[3]} ${MESES[Number(m[2]) - 1]}`;
 }
 
-function textoDescripcion(reserva, cobro) {
-  const base = `Reserva Dimo ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
-  return cobro.cuotas > 1 ? `${base} (${cobro.cuotas} cuotas)` : base;
+const PREFIJOS = {
+  reserva: "Seña reserva Dimo",
+  saldo: "Saldo reserva Dimo",
+  total: "Reserva Dimo",
+};
+
+function textoDescripcion(reserva, concepto, cuotas) {
+  const base = `${PREFIJOS[concepto] || PREFIJOS.total} ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
+  return cuotas > 1 ? `${base} (${cuotas} cuotas)` : base;
 }
 
 function validarFormData(formData, maxCuotas) {
@@ -89,15 +99,38 @@ export default async function handler(req, res) {
     const config = leerConfig();
     const body = leerBody(req);
     ref = String(body.ref || "").trim();
+    const modo = normalizarModo(body.modo);
 
     const reserva = await buscarReserva(ref);
-    const [tarifasConfig, especiales] = await Promise.all([
+
+    const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
       leerConfigTarifas(),
       buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
+      leerPorcentajeDeReserva(),
     ]);
 
     const datos = validarFormData(body.formData, maximoDeCuotas(tarifasConfig.planes));
     const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+
+    const [pagosPrevios, transferencias] = await Promise.all([
+      pagosAprobados(reserva.id),
+      transferenciasConfirmadas(reserva.id),
+    ]);
+
+    const cobro = calcularCobro({
+      precioTotal: precio.total,
+      porcentajeReserva,
+      pagadoBase: sumarPagado({ pagos: pagosPrevios, transferencias }),
+      modo,
+    });
+
+    if (cobro.yaPagada) {
+      throw new ErrorVisible(
+        409,
+        "Esta reserva ya está paga por completo. Si creés que es un error, escribinos antes de volver a intentar.",
+        "ya_pagada",
+      );
+    }
 
     const claveMedio = await tipoDeTarjeta(datos.paymentMethodId);
     const medio = medioDePago(claveMedio, tarifasConfig.medios);
@@ -118,23 +151,16 @@ export default async function handler(req, res) {
       );
     }
 
-    const cobro = calcularRecargo(precio.total, medio, plan);
+    const importe = calcularRecargo(cobro.aCobrarBase, medio, plan);
     const cuotasACobrar = claveMedio === "credito" ? datos.cuotas : 1;
-
-    const yaAprobado = await tienePagoAprobado(reserva.id);
-    if (yaAprobado) {
-      throw new ErrorVisible(
-        409,
-        "Esta reserva ya está paga. Si creés que es un error, escribinos antes de volver a intentar.",
-        "ya_pagada",
-      );
-    }
 
     log.info("pago.intento", {
       ref: reserva.id,
-      base: cobro.totalBase,
-      recargo_porcentaje: cobro.recargoPorcentaje,
-      monto: cobro.total,
+      modo,
+      concepto: cobro.concepto,
+      base: importe.totalBase,
+      recargo_porcentaje: importe.recargoPorcentaje,
+      monto: importe.total,
       medio: claveMedio,
       cuotas: cuotasACobrar,
       payment_method_id: datos.paymentMethodId,
@@ -145,12 +171,12 @@ export default async function handler(req, res) {
     try {
       pago = await crearPago({
         ref: reserva.id,
-        monto: cobro.total,
+        monto: importe.total,
         cuotas: cuotasACobrar,
         token: datos.token,
         paymentMethodId: datos.paymentMethodId,
         issuerId: datos.issuerId,
-        descripcion: textoDescripcion(reserva, { cuotas: cuotasACobrar }),
+        descripcion: textoDescripcion(reserva, cobro.concepto, cuotasACobrar),
         pagador: {
           email: datos.email || reserva.email,
           identificacion: datos.identificacion || { type: "DNI", number: reserva.dni },
@@ -160,8 +186,8 @@ export default async function handler(req, res) {
     } catch (error) {
       if (!esPedidoDuplicado(error)) throw error;
 
-      log.warn("pago.duplicado_recuperando", { ref: reserva.id });
-      pago = await buscarPagoPorReferencia(reserva.id);
+      log.warn("pago.duplicado_recuperando", { ref: reserva.id, monto: importe.total });
+      pago = await buscarPagoPorReferencia(reserva.id, importe.total);
 
       if (!pago) {
         throw new ErrorVisible(
@@ -175,11 +201,17 @@ export default async function handler(req, res) {
     }
 
     const resumen = resumirPago(pago);
+    const aprobado = resumen.status === "approved";
 
     try {
-      await guardarPago({ ...resumen, booking_id: reserva.id });
+      await guardarPago({
+        ...resumen,
+        booking_id: reserva.id,
+        concepto: cobro.concepto,
+        monto_base: importe.totalBase,
+      });
 
-      if (resumen.status === "approved" && config.confirmarReservaAlAprobar) {
+      if (aprobado && config.confirmarReservaAlAprobar) {
         await confirmarReserva(reserva.id);
       }
     } catch (error) {
@@ -190,13 +222,50 @@ export default async function handler(req, res) {
       });
     }
 
+    const cobroFinal = calcularCobro({
+      precioTotal: precio.total,
+      porcentajeReserva,
+      pagadoBase: cobro.pagado + (aprobado ? importe.totalBase : 0),
+      modo,
+    });
+
+    if (aprobado) {
+      const detalle = {
+        concepto: cobro.concepto,
+        monto: importe.total,
+        montoBase: importe.totalBase,
+        recargo: importe.recargo,
+        medio: claveMedio,
+        medioTexto: medioTexto(claveMedio, cuotasACobrar),
+        cuotas: cuotasACobrar,
+        ultimosCuatro: resumen.ultimos_cuatro,
+        referencia: resumen.mp_payment_id,
+        fecha: resumen.aprobado_en || new Date().toISOString(),
+      };
+
+      try {
+        if (cobro.concepto === "reserva") {
+          await avisarSeniaPagada({ reserva, pago: detalle, cobro: cobroFinal });
+        } else {
+          await avisarPagoCompletado({ reserva, pago: detalle, cobro: cobroFinal });
+        }
+      } catch (error) {
+        log.error("pago.mails_fallaron", error, {
+          ref: reserva.id,
+          payment_id: resumen.mp_payment_id,
+        });
+      }
+    }
+
     const mensaje = mensajeDePago(resumen.status, resumen.status_detail);
 
     log.info("pago.resultado", {
       ref: reserva.id,
       payment_id: resumen.mp_payment_id,
+      concepto: cobro.concepto,
       status: resumen.status,
       status_detail: resumen.status_detail,
+      saldo: cobroFinal.saldo,
     });
 
     json(res, 200, {
@@ -206,8 +275,18 @@ export default async function handler(req, res) {
       monto: resumen.monto,
       cuotas: resumen.cuotas,
       ultimosCuatro: resumen.ultimos_cuatro,
-      recargo: cobro.recargo,
-      recargoPorcentaje: cobro.recargoPorcentaje,
+      recargo: importe.recargo,
+      recargoPorcentaje: importe.recargoPorcentaje,
+      concepto: cobro.concepto,
+      etiqueta: etiquetaDeConcepto(cobro.concepto),
+
+      cobro: {
+        montoTotal: cobroFinal.montoTotal,
+        pagado: cobroFinal.pagado,
+        saldo: cobroFinal.saldo,
+        completa: cobroFinal.saldo <= 0,
+      },
+
       mensaje,
     });
   } catch (error) {
