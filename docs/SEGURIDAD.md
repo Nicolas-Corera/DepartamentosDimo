@@ -363,18 +363,94 @@ lugar donde va.
 
 ---
 
+## Los dos frenos contra el abuso
+
+Salieron del hallazgo abierto en [B.12](#lo-que-sí-falta-nadie-limita-los-endpoints-que-mandan-mails).
+Son dos capas distintas y hacen falta las dos: una frena al usuario apurado, la
+otra al script.
+
+### El freno del navegador — `botones.js`
+
+Un archivo por app (`apps/*/botones.js`), cargado antes del script principal. No
+hay que llamarlo ni engancharlo a nada: se activa solo y cubre **todos** los
+botones de la página, los que ya existen y los que se creen después.
+
+Qué hace: cuando se clickea un botón, lo bloquea. Si ese click disparó un
+pedido a la red, lo mantiene bloqueado hasta que el pedido termina. Si no
+disparó ninguno, lo libera a los 120 ms y no se nota.
+
+Cómo bloquea, que es la parte importante: **no toca `.disabled`**. Pone
+`data-bloqueado` y con eso aplica `pointer-events:none`, más `aria-disabled` y
+`aria-busy` para los lectores de pantalla. La razón es que varios botones ya se
+manejan el `.disabled` por su cuenta —`btn-pagar`, los de aprobar y rechazar
+comprobantes, el de guardar tarifas— y si la guarda usara el mismo atributo se
+pelearían: uno lo pondría y el otro lo sacaría antes de tiempo. Usando un canal
+propio, las dos protecciones conviven y la más estricta gana.
+
+Para saber si hay un pedido en curso envuelve `fetch` **y** `XMLHttpRequest`.
+Lo segundo no es de más: el SDK de MercadoPago usa XHR, así que sin eso el botón
+de pagar quedaría afuera.
+
+Tres agujeros que se cerraron y vale tener presentes:
+
+| Vía | Qué pasaba |
+| --- | --- |
+| Multi-click | El obvio: tres clicks, tres pedidos |
+| `Enter` en un campo | Muchos formularios se envían con Enter sin tocar el botón, así que el bloqueo del botón no alcanzaba |
+| `form.requestSubmit()` | Lo mismo, por código |
+
+La guarda ignora el `Enter` dentro de un `<textarea>`: ahí Enter es un salto de
+línea, no un envío.
+
+Hay una sutileza que costó encontrar. La guarda bloquea el botón en la fase de
+captura del click, **antes** de que el formulario dispare su `submit`. Si al ver
+el botón bloqueado cancelara ese `submit`, estaría cancelando el envío que ella
+misma acaba de provocar: el formulario no enviaría nunca. Por eso recuerda cuál
+fue el botón del click en curso y lo deja pasar; cancela los que vengan después.
+
+Un botón se puede eximir con `data-sin-bloqueo`, y hay un tope de 20 segundos
+para que nada quede trabado si un pedido nunca resuelve.
+
+### El freno del servidor — `apps/sitio/api/_lib/limite.js`
+
+El de arriba vive en el navegador, así que a un script no lo frena: no ejecuta
+JavaScript, le pega directo al endpoint. Este es el que lo para.
+
+Dos capas sobre `POST /api/consulta` y `POST /api/resena`:
+
+| Capa | Consulta | Reseña | Dónde vive |
+| --- | --- | --- | --- |
+| Por IP, por hora | 5 | 3 | En memoria |
+| Global, por hora | 20 | 15 | En la base |
+
+El chequeo por IP corre **antes de validar el cuerpo**, a propósito: así el que
+manda basura repetida también se frena, no solo el que manda datos válidos.
+
+La capa global existe porque la de IP tiene un límite real: en serverless cada
+instancia tiene su propia memoria, así que un atacante repartido entre varias
+instancias —o entre varias IPs— se le escapa. El tope global cuenta las filas
+creadas en la última hora en la tabla de destino y no necesita tabla nueva ni
+guardar la IP de nadie. Es el techo de cuántos mails puede llegar a disparar el
+sistema en una hora, pase lo que pase.
+
+Si la consulta del tope global falla, **deja pasar**. Es deliberado: un hipo de
+la base no puede costar una reserva. La capa por IP sigue puesta igual.
+
+Los números son holgados para un solo departamento. Si alguna vez molestan, se
+tocan en `TOPES` dentro de `limite.js`.
+
+Cuando alguna de las dos capas corta, la respuesta es `429` con un texto que
+manda a escribir por WhatsApp — no un error técnico.
+
+---
+
 ## Lo que queda a mano
 
-### De la Parte B — decisiones, no ejecución
+### De la Parte B — decisión pendiente
 
-3. **Rate limit en `/api/consulta` y `/api/resena`.** Ver
-   [B.12](#lo-que-sí-falta-nadie-limita-los-endpoints-que-mandan-mails). Son
-   públicos y mandan mails; hoy nada los frena. No entraba en el checklist de la
-   Parte B, pero es el hallazgo más aprovechable que quedó abierto.
-
-4. **Credenciales de test para el entorno Preview.** Ver
-   [B.10](#b10--preview-usa-las-credenciales-de-producción). Pasa a ser urgente
-   el día que entre alguien más al equipo de Vercel.
+Una sola: **credenciales de test para el entorno Preview**. Ver
+[B.10](#b10--preview-usa-las-credenciales-de-producción). Pasa a ser urgente el
+día que entre alguien más al equipo de Vercel.
 
 ### De la Parte A — en la cuenta de Supabase
 
