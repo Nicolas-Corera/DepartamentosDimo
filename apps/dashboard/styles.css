@@ -335,7 +335,7 @@ h2 {
   flex-direction: row;
   justify-content: space-between;
   align-items: flex-start;
-  gap: var(--stack-md);
+  gap: 30px;
   margin-bottom: var(--stack-lg);
 }
 
