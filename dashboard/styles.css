@@ -1813,8 +1813,12 @@ td {
   color: var(--tinta);
 }
 
-/* Una transferencia aprobada tiene dos acciones —ver y cancelar— y en la
-   celda entran una al lado de la otra. */
+/* Una transferencia aprobada tiene dos acciones —ver y cancelar— y entran una
+   al lado de la otra.
+
+   Esto es un <div> DENTRO del <td>, nunca el <td>. Un `display: flex` sobre una
+   celda la saca del algoritmo de tabla —deja de ser `table-cell`— y la fila
+   pierde ahi su alto y su borde inferior. */
 .celda-acciones {
   display: flex;
   align-items: center;

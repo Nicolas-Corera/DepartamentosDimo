@@ -1017,7 +1017,13 @@ function accionesDeAlquiler(a, esTransferencia) {
   const td = document.createElement("td");
 
   if (esTransferencia) {
-    td.className = "celda-acciones";
+    /* Los botones van en un <div> adentro de la celda, no en la celda misma.
+
+       Ponerle `display: flex` a un <td> lo saca del algoritmo de tabla: deja de
+       ser `table-cell` y con eso pierde el alto y los bordes de la fila. Se veia
+       como la linea divisoria cortada justo en la columna Acciones. */
+    const grupo = document.createElement("div");
+    grupo.className = "celda-acciones";
 
     const ver = document.createElement("button");
     ver.className = "btn-action btn-action-ver";
@@ -1032,7 +1038,7 @@ function accionesDeAlquiler(a, esTransferencia) {
     );
     ver.innerHTML = '<span class="material-symbols-outlined">visibility</span>';
     ver.addEventListener("click", () => abrirModalComprobante(a));
-    td.appendChild(ver);
+    grupo.appendChild(ver);
 
     /* Una transferencia aprobada es un alquiler cobrado como cualquier otro, y
        se cancela igual que uno de tarjeta. La diferencia está adentro del
@@ -1049,9 +1055,10 @@ function accionesDeAlquiler(a, esTransferencia) {
       cancelar.textContent = sinPendiente ? "—" : "Cancelar";
       cancelar.disabled = sinPendiente;
       if (!sinPendiente) cancelar.addEventListener("click", () => abrirModalCancelar(a));
-      td.appendChild(cancelar);
+      grupo.appendChild(cancelar);
     }
 
+    td.appendChild(grupo);
     return td;
   }
 
