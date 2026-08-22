@@ -60,3 +60,4 @@ primero.
 | [docs/MERCADOPAGO.md](docs/MERCADOPAGO.md) | El checkout: cobro con tarjeta, cuotas, webhook y transferencias |
 | [docs/PANEL.md](docs/PANEL.md) | El panel: sesión, tarifas, alquileres, devoluciones y comprobantes |
 | [docs/MAILS-Y-COBROS.md](docs/MAILS-Y-COBROS.md) | Seña y saldo, los mails de Resend y el refresco automático |
+| [docs/SEGURIDAD.md](docs/SEGURIDAD.md) | La auditoría de la Fase 6: qué se revisó, qué se encontró y qué quedó configurado |
