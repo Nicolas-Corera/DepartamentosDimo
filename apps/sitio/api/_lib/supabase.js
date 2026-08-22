@@ -136,3 +136,12 @@ export async function liberarEnvioDeMail(clave) {
     console.warn("[mails] no se pudo liberar el envío:", falla.message);
   }
 }
+
+export async function insertarResena(fila) {
+  const filas = await pedir("reviews", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(fila),
+  });
+  return filas?.[0] || null;
+}

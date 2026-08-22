@@ -837,15 +837,25 @@
   }
 
   async function createReview(review) {
-    const { error } = await db.from("reviews").insert({
-      name: review.name,
-      rating: review.rating,
-      text: review.text,
-      approved: false,
+    const respuesta = await fetch("/api/resena", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        name: review.name,
+        rating: review.rating,
+        text: review.text,
+      }),
     });
 
-    if (error) throw error;
-    return review;
+    const cuerpo = await respuesta.json().catch(() => ({}));
+
+    if (!respuesta.ok) {
+      const error = new Error(cuerpo.error || "No pudimos publicar tu reseña.");
+      error.visible = cuerpo.error || null;
+      throw error;
+    }
+
+    return cuerpo;
   }
 
   const reviewsTrack = document.getElementById("reviewsTrack");
@@ -1211,12 +1221,8 @@
     } catch (err) {
       console.error("No se pudo publicar la reseña:", err);
 
-      const AVISOS = {
-        23505: "Ya hay una reseña publicada con ese nombre y ese mismo comentario.",
-        23514: `Revisá el largo: el nombre va de ${REVIEW_NAME_MIN} a ${REVIEW_NAME_MAX} caracteres y el comentario de ${REVIEW_MIN_CHARS} a ${REVIEW_MAX_CHARS}.`,
-      };
       mostrarToast(
-        AVISOS[err?.code] || "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
+        err?.visible || "No pudimos publicar tu reseña. Probá de nuevo en un momento.",
         "error",
       );
     } finally {

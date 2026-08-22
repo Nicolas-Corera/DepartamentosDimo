@@ -5,7 +5,13 @@ import {
   anotarResultadoDeMail,
   liberarEnvioDeMail,
 } from "./supabase.js";
-import { desdeLaBase, linksDePago, consultaInquilino, consultaDuenos } from "./plantillas.js";
+import {
+  desdeLaBase,
+  linksDePago,
+  consultaInquilino,
+  consultaDuenos,
+  resenaNueva,
+} from "./plantillas.js";
 
 async function enviarUnaVez(clave, tipo, destinatarios, armar) {
   const { mails } = leerConfig();
@@ -61,4 +67,17 @@ export async function avisarConsultaNueva({ reserva, precio, cobro }) {
   ]);
 
   return { inquilino: resultados[0], duenos: resultados[1] };
+}
+
+export async function avisarResenaNueva({ resena }) {
+  const config = leerConfig();
+  const clave = `resena:${resena.id}`;
+
+  return enviarUnaVez(clave, "resena_duenos", config.mails.duenos, async () => ({
+    from: config.mails.de.resenas,
+    ...resenaNueva({
+      resena,
+      panelUrl: `${config.urls.panel}/#resenas`,
+    }),
+  }));
 }

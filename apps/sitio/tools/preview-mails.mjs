@@ -64,6 +64,14 @@ const pagoSaldo = {
 
 const comprobante = { id: "abc", concepto: "reserva", monto: 189000, subidoEn: "2026-08-22T14:30:00Z" };
 
+const resena = {
+  id: "b1c2d3e4",
+  name: "Marina G.",
+  rating: 5,
+  text: "El depto es hermoso y la terraza tiene una vista increíble. Diego nos atendió genial, volvemos seguro el año que viene.",
+  createdAt: "2027-01-14T09:20:00Z",
+};
+
 const MAILS = {
   "consulta-inquilino": () => p.consultaInquilino({ reserva }),
   "consulta-duenos": () => p.consultaDuenos({ reserva, precio, cobro: sinPagar, links }),
@@ -80,6 +88,8 @@ const MAILS = {
       cobro: sinPagar,
       panelUrl: "https://dash.departamentosdimo.com.ar/#alquileres",
     }),
+  "resena-duenos": () =>
+    p.resenaNueva({ resena, panelUrl: "https://dash.departamentosdimo.com.ar/#resenas" }),
 };
 
 await mkdir(DESTINO, { recursive: true });

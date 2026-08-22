@@ -43,14 +43,14 @@ export function manejarError(res, evento, error) {
   if (error?.name === "ErrorDeConfig") {
     console.error(`[${evento}] configuración:`, error.message);
     return json(res, 500, {
-      error: "El formulario no está bien configurado de nuestro lado. Escribinos por WhatsApp y lo resolvemos.",
+      error: "El sitio no está bien configurado de nuestro lado. Escribinos por WhatsApp y lo resolvemos.",
       codigo: "config",
     });
   }
 
   console.error(`[${evento}] error:`, error?.message || error);
   return json(res, 500, {
-    error: "No pudimos enviar tu consulta. Probá de nuevo en un momento.",
+    error: "No pudimos procesar tu envío. Probá de nuevo en un momento.",
     codigo: "interno",
   });
 }
