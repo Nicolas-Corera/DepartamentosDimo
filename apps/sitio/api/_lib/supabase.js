@@ -44,6 +44,14 @@ export function seleccionar(tabla, consulta = "select=*") {
   return pedir(`${tabla}?${consulta}`);
 }
 
+export async function fechasOcupadas() {
+  const filas = await pedir("rpc/fechas_ocupadas", {
+    method: "POST",
+    body: "{}",
+  });
+  return (filas || []).map((f) => ({ check_in: f.check_in, check_out: f.check_out }));
+}
+
 export async function contarDesde(tabla, desdeISO, tope) {
   const filas = await pedir(
     `${tabla}?select=created_at&created_at=gte.${encodeURIComponent(desdeISO)}&limit=${tope}`,

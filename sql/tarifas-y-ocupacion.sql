@@ -50,7 +50,7 @@ create or replace function public.fechas_ocupadas()
 returns table (check_in date, check_out date)
 language sql
 stable
-security definer
+security invoker
 
 set search_path = ''
 as $$
@@ -60,7 +60,7 @@ as $$
 $$;
 
 comment on function public.fechas_ocupadas() is
-  'Fechas de las reservas confirmadas, sin datos personales. La llama el calendario del sitio con la clave anon.';
+  'Fechas de las reservas confirmadas, sin datos personales. La llama /api/ocupacion del sitio con la service_role. NO exponerla a anon: booking_requests tiene los datos personales del huesped.';
 
-revoke all on function public.fechas_ocupadas() from public;
-grant execute on function public.fechas_ocupadas() to anon, authenticated;
+revoke all on function public.fechas_ocupadas() from public, anon, authenticated;
+grant execute on function public.fechas_ocupadas() to service_role;

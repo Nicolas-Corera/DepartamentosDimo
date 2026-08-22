@@ -443,10 +443,16 @@ lee como un error de cálculo.
 ## 5. El calendario y los días ocupados
 
 El calendario del sitio principal marca como ocupados los días ya reservados. Los
-pide con `db.rpc("fechas_ocupadas")`, una función que devuelve *únicamente*
-`check_in` y `check_out`. Ni nombre, ni mail, ni DNI: `booking_requests` sigue
-siendo ilegible desde el navegador (401), y `anon` no tiene ni un permiso sobre
-esa tabla.
+pide a `GET /api/ocupacion`, una ruta del propio sitio que corre en el servidor
+y devuelve *únicamente* `check_in` y `check_out`. Ni nombre, ni mail, ni DNI:
+`booking_requests` sigue siendo ilegible desde el navegador, y `anon` no tiene
+ni un permiso sobre esa tabla.
+
+> Hasta la Fase 6 el calendario llamaba directo a `db.rpc("fechas_ocupadas")` con
+> la clave pública. Se movió al servidor porque esa función era `SECURITY DEFINER`
+> —el único camino por el que el navegador podía llegar a `booking_requests`— y
+> el Security Advisor de Supabase la marcaba. Ver
+> [SEGURIDAD.md](SEGURIDAD.md#el-calendario-fuera-de-la-api-pública).
 
 > **Por qué una función y no una vista.** La primera versión era una vista. El
 > Security Advisor de Supabase la marcó como *security definer view* y le activó
