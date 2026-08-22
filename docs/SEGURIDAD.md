@@ -1,7 +1,12 @@
 # Seguridad
 
-Auditoría de la Fase 6. Este archivo es el registro de qué se revisó, qué se
-encontró y qué quedó configurado. Se actualiza al cerrar cada parte.
+Auditoría de la Fase 6, en cinco partes. Este archivo es el registro de qué se
+revisó, qué se encontró y qué quedó configurado. **Las cinco están cerradas**;
+lo que quedó pendiente está al final, en [Lo que queda a mano](#lo-que-queda-a-mano).
+
+Todo se verificó contra los servicios reales —la base, los proyectos de Vercel,
+el webhook de MercadoPago, el repo y el Storage de producción— y no leyendo el
+código. Cada sección dice qué se probó y con qué resultado.
 
 | Parte | Alcance | Estado |
 | --- | --- | --- |
@@ -9,7 +14,7 @@ encontró y qué quedó configurado. Se actualiza al cerrar cada parte.
 | **B** | Vercel: variables, previews, sesión en las rutas y fugas de error | ✅ cerrada |
 | **C** | MercadoPago: firma, idempotencia y reintentos | ✅ cerrada |
 | **D** | GitHub: secret scanning, historial, accesos y Actions | ✅ cerrada |
-| E | — | pendiente |
+| **E** | Comprobantes: tipo real del archivo y acceso al bucket | ✅ cerrada |
 
 ---
 
@@ -649,6 +654,149 @@ Los deploys los dispara Vercel por su propia integración, no por Actions.
 
 ---
 
+## Parte E — La subida de comprobantes
+
+Vale entender primero **cómo sube el archivo**, porque de ahí sale todo lo demás:
+
+1. El navegador le pide permiso al servidor: `POST /api/comprobante` con
+   `accion: "firmar"`.
+2. El servidor arma el path él mismo —`<uuid de la reserva>/<timestamp>-<uuid>.<ext>`—
+   y devuelve un **token de subida firmado** para ese path exacto.
+3. **El navegador sube el archivo directo a Supabase Storage**, sin pasar por
+   nuestro servidor.
+4. El navegador avisa: `accion: "registrar"` con el path. Recién ahí el servidor
+   mira lo que quedó guardado y crea la fila en `transfer_receipts`.
+
+El paso 3 es la clave: **los bytes nunca pasan por nuestro código**. Por eso la
+única validación de contenido posible es en el paso 4, contra el archivo ya
+subido.
+
+### E.22 — Validar el tipo real y el tamaño
+
+**El tamaño ya estaba cubierto, por partida doble.** El bucket tiene
+`file_size_limit` de 5 MB, que aplica Storage en el momento de la subida, y el
+paso de registro lo vuelve a chequear contra `MAX_BYTES` y borra el archivo si
+se pasó.
+
+**El tipo no.** Había tres controles y los tres miraban lo mismo: lo que el
+cliente *dice* que es el archivo.
+
+| Control | Qué miraba |
+| --- | --- |
+| `exigirMime()` al firmar | El `mime` que manda el navegador en el JSON |
+| `allowed_mime_types` del bucket | El header `Content-Type` de la subida |
+| `exigirMime()` al registrar | El `contentType` que Storage guardó… del mismo header |
+
+Los tres son el mismo dato con distinta ropa. Ninguno abre el archivo.
+
+Verificado subiendo un ejecutable de Windows con
+`Content-Type: image/png` y extensión `.png`:
+
+```
+subida a Storage           -> HTTP 200
+lo que Storage cree que es -> {"mime":"image/png","bytes":2054}
+primeros bytes reales      -> "MZ"   (ejecutable)
+```
+
+Entraba entero.
+
+#### Lo que se agregó
+
+En el paso de registro, el servidor ahora **se baja los primeros 1024 bytes** del
+archivo y mira la firma real ([`_lib/formato-archivo.js`](../apps/pago/api/_lib/formato-archivo.js)):
+
+| Formato | Firma |
+| --- | --- |
+| PNG | `89 50 4E 47 0D 0A 1A 0A` |
+| JPEG | `FF D8 FF` |
+| PDF | `%PDF-` dentro del primer KB |
+
+Si no es ninguno de los tres, **borra el archivo y rechaza**. Y el `mime` que se
+guarda en `transfer_receipts` pasa a ser el **detectado**, no el declarado: si no
+coinciden se registra un `comprobante.mime_no_coincide` en el log, pero manda lo
+que dicen los bytes.
+
+Se piden 1024 bytes y no el archivo entero por dos motivos: alcanzan para las
+tres firmas, y evitan bajarse 5 MB en cada registro.
+
+> Del PDF se acepta la cabecera en cualquier posición del primer KB, no solo al
+> principio: el estándar lo permite y hay generadores que dejan espacios adelante.
+
+### E.23 — Que nadie vea comprobantes de otra reserva
+
+El checklist pedía "políticas de RLS propias". El bucket tiene **cero**, y eso lo
+deja **más cerrado**, no menos — la misma lógica de
+[A.1](#a1--rls-en-todas-las-tablas). Sin políticas, Storage no le muestra nada a
+`anon` ni a `authenticated`. No hay un inquilino que pueda ver de más porque no
+hay ninguno que pueda ver nada.
+
+En la Parte A esto se probó con el bucket **vacío**, así que "listar devuelve
+`[]`" no probaba gran cosa. Se repitió con archivos reales adentro y sabiendo el
+path exacto:
+
+| Con la clave pública | Resultado |
+| --- | --- |
+| Listar la carpeta de la reserva | `[]` |
+| Descargar el archivo por su path exacto | `400` |
+| Abrirlo por URL pública | `400` |
+| Pedir una URL firmada de lectura | `404 Object not found` |
+| Leer `transfer_receipts` | `42501 permission denied` |
+
+**El inquilino nunca recibe el archivo, ni el suyo.** `ultimoComprobante()`
+devuelve `id`, `estado`, `monto`, `concepto` y fechas — **ni el `path` ni ninguna
+URL**. Solo el panel, con sesión y `service_role`, genera URLs firmadas de vida
+corta para mirarlos.
+
+Y el cruce entre reservas está cortado en el servidor por
+`exigirPathDeLaReserva()`, que exige que el path arranque con el uuid de *esa*
+reserva y rechaza los `..`:
+
+| Intento | Resultado |
+| --- | --- |
+| Registrar el archivo de A usando el `ref` de B | `400 path_invalido` |
+| `<uuid-B>/../<uuid-A>/x.png` | `400 path_invalido` |
+
+Los paths tampoco se adivinan: son `<uuid de reserva>/<timestamp>-<uuid>.<ext>`,
+con dos UUID v4.
+
+### Lo que quedó abierto
+
+**Las subidas que nadie registra no se limpian nunca.** Entre el paso 3 y el 4
+hay una ventana: si alguien firma, sube y **no llama a `registrar`**, el archivo
+queda en el bucket sin fila que lo referencie y sin nada que lo borre. `firmar`
+tampoco tiene rate limit.
+
+Con un uuid de reserva válido —el del link de pago— se puede repetir el ciclo y
+llenar el bucket. Son 5 MB por vuelta y el plan free da 1 GB: unas 200 subidas.
+
+No es una fuga de datos, es costo y molestia. Se arregla con un borrado
+periódico de los objetos sin fila en `transfer_receipts` con más de un día, o
+sumando `firmar` a los topes de [`limite.js`](../apps/sitio/api/_lib/limite.js).
+Queda anotado, no hecho.
+
+### Verificado
+
+Todo por la ruta HTTP real, contra el Storage de producción:
+
+| | |
+| --- | --- |
+| PNG de verdad → `201` | ✅ |
+| PDF de verdad → `201` | ✅ |
+| Ejecutable de Windows disfrazado de PNG → `400` | ✅ |
+| Script `.sh` disfrazado de PNG → `400` | ✅ |
+| ZIP/docx disfrazado de PDF → `400` | ✅ |
+| El archivo rechazado **se borra** de Storage | ✅ |
+| No queda fila en `transfer_receipts` tras un rechazo | ✅ |
+
+El detector, además, contra doce formatos: acepta los tres válidos (incluido un
+PDF con espacios adelante) y rechaza EXE, ELF, ZIP, shell script, HTML, SVG,
+archivo vacío y un PDF cuya cabecera cae más allá del primer KB.
+
+Las dos reservas y los dos comprobantes de prueba se borraron: `booking_requests`
+y `transfer_receipts` quedaron en cero filas y el bucket sin archivos.
+
+---
+
 ## Los dos frenos contra el abuso
 
 Salieron del hallazgo abierto en [B.12](#lo-que-sí-falta-nadie-limita-los-endpoints-que-mandan-mails).
@@ -802,6 +950,14 @@ después; `booking_requests` quedó con las mismas filas que antes.
 ---
 
 ## Lo que queda a mano
+
+### De la Parte E — a resolver en código
+
+**Las subidas que nadie registra no se limpian nunca.** Ver
+[Lo que quedó abierto](#lo-que-quedó-abierto). No es una fuga de datos: es que
+alguien con un uuid de reserva válido puede llenar el bucket subiendo sin
+registrar. Se arregla con un borrado periódico o sumando `firmar` a los topes de
+`limite.js`.
 
 ### De la Parte D — en tu cuenta de GitHub
 

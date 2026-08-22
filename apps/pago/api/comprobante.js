@@ -8,9 +8,11 @@ import {
   transferenciasConfirmadas,
   firmarSubidaDeComprobante,
   leerObjetoDeComprobante,
+  leerCabeceraDeComprobante,
   borrarComprobante,
   guardarComprobante,
 } from "./_lib/supabase.js";
+import { tipoRealDeArchivo } from "./_lib/formato-archivo.js";
 import { calcularPrecio, calcularRecargo } from "./_lib/precios.js";
 import { calcularCobro, sumarPagado, normalizarModo } from "./_lib/cobro.js";
 import { avisarComprobanteSubido } from "./_lib/mails.js";
@@ -130,7 +132,7 @@ export default async function handler(req, res) {
         );
       }
 
-      const mime = exigirMime(objeto.mime);
+      const declarado = exigirMime(objeto.mime);
       const bytes = Number(objeto.bytes || 0);
 
       if (!bytes || bytes > MAX_BYTES) {
@@ -140,6 +142,22 @@ export default async function handler(req, res) {
           `El comprobante no puede pesar más de ${MAX_BYTES / 1024 / 1024} MB.`,
           "archivo_grande",
         );
+      }
+
+      const mime = tipoRealDeArchivo(await leerCabeceraDeComprobante(path));
+
+      if (!mime) {
+        await borrarComprobante(path);
+        log.warn("comprobante.contenido_rechazado", { ref: reserva.id, declarado, bytes });
+        throw new ErrorVisible(
+          400,
+          `Ese archivo no es un ${FORMATOS_TXT}. Puede estar dañado, o tener la extensión cambiada.`,
+          "contenido_invalido",
+        );
+      }
+
+      if (mime !== declarado) {
+        log.warn("comprobante.mime_no_coincide", { ref: reserva.id, declarado, real: mime });
       }
 
       const fila = await guardarComprobante({
