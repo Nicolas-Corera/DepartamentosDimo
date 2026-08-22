@@ -62,7 +62,6 @@ const pagoSaldo = {
   fecha: "2026-09-01T10:15:00Z",
 };
 
-const recibo = { numeroTexto: "0001-00000007", emitidoEn: "2026-09-01T10:15:00Z" };
 const comprobante = { id: "abc", concepto: "reserva", monto: 189000, subidoEn: "2026-08-22T14:30:00Z" };
 
 const MAILS = {
@@ -70,9 +69,9 @@ const MAILS = {
   "consulta-duenos": () => p.consultaDuenos({ reserva, precio, cobro: sinPagar, links }),
   "reserva-inquilino": () => p.reservaInquilino({ reserva, pago: pagoSenia, cobro: conSenia, links }),
   "reserva-dueno": () => p.reservaDueno({ reserva, pago: pagoSenia, cobro: conSenia, links }),
-  "pago-inquilino": () => p.pagoInquilino({ reserva, pago: pagoSaldo, cobro: saldada, recibo }),
+  "pago-inquilino": () => p.pagoInquilino({ reserva, pago: pagoSaldo, cobro: saldada }),
   "pago-duenos": () =>
-    p.pagoDuenos({ reserva, pago: pagoSaldo, cobro: saldada, recibo, comprobanteAdjunto: true }),
+    p.pagoDuenos({ reserva, pago: pagoSaldo, cobro: saldada, comprobanteAdjunto: true }),
   "comprobante-inquilino": () => p.comprobanteInquilino({ reserva, comprobante, cobro: sinPagar }),
   "comprobante-duenos": () =>
     p.comprobanteDuenos({

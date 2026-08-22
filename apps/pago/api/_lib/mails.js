@@ -1,12 +1,10 @@
 import { leerConfig } from "./env.js";
 import { despachar } from "./resend.js";
-import { generarRecibo, nombreDeArchivo, numeroDeRecibo } from "./recibo.js";
 import { log } from "./log.js";
 import {
   reservarEnvioDeMail,
   anotarResultadoDeMail,
   liberarEnvioDeMail,
-  crearRecibo,
   descargarComprobante,
 } from "./supabase.js";
 import {
@@ -97,64 +95,26 @@ export async function avisarPagoCompletado({ reserva, pago, cobro, comprobante }
   const config = leerConfig();
   const datos = desdeLaBase(reserva);
 
-  const fila = await crearRecibo({
-    booking_id: reserva.id,
-    origen: comprobante ? "transferencia" : "mercadopago",
-    mp_payment_id: comprobante ? null : String(pago.referencia),
-    transfer_receipt_id: comprobante ? comprobante.id : null,
-    concepto: pago.concepto,
-    monto: pago.monto,
-    monto_base: pago.montoBase,
-    recargo: Math.max(0, Number(pago.recargo) || 0),
-    moneda: "ARS",
-  });
-
-  const recibo = {
-    numero: fila.numero,
-    numeroTexto: numeroDeRecibo(fila.numero, config.mails.emisor.puntoVenta),
-    emitidoEn: fila.created_at,
-    cae: null,
-    caeVence: null,
-  };
-
-  let pdf = null;
-  try {
-    pdf = await generarRecibo({
-      emisor: config.mails.emisor,
-      reserva: datos,
-      pago,
-      cobro,
-      recibo,
-    });
-  } catch (error) {
-    log.error("recibo.no_se_pudo_generar", error, { ref: reserva.id, recibo: recibo.numeroTexto });
-  }
-
-  const adjuntoRecibo = pdf
-    ? [{ nombre: nombreDeArchivo(recibo, datos), contenido: pdf.toString("base64") }]
-    : [];
-
-  const adjuntosDuenos = [...adjuntoRecibo];
+  const adjuntosDuenos = [];
 
   if (comprobante?.path) {
     const bytes = await descargarComprobante(comprobante.path);
     if (bytes) {
       const extension = EXTENSIONES[comprobante.mime] || "bin";
       adjuntosDuenos.push({
-        nombre: `comprobante-transferencia-${recibo.numeroTexto}.${extension}`,
+        nombre: `comprobante-transferencia-${String(reserva.id).slice(0, 8)}.${extension}`,
         contenido: bytes.toString("base64"),
       });
     }
   }
 
   const clave = comprobante ? `pago:transfer:${comprobante.id}` : `pago:${pago.referencia}`;
-  const contexto = { reserva: datos, pago, cobro, recibo };
+  const contexto = { reserva: datos, pago, cobro };
 
   await Promise.all([
     enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
       from: config.mails.de.pagos,
       replyTo: config.mails.duenos[0],
-      adjuntos: adjuntoRecibo,
       ...pagoInquilino(contexto),
     })),
 
@@ -162,11 +122,9 @@ export async function avisarPagoCompletado({ reserva, pago, cobro, comprobante }
       from: config.mails.de.pagos,
       replyTo: datos.email,
       adjuntos: adjuntosDuenos,
-      ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > adjuntoRecibo.length }),
+      ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > 0 }),
     })),
   ]);
-
-  return recibo;
 }
 
 export async function avisarComprobanteSubido({ reserva, comprobante, cobro }) {

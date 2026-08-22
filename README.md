@@ -13,6 +13,7 @@ apps/
   dashboard/    el panel: tarifas, registro de alquileres, moderación de reseñas
 docs/           la documentación larga de cada parte
 sql/            los scripts que se corren a mano en el SQL Editor de Supabase
+futuro/         código que funcionó, se sacó del build y está listo para volver
 ```
 
 Cada app es **autocontenida**: su `package.json`, su `vercel.json` y su
@@ -58,4 +59,4 @@ primero.
 | [docs/SUPABASE.md](docs/SUPABASE.md) | La base: tablas, RLS, claves, reseñas y consultas de reserva |
 | [docs/MERCADOPAGO.md](docs/MERCADOPAGO.md) | El checkout: cobro con tarjeta, cuotas, webhook y transferencias |
 | [docs/PANEL.md](docs/PANEL.md) | El panel: sesión, tarifas, alquileres, devoluciones y comprobantes |
-| [docs/MAILS-Y-COBROS.md](docs/MAILS-Y-COBROS.md) | Seña y saldo, los mails de Resend, el recibo en PDF y el refresco automático |
+| [docs/MAILS-Y-COBROS.md](docs/MAILS-Y-COBROS.md) | Seña y saldo, los mails de Resend y el refresco automático |

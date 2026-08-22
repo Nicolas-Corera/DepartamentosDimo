@@ -64,17 +64,6 @@ export function leerConfigDeMails() {
       reservas: opcional("MAIL_DE_RESERVAS", REMITENTES.reservas),
       pagos: opcional("MAIL_DE_PAGOS", REMITENTES.pagos),
     },
-
-    emisor: {
-      nombre: opcional("EMISOR_NOMBRE", "Diego Corera"),
-      marca: opcional("EMISOR_MARCA", "DepartamentosDIMO"),
-      cuit: opcional("EMISOR_CUIT"),
-      condicionIva: opcional("EMISOR_CONDICION_IVA"),
-      domicilio: opcional("EMISOR_DOMICILIO"),
-      email: opcional("EMISOR_EMAIL", "pagos@departamentosdimo.com.ar"),
-      sitio: opcional("EMISOR_SITIO", "departamentosdimo.com.ar"),
-      puntoVenta: Number(opcional("EMISOR_PUNTO_VENTA", "1")) || 1,
-    },
   };
 }
 

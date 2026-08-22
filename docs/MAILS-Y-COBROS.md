@@ -10,9 +10,8 @@ cobro dispara un mail, y cada mail dice cuánto falta.**
 | Alta de la consulta y mail de `consultas@` | [apps/sitio/api/consulta.js](../apps/sitio/api/consulta.js) |
 | Cálculo de seña / saldo / total | [apps/pago/api/_lib/cobro.js](../apps/pago/api/_lib/cobro.js) |
 | Cobro y mails de `reservas@` / `pagos@` | [apps/pago/api/pagos.js](../apps/pago/api/pagos.js), [apps/pago/api/webhook.js](../apps/pago/api/webhook.js) |
-| Recibo al aprobar una transferencia | [apps/dashboard/api/comprobantes.js](../apps/dashboard/api/comprobantes.js) |
+| Mail al aprobar una transferencia | [apps/dashboard/api/comprobantes.js](../apps/dashboard/api/comprobantes.js) |
 | Plantillas HTML de los mails | `apps/*/api/_lib/plantillas.js` |
-| PDF del recibo | `apps/*/api/_lib/recibo.js` |
 
 Antes de nada hay que correr [sql/fase4-pagos-y-mails.sql](../sql/fase4-pagos-y-mails.sql)
 en el SQL Editor de Supabase. Es idempotente: se puede correr de nuevo sin
@@ -75,7 +74,7 @@ Cada fila de `payments` y de `transfer_receipts` guarda un `concepto`:
 - `total` — es el total completo, pagado de una.
 
 De eso depende qué mail sale: `reserva` manda el de `reservas@`, los otros dos
-mandan el recibo de `pagos@`.
+mandan el de `pagos@`.
 
 ---
 
@@ -116,29 +115,25 @@ Sale cuando se completa el pago: el saldo, o el total de una.
 
 | Para | Qué lleva |
 | --- | --- |
-| El inquilino | Recibo del pago + **PDF del recibo** |
+| El inquilino | El detalle del pago: concepto, monto, medio, N° de operación y saldo |
 | Los dueños | Lo mismo + el **comprobante de transferencia** que subió el huésped, si el pago fue por transferencia |
+
+El mail **es** el comprobante: no hay ningún archivo adjunto más que el
+comprobante del huésped.
 
 ---
 
-## 3. El recibo en PDF
+## 3. No se emiten facturas ni recibos en PDF
 
-Lo genera [recibo.js](../apps/pago/api/_lib/recibo.js) con `pdf-lib`, en A4, a
-nombre de **Diego Corera | DepartamentosDIMO**. Los datos del emisor salen de
-variables de entorno (`EMISOR_*`).
+Se implementó y después se sacó: los dueños decidieron no emitir comprobantes
+por ahora. El código quedó entero y funcionando en
+[futuro/facturacion-arca/](../futuro/facturacion-arca/), con las instrucciones
+para volver a conectarlo y lo que faltaría para que el PDF sea una factura
+electrónica válida (CAE de ARCA, certificado, punto de venta).
 
-Cada recibo se anota en la tabla `recibos` con un número correlativo:
-`0001-00000042`, donde `0001` es `EMISOR_PUNTO_VENTA`.
-
-> **No es una factura fiscal.** Una factura electrónica válida en Argentina
-> necesita un CAE de ARCA, que se pide contra el web service WSFE con
-> certificado, CUIT y punto de venta habilitado. Eso no está implementado: el
-> PDF dice explícitamente que es un recibo de pago y no un comprobante fiscal.
->
-> La tabla `recibos` ya tiene las columnas `cae`, `cae_vence`, `punto_venta` y
-> `tipo_comprobante` vacías, y el PDF las imprime en el pie si `cae` viene
-> cargado. Cuando se conecte ARCA, el trabajo es pedir el CAE, guardarlo en esas
-> columnas y agregar el QR: el resto del PDF ya está.
+**Esto no toca el comprobante de transferencia que sube el huésped**, que sigue
+funcionando igual: se sube en el checkout, se aprueba en el panel y se adjunta
+al mail de los dueños.
 
 ---
 
@@ -161,10 +156,6 @@ pago:transfer:<receipt_id>:duenos
 Antes de armar el mail, el código intenta insertar esa clave. Si el insert
 choca contra la primary key, alguien más ya lo mandó y no se hace nada. Si el
 envío falla, la fila se borra para que el próximo intento lo reintente.
-
-Los recibos usan el mismo criterio: `recibos` tiene índices únicos sobre
-`mp_payment_id` y `transfer_receipt_id`, así que un pago no puede tener dos
-números de recibo.
 
 **Los mails nunca cortan un cobro.** Todo el bloque de envío está en un
 `try/catch`: si Resend está caído o el dominio no está verificado, el pago se
@@ -192,15 +183,12 @@ lado, la pantalla pasa sola a "reserva paga" en vez de dejarlo pagar dos veces.
 
 ## 6. Variables de entorno
 
-Ya están creadas en los tres proyectos de Vercel. Estas cinco están en
-`COMPLETAR` y hay que cargarlas a mano:
+Ya están creadas en los tres proyectos de Vercel. Esta queda en `COMPLETAR` y
+hay que cargarla a mano:
 
 | Variable | Proyectos | Qué va |
 | --- | --- | --- |
 | `DUENOS_EMAILS` | los tres | Los Gmail de los dueños, separados por coma |
-| `EMISOR_CUIT` | pago, dashboard | El CUIT que va impreso en el recibo |
-| `EMISOR_CONDICION_IVA` | pago, dashboard | Ej. `Responsable Monotributo` |
-| `EMISOR_DOMICILIO` | pago, dashboard | El domicilio fiscal |
 
 Mientras `DUENOS_EMAILS` diga `COMPLETAR`, el código lo descarta por no tener
 formato de mail y **los envíos quedan apagados**, con el motivo en los logs. Es
@@ -230,7 +218,7 @@ las plantillas sin gastar envíos ni llenarle la casilla a nadie.
 ## 8. Las copias de las librerías
 
 `resend.js`, `plantillas.js`, `precios.js` y `cobro.js` están **repetidos
-idénticos** en las tres apps, y `recibo.js` en dos.
+idénticos** en las tres apps.
 
 No es un descuido: cada app es un proyecto de Vercel con su propio
 `Root Directory`, y al desplegar solo ve los archivos de su carpeta. Un
