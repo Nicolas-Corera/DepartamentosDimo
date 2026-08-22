@@ -1413,12 +1413,10 @@ function descargarReporte() {
     startY: 96,
     head: [["Pago", "Inqulino", "Contacto", "Fechas", "Pers.", "Medio", "Monto", "Estado"]],
     body: estado.alquileres.map((a) => [
-      // Una transferencia no tiene número de operación: imprimir "Op. null"
-      // en el papel sería peor que no imprimir nada.
       `${fechaHora(a.fecha)}\n${a.paymentId ? `Op. ${a.paymentId}` : "Transferencia"}`,
-      a.huesped.nombre || "—",
-      [a.huesped.email, a.huesped.telefono].filter(Boolean).join("\n") || "—",
-      a.checkIn ? `${fechaCorta(a.checkIn)}\n${fechaCorta(a.checkOut)}` : "—",
+      [a.huesped.nombre , a.huesped.dni].join("\n") || "—",
+      ["Email: " + a.huesped.email, "Tel.: " + a.huesped.telefono].filter(Boolean).join("\n") || "—",
+      a.checkIn ? `Desde: ${fechaCorta(a.checkIn)}\nHasta: ${fechaCorta(a.checkOut)}` : "—",
       a.personas == null ? "—" : String(a.personas),
       (NOMBRE_MEDIO[a.tipo] || a.tipo || "—") + (a.cuotas > 1 ? `\n${a.cuotas} cuotas` : ""),
       a.devuelto > 0
