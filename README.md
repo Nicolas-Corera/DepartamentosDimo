@@ -58,3 +58,4 @@ primero.
 | [docs/SUPABASE.md](docs/SUPABASE.md) | La base: tablas, RLS, claves, reseñas y consultas de reserva |
 | [docs/MERCADOPAGO.md](docs/MERCADOPAGO.md) | El checkout: cobro con tarjeta, cuotas, webhook y transferencias |
 | [docs/PANEL.md](docs/PANEL.md) | El panel: sesión, tarifas, alquileres, devoluciones y comprobantes |
+| [docs/MAILS-Y-COBROS.md](docs/MAILS-Y-COBROS.md) | Seña y saldo, los mails de Resend, el recibo en PDF y el refresco automático |

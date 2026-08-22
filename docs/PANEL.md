@@ -4,6 +4,10 @@ Tres pestañas: **Tarifas**, **Alquileres** y **Reseñas**. Vive en su propio
 proyecto de Vercel (`dash.departamentosdimo.com.ar`), con su propio `api/` y sus
 propias variables de entorno.
 
+> **Dos cosas que agregó la Fase 4:** en *Tarifas* se edita el **porcentaje de
+> seña**, y aprobar un comprobante en *Alquileres* ahora emite el recibo y manda
+> los mails de `pagos@`. Ver [MAILS-Y-COBROS.md](MAILS-Y-COBROS.md).
+
 ---
 
 ## 0. Estado
