@@ -128,3 +128,51 @@ export function upsert(tabla, filas) {
     body: JSON.stringify(filas),
   });
 }
+
+/* ===========================================================================
+   Storage: los comprobantes de transferencia
+
+   Viven en el bucket privado `comprobantes`, que no tiene ninguna política de
+   RLS: nadie los lee salvo service_role. Para mostrarle uno al operador hay
+   que firmarle una URL temporal.
+   =========================================================================== */
+
+/**
+ * Una URL que sirve el archivo durante unos minutos y después deja de andar.
+ *
+ * `descargarComo` es opcional: con nombre, Storage manda un
+ * `Content-Disposition: attachment` y el navegador lo baja en vez de abrirlo.
+ * Sin nombre, la misma URL se puede usar en un <img> o en un <iframe>.
+ *
+ * Ojo con el vencimiento: el visor del panel usa esta URL desde el navegador,
+ * así que tiene que durar lo que dure el rato en que alguien mira el
+ * comprobante y decide. Cinco minutos es corto para eso y quince es de sobra;
+ * lo elige quien llama.
+ */
+export async function firmarLectura(path, segundos, descargarComo) {
+  const { supabase } = leerConfig();
+
+  // Este endpoint no es PostgREST, así que no pasa por `pedir()`.
+  const respuesta = await fetch(
+    `${supabase.url}/storage/v1/object/sign/comprobantes/${path}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: supabase.serviceRoleKey,
+        Authorization: `Bearer ${supabase.serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ expiresIn: segundos }),
+      signal: AbortSignal.timeout(12_000),
+    },
+  );
+
+  if (!respuesta.ok) {
+    const detalle = await respuesta.text();
+    throw new Error(`Storage (${respuesta.status}): ${detalle.slice(0, 200)}`);
+  }
+
+  const { signedURL } = await respuesta.json();
+  const sufijo = descargarComo ? `&download=${encodeURIComponent(descargarComo)}` : "";
+  return `${supabase.url}/storage/v1${signedURL}${sufijo}`;
+}

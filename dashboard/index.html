@@ -481,6 +481,15 @@
               <span class="eyebrow">Neto</span>
               <strong id="total-neto">—</strong>
             </div>
+            <!--
+              Aparece solo si hay transferencias sin revisar. Va aparte de los
+              otros tres a propósito: esa plata NO está contada en "Cobrado"
+              porque nadie miró todavía el extracto del banco.
+            -->
+            <div class="total-chip total-chip--espera" id="total-chip-pendiente" hidden>
+              <span class="eyebrow">Por aprobar</span>
+              <strong id="total-pendiente">—</strong>
+            </div>
           </div>
 
           <div class="cargando-bloque" id="alquileres-cargando">
@@ -641,6 +650,64 @@
           <button class="btn-primary btn-peligro" id="modal-confirmar" type="button">
             <span class="material-symbols-outlined icon-confirmar">check</span>
             <span class="btn-text-content">Confirmar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!--
+      Visor del comprobante de transferencia.
+
+      A diferencia del de cancelación, este NO mueve plata: aprobar dice "vi la
+      transferencia en la cuenta" y rechazar libera las fechas. Si hay que
+      devolver, se devuelve a mano desde MercadoPago — la plata de una
+      transferencia nunca pasó por la API y el panel no la puede tocar.
+    -->
+    <div class="modal-fondo" id="modal-comprobante" hidden>
+      <div
+        aria-labelledby="comprobante-titulo"
+        aria-modal="true"
+        class="modal modal--ancho"
+        role="dialog"
+      >
+        <h2 class="headline-md" id="comprobante-titulo">Comprobante de transferencia</h2>
+        <p class="modal-detalle" id="comprobante-detalle"></p>
+
+        <div class="comprobante-visor" id="comprobante-visor">
+          <div class="cargando-bloque" id="comprobante-cargando">
+            <span class="material-symbols-outlined spin">progress_activity</span>
+            Abriendo el comprobante…
+          </div>
+        </div>
+
+        <p class="modal-aviso" id="comprobante-aviso">
+          <span class="material-symbols-outlined">warning</span>
+          <span id="comprobante-aviso-texto">
+            Aprobar confirma la reserva y bloquea las fechas. Rechazar las libera.
+            La plata de una transferencia no la puede mover el panel: si hay que
+            devolverla, hacelo a mano desde MercadoPago.
+          </span>
+        </p>
+
+        <div class="modal-acciones modal-acciones--tres">
+          <a
+            class="btn-text"
+            download
+            id="comprobante-descargar"
+            rel="noopener"
+            target="_blank"
+          >
+            <span class="material-symbols-outlined">download</span>
+            Descargar
+          </a>
+          <button class="btn-text" id="comprobante-volver" type="button">Volver</button>
+          <button class="btn-primary btn-peligro" id="comprobante-rechazar" type="button">
+            <span class="material-symbols-outlined">close</span>
+            <span class="btn-text-content">Rechazar</span>
+          </button>
+          <button class="btn-primary btn-aprobar" id="comprobante-aprobar" type="button">
+            <span class="material-symbols-outlined">check</span>
+            <span class="btn-text-content">Aprobar</span>
           </button>
         </div>
       </div>

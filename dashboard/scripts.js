@@ -150,7 +150,8 @@ const estado = {
   alquileres: [],
   totales: null,
   resenas: [],
-  cancelando: null,  // el alquiler que está abierto en el modal
+  cancelando: null,  // el alquiler que está abierto en el modal de cancelación
+  comprobante: null, // la transferencia abierta en el visor de comprobante
 };
 
 /* ===========================================================================
@@ -904,11 +905,30 @@ function pintarAlquileres() {
   $("total-devuelto").textContent = pesos.format(estado.totales.devuelto);
   $("total-neto").textContent = pesos.format(estado.totales.neto);
 
+  // El chip de "por aprobar" solo existe si hay algo que aprobar. Esa plata no
+  // está en "Cobrado" — nadie miró todavía el extracto.
+  const pendientes = estado.totales.comprobantesPendientes || 0;
+  $("total-chip-pendiente").hidden = !pendientes;
+  if (pendientes) {
+    $("total-pendiente").textContent =
+      `${pesos.format(estado.totales.montoPendiente || 0)} · ${pendientes}`;
+  }
+
   $("alquileres-cuerpo").replaceChildren(...estado.alquileres.map(filaDeAlquiler));
 }
 
 /** El estado que se muestra: mezcla el del pago con el de la reserva. */
 function estadoDeAlquiler(a) {
+  // Una transferencia se cuenta por su comprobante, no por un pago: no hay
+  // contracargo ni devolución parcial posible, hay alguien que todavía no miró
+  // el extracto, alguien que lo miró y dijo que sí, o alguien que dijo que no.
+  if (a.estadoComprobante === "pendiente") {
+    return { texto: "Esperando aprobación", clase: "status-espera" };
+  }
+  if (a.estadoComprobante === "rechazado") {
+    return { texto: "Rechazada", clase: "status-cancelado" };
+  }
+
   if (a.estadoPago === "charged_back") return { texto: "Contracargo", clase: "status-devuelto" };
   if (a.estadoPago === "refunded") return { texto: "Devuelto", clase: "status-devuelto" };
   if (a.devuelto > 0) return { texto: "Devuelto en parte", clase: "status-parcial" };
@@ -934,9 +954,17 @@ function celda(contenido, secundario) {
 
 function filaDeAlquiler(a) {
   const tr = document.createElement("tr");
-  tr.dataset.paymentId = a.paymentId;
+  const esTransferencia = a.origen === "transferencia";
+  if (a.paymentId) tr.dataset.paymentId = a.paymentId;
+  if (a.comprobanteId) tr.dataset.comprobanteId = a.comprobanteId;
+  if (esTransferencia) tr.dataset.origen = "transferencia";
 
-  tr.appendChild(celda(fechaHora(a.fecha), `Op. ${a.paymentId}`));
+  // Una transferencia no tiene número de operación de MercadoPago porque no
+  // hubo operación de MercadoPago. Poner "Op. null" sería peor que no poner
+  // nada: parecería un pago roto en vez de otra forma de cobrar.
+  tr.appendChild(
+    celda(fechaHora(a.fecha), esTransferencia ? "Transferencia" : `Op. ${a.paymentId}`),
+  );
   tr.appendChild(celda(a.huesped.nombre, a.huesped.email || a.huesped.telefono || ""));
   tr.appendChild(
     celda(
@@ -971,7 +999,39 @@ function filaDeAlquiler(a) {
   tdEstado.appendChild(badge);
   tr.appendChild(tdEstado);
 
-  const tdAccion = document.createElement("td");
+  tr.appendChild(accionesDeAlquiler(a, esTransferencia));
+  return tr;
+}
+
+/**
+ * La celda de acciones. Cambia entera según de dónde vino la fila.
+ *
+ * MercadoPago: cancelar, que devuelve plata de verdad por la API.
+ * Transferencia: el ojito para mirar el comprobante y decidir. No hay botón de
+ * cancelar porque no hay nada que la API pueda devolver — esa plata entró al
+ * banco por fuera de MercadoPago.
+ */
+function accionesDeAlquiler(a, esTransferencia) {
+  const td = document.createElement("td");
+
+  if (esTransferencia) {
+    const ver = document.createElement("button");
+    ver.className = "btn-action btn-action-ver";
+    ver.type = "button";
+    ver.title =
+      a.estadoComprobante === "pendiente"
+        ? "Ver el comprobante y decidir"
+        : "Ver el comprobante";
+    ver.setAttribute(
+      "aria-label",
+      `Ver el comprobante de ${a.huesped.nombre || "esta reserva"}`,
+    );
+    ver.innerHTML = '<span class="material-symbols-outlined">visibility</span>';
+    ver.addEventListener("click", () => abrirModalComprobante(a));
+    td.appendChild(ver);
+    return td;
+  }
+
   const boton = document.createElement("button");
   boton.className = "btn-cancelar-reserva";
   boton.type = "button";
@@ -982,10 +1042,149 @@ function filaDeAlquiler(a) {
   boton.disabled = sinPendiente;
   if (!sinPendiente) boton.addEventListener("click", () => abrirModalCancelar(a));
 
-  tdAccion.appendChild(boton);
-  tr.appendChild(tdAccion);
+  td.appendChild(boton);
+  return td;
+}
 
-  return tr;
+/* --- Visor del comprobante de transferencia ---------------------------------
+
+   Aprobar y rechazar NO mueven plata, y es la diferencia importante con el
+   modal de cancelación de al lado. Una transferencia bancaria nunca pasó por
+   MercadoPago: no hay `payment` con id, así que no hay `refund` que pedirle a
+   la API. Lo único que se decide acá es si la reserva vale o no:
+
+     aprobar   -> comprobante confirmado + reserva 'confirmada' (bloquea fechas)
+     rechazar  -> comprobante rechazado  + reserva 'cancelada'  (las libera)
+
+   Si además hay que devolver la plata, se devuelve a mano. El aviso del modal
+   lo dice, y el backend lo repite en su respuesta para que no dependa de que
+   alguien se acuerde de escribirlo en la pantalla.
+   --------------------------------------------------------------------------- */
+
+async function abrirModalComprobante(alquiler) {
+  estado.comprobante = alquiler;
+
+  const pendiente = alquiler.estadoComprobante === "pendiente";
+  $("comprobante-detalle").textContent =
+    `${alquiler.huesped.nombre || "Sin nombre"} — ` +
+    `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(alquiler.checkOut)}. ` +
+    `Dice haber transferido ${pesos.format(alquiler.monto)}.`;
+
+  // Ya resuelto: queda como visor y nada más. Los botones de decidir no tienen
+  // sentido dos veces, y el backend igual los rechazaría con un 409.
+  $("comprobante-aprobar").hidden = !pendiente;
+  $("comprobante-rechazar").hidden = !pendiente;
+  $("comprobante-aprobar").disabled = false;
+  $("comprobante-rechazar").disabled = false;
+  $("comprobante-aviso").hidden = !pendiente;
+
+  const visor = $("comprobante-visor");
+  visor.replaceChildren(cargandoDeComprobante());
+  $("comprobante-descargar").removeAttribute("href");
+  $("modal-comprobante").hidden = false;
+
+  try {
+    // Las URLs son temporales y las firma el servidor recién ahora: el bucket
+    // es privado y no hay ninguna URL permanente que se pueda filtrar.
+    const datos = await api(`/comprobantes?id=${encodeURIComponent(alquiler.comprobanteId)}`);
+
+    const descargar = $("comprobante-descargar");
+    descargar.href = datos.descargar;
+    descargar.setAttribute("download", datos.nombreArchivo);
+
+    visor.replaceChildren(vistaDelArchivo(datos));
+  } catch (error) {
+    const aviso = document.createElement("p");
+    aviso.className = "vacio-bloque";
+    aviso.textContent = `No se pudo abrir el comprobante: ${error.message}`;
+    visor.replaceChildren(aviso);
+    mostrarToast(error.message, "error");
+  }
+}
+
+function cargandoDeComprobante() {
+  const bloque = document.createElement("div");
+  bloque.className = "cargando-bloque";
+  bloque.innerHTML =
+    '<span class="material-symbols-outlined spin">progress_activity</span> Abriendo el comprobante…';
+  return bloque;
+}
+
+/**
+ * Una imagen o un PDF, según lo que se haya subido.
+ *
+ * El PDF va en un <iframe> y no en un <embed>: si el navegador no sabe
+ * mostrarlo, el iframe queda vacío pero el botón de Descargar sigue estando,
+ * mientras que un <embed> roto se lleva puesto el layout.
+ */
+function vistaDelArchivo(datos) {
+  if (datos.mime === "application/pdf") {
+    const marco = document.createElement("iframe");
+    marco.className = "comprobante-pdf";
+    marco.title = "Comprobante en PDF";
+    marco.src = datos.ver;
+    return marco;
+  }
+
+  const img = document.createElement("img");
+  img.className = "comprobante-imagen";
+  img.alt = `Comprobante de ${datos.huesped || "la transferencia"}`;
+  img.src = datos.ver;
+  return img;
+}
+
+function cerrarModalComprobante() {
+  $("modal-comprobante").hidden = true;
+  // Se suelta el archivo: dejar el src apuntando a una URL firmada mantiene la
+  // imagen en memoria y el iframe con una request viva detrás del modal.
+  $("comprobante-visor").replaceChildren();
+  estado.comprobante = null;
+}
+
+async function resolverComprobante(accion) {
+  const alquiler = estado.comprobante;
+  if (!alquiler) return;
+
+  if (
+    accion === "rechazar" &&
+    !window.confirm(
+      `¿Rechazar el comprobante de ${alquiler.huesped.nombre || "esta reserva"}?\n\n` +
+        "La reserva se cancela y las fechas quedan libres. Si ya cobraste la " +
+        "transferencia, la devolución la tenés que hacer a mano desde MercadoPago.",
+    )
+  ) {
+    return;
+  }
+
+  $("comprobante-aprobar").disabled = true;
+  $("comprobante-rechazar").disabled = true;
+
+  try {
+    const respuesta = await api("/comprobantes", {
+      method: "PATCH",
+      body: JSON.stringify({ id: alquiler.comprobanteId, accion }),
+    });
+
+    cerrarModalComprobante();
+    mostrarToast(
+      accion === "aprobar"
+        ? "Comprobante aprobado. La reserva quedó confirmada y las fechas bloqueadas."
+        : "Comprobante rechazado. Las fechas quedaron libres.",
+      accion === "aprobar" ? "exito" : undefined,
+    );
+
+    // El aviso de la devolución manual va en su propio toast y después del
+    // primero: es lo único que le queda por hacer al operador.
+    if (respuesta.avisoDevolucion) {
+      setTimeout(() => mostrarToast(respuesta.avisoDevolucion, "error"), 400);
+    }
+
+    await cargarAlquileres();
+  } catch (error) {
+    $("comprobante-aprobar").disabled = false;
+    $("comprobante-rechazar").disabled = false;
+    mostrarToast(error.message, "error");
+  }
 }
 
 /* --- Modal de cancelación --------------------------------------------------- */
@@ -1124,9 +1323,17 @@ function descargarReporte() {
   doc.setTextColor(100);
   doc.text(`DepartamentosDimo · generado el ${generado}`, 40, 62);
 
+  // Los pendientes se nombran aparte y no se suman: es plata que todavía nadie
+  // verificó contra el extracto, y meterla en "cobrado" haría que el reporte
+  // dijera que entró plata que capaz nunca entró.
+  const pendientes = estado.totales.comprobantesPendientes || 0;
   doc.text(
     `${estado.totales.cantidad} reservas · cobrado ${pesos.format(estado.totales.cobrado)} · ` +
-      `devuelto ${pesos.format(estado.totales.devuelto)} · neto ${pesos.format(estado.totales.neto)}`,
+      `devuelto ${pesos.format(estado.totales.devuelto)} · neto ${pesos.format(estado.totales.neto)}` +
+      (pendientes
+        ? ` · ${pendientes} transferencia${pendientes > 1 ? "s" : ""} por aprobar ` +
+          `(${pesos.format(estado.totales.montoPendiente || 0)}, sin contar)`
+        : ""),
     40,
     78,
   );
@@ -1135,7 +1342,9 @@ function descargarReporte() {
     startY: 96,
     head: [["Pago", "Huésped", "Contacto", "Fechas", "Pers.", "Medio", "Monto", "Estado"]],
     body: estado.alquileres.map((a) => [
-      `${fechaHora(a.fecha)}\nOp. ${a.paymentId}`,
+      // Una transferencia no tiene número de operación: imprimir "Op. null"
+      // en el papel sería peor que no imprimir nada.
+      `${fechaHora(a.fecha)}\n${a.paymentId ? `Op. ${a.paymentId}` : "Transferencia"}`,
       a.huesped.nombre || "—",
       [a.huesped.email, a.huesped.telefono].filter(Boolean).join("\n") || "—",
       a.checkIn ? `${fechaCorta(a.checkIn)}\n${fechaCorta(a.checkOut)}` : "—",
@@ -1441,6 +1650,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("modal-volver").addEventListener("click", cerrarModal);
   $("modal-confirmar").addEventListener("click", confirmarCancelacion);
 
+  // --- Visor del comprobante ----------------------------------------------
+  $("comprobante-volver").addEventListener("click", cerrarModalComprobante);
+  $("comprobante-aprobar").addEventListener("click", () => resolverComprobante("aprobar"));
+  $("comprobante-rechazar").addEventListener("click", () => resolverComprobante("rechazar"));
+  $("modal-comprobante").addEventListener("click", (evento) => {
+    if (evento.target === $("modal-comprobante")) cerrarModalComprobante();
+  });
+
   for (const radio of document.querySelectorAll('input[name="modo-cancelacion"]')) {
     radio.addEventListener("change", () => {
       $("modal-parcial").hidden = modoElegido() !== "parcial";
@@ -1454,7 +1671,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (evento.target === $("modal-cancelar")) cerrarModal();
   });
   document.addEventListener("keydown", (evento) => {
-    if (evento.key === "Escape" && !$("modal-cancelar").hidden) cerrarModal();
+    if (evento.key !== "Escape") return;
+    // El de arriba primero: si los dos estuvieran abiertos, Escape cierra el
+    // que se abrió último, que es el que está mirando la persona.
+    if (!$("modal-comprobante").hidden) return cerrarModalComprobante();
+    if (!$("modal-cancelar").hidden) cerrarModal();
   });
 
   // Las tres pestañas se cargan juntas al arrancar: son tres consultas chicas y

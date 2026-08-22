@@ -9,6 +9,13 @@
  * desconoció ante su banco). Los rechazados no entran: son intentos fallidos,
  * quedan en `payments` para diagnóstico y no representan una reserva.
  *
+ * Y además, las TRANSFERENCIAS. Esas no pasan por MercadoPago: la plata entra a
+ * la cuenta por fuera, y lo único que llega al sistema es el comprobante que
+ * sube quien reservó. Viven en `transfer_receipts` y se mezclan acá para que el
+ * registro sea uno solo — con una diferencia importante: mientras el
+ * comprobante está `pendiente`, la fila se muestra pero NO suma a los totales.
+ * Todavía nadie miró el extracto, así que esa plata no está cobrada.
+ *
  * El orden lo pone la base y no el navegador. Es lo que garantiza que la web y
  * el PDF muestren exactamente lo mismo — si ordenara cada uno por su cuenta,
  * dos criterios distintos darían dos listados distintos del mismo día.
@@ -39,15 +46,81 @@ const CONSULTA =
   `&status=in.(${ESTADOS_CON_PLATA.join(",")})` +
   "&order=created_at.desc";
 
+/**
+ * Los comprobantes de transferencia, con la misma forma que un alquiler de
+ * MercadoPago para que la tabla del panel no tenga que saber de dónde vino cada
+ * fila. Lo que las distingue es `origen`.
+ *
+ * Los tres estados entran, incluso los rechazados: un comprobante que se dio de
+ * baja es parte del historial de esa reserva, y esconderlo haría que el mismo
+ * huésped apareciera y desapareciera del registro según lo que se decidió.
+ */
+const CONSULTA_COMPROBANTES =
+  "select=id,booking_id,mime,bytes,monto_declarado,estado,created_at,revisado_en," +
+  "booking_requests(id,nombre,email,dni,telefono,procedencia,check_in,check_out," +
+  "personas,adultos,ninos,estado)" +
+  "&order=created_at.desc";
+
+function comprobanteComoAlquiler(c) {
+  const r = c.booking_requests || null;
+  const monto = Number(c.monto_declarado || 0);
+
+  return {
+    origen: "transferencia",
+    comprobanteId: c.id,
+
+    // No hay número de operación de MercadoPago porque no hubo operación de
+    // MercadoPago. La tabla del panel lo sabe y muestra otra cosa.
+    paymentId: null,
+    bookingId: c.booking_id,
+    fecha: c.revisado_en || c.created_at,
+
+    // pendiente | confirmado | rechazado. Es lo que decide el cartel y los
+    // botones de la fila.
+    estadoComprobante: c.estado,
+    estadoPago: c.estado === "confirmado" ? "approved" : "pending",
+
+    monto,
+    devuelto: 0,
+    neto: monto,
+    devueltoEn: null,
+    moneda: "ARS",
+    metodo: "transferencia",
+    tipo: "bank_transfer",
+    cuotas: 1,
+    ultimosCuatro: null,
+
+    huesped: r
+      ? {
+          nombre: r.nombre,
+          email: r.email,
+          dni: r.dni,
+          telefono: r.telefono,
+          procedencia: r.procedencia,
+        }
+      : { nombre: null, email: null, dni: null, telefono: null, procedencia: null },
+
+    checkIn: r?.check_in || null,
+    checkOut: r?.check_out || null,
+    personas: r?.personas ?? null,
+    adultos: r?.adultos ?? null,
+    ninos: r?.ninos ?? null,
+    estadoReserva: r?.estado || null,
+  };
+}
+
 export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "GET")) return;
 
   try {
     exigirSesion(req);
 
-    const filas = (await seleccionar("payments", CONSULTA)) || [];
+    const [filas, comprobantes] = await Promise.all([
+      seleccionar("payments", CONSULTA),
+      seleccionar("transfer_receipts", CONSULTA_COMPROBANTES),
+    ]);
 
-    const alquileres = filas.map((f) => {
+    const deMercadoPago = (filas || []).map((f) => {
       const r = f.booking_requests || null;
       const monto = Number(f.monto);
       const devuelto = Number(f.devuelto || 0);
@@ -88,19 +161,42 @@ export default async function handler(req, res) {
         adultos: r?.adultos ?? null,
         ninos: r?.ninos ?? null,
         estadoReserva: r?.estado || null,
+        origen: "mercadopago",
+        comprobanteId: null,
+        estadoComprobante: null,
       };
     });
 
-    const cobrado = alquileres.reduce((s, a) => s + a.monto, 0);
-    const devuelto = alquileres.reduce((s, a) => s + a.devuelto, 0);
+    /* Las dos listas en una sola, de la más nueva a la más vieja.
+
+       El orden lo ponía la base con un `order` y una sola tabla. Con dos hay
+       que reordenar acá — pero por el MISMO criterio, así que la web y el PDF
+       siguen diciendo lo mismo en el mismo orden. */
+    const alquileres = [...deMercadoPago, ...(comprobantes || []).map(comprobanteComoAlquiler)].sort(
+      (a, b) => new Date(b.fecha) - new Date(a.fecha),
+    );
+
+    /* Los totales cuentan SOLO plata que existe.
+
+       Un comprobante pendiente es alguien diciendo "ya transferí": la fila se
+       ve, pero sumarla al cobrado inventaría plata que nadie verificó. Y uno
+       rechazado es plata que no entró nunca. */
+    const cuentanPlata = alquileres.filter((a) => a.estadoComprobante !== "pendiente" && a.estadoComprobante !== "rechazado");
+    const cobrado = cuentanPlata.reduce((s, a) => s + a.monto, 0);
+    const devuelto = cuentanPlata.reduce((s, a) => s + a.devuelto, 0);
+    const pendientes = alquileres.filter((a) => a.estadoComprobante === "pendiente");
 
     json(res, 200, {
       alquileres,
       totales: {
-        cantidad: alquileres.length,
+        // La cantidad acompaña al dinero: cuenta lo cobrado, no lo que todavía
+        // se está mirando. Los pendientes van aparte, en su propio contador.
+        cantidad: cuentanPlata.length,
         cobrado,
         devuelto,
         neto: cobrado - devuelto,
+        comprobantesPendientes: pendientes.length,
+        montoPendiente: pendientes.reduce((s, a) => s + a.monto, 0),
       },
     });
   } catch (error) {

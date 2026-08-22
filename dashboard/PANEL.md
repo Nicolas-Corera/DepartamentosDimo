@@ -19,6 +19,8 @@ propias variables de entorno.
 | Alquileres: listado, totales y reporte en PDF | ✅ |
 | Cancelación de reserva con devolución total o parcial en MercadoPago | ✅ |
 | Reseñas: aprobar y eliminar | ✅ |
+| Transferencias: ver el comprobante, aprobar y rechazar | ✅ |
+| Transferencias: devolver la plata | ❌ — a mano desde MercadoPago, ver sección 4 |
 
 ### Falta
 
@@ -199,6 +201,54 @@ MercadoPago no tiene botón de revertir. Por eso:
 La reserva pasa a `estado = 'cancelada'`. Como `fechas_ocupadas()` solo cuenta
 las `confirmada`, **las noches se liberan solas** en el calendario del sitio.
 
+### Transferencias: la fila que espera aprobación
+
+En el mismo registro, mezcladas con los pagos de MercadoPago, aparecen las
+**transferencias**. No vienen de `payments` sino de `transfer_receipts`: son los
+comprobantes que sube quien reservó desde la página de pago.
+
+Se distinguen por tres cosas:
+
+- en la columna **Pago** dicen `Transferencia` en vez de un número de operación,
+  porque no hubo operación de MercadoPago;
+- el estado es **Esperando aprobación** hasta que alguien las mire;
+- en **Acciones** tienen un ojito en vez del botón de cancelar.
+
+**Esa plata no suma a los totales mientras esté pendiente.** Va en su propio
+chip, *Por aprobar*, y el PDF la nombra aparte con un "sin contar". Un
+comprobante pendiente es alguien diciendo "ya transferí": sumarlo a *Cobrado*
+sería dar por entrada plata que nadie verificó contra el extracto del banco.
+
+#### El visor
+
+El ojito abre el comprobante — una foto o un PDF — con un botón para bajarlo y
+dos para decidir. El archivo vive en el bucket privado `comprobantes`, que no
+tiene ninguna política de RLS: no lo lee nadie salvo `service_role`. El panel le
+firma una URL que **vence a los 15 minutos**, así que no hay ningún link
+permanente que se pueda filtrar.
+
+| Botón | Comprobante | Reserva | Fechas |
+| --- | --- | --- | --- |
+| **Aprobar** | `confirmado` | `confirmada` | se bloquean |
+| **Rechazar** | `rechazado` | `cancelada` | se liberan |
+
+Decidir dos veces sobre el mismo comprobante devuelve `409`: casi siempre es un
+doble clic o dos pestañas abiertas. Una vez resuelto, el ojito sigue abriendo el
+archivo pero sin los botones de decidir.
+
+#### ⚠️ Aprobar y rechazar NO mueven plata
+
+Y es la diferencia importante con el botón de cancelar de al lado.
+
+Una transferencia bancaria **nunca pasó por MercadoPago**: la plata entró a la
+cuenta por fuera de la API. No hay un `payment` con id contra el cual pedir un
+`refund`, así que el panel no puede devolverla — ni con la API de MercadoPago ni
+con ninguna otra.
+
+**Si hay que devolver una transferencia, se devuelve a mano**, desde la cuenta de
+MercadoPago, al CBU/CVU del que vino. El panel lo avisa cuando se rechaza un
+comprobante, pero no lo hace ni lo puede hacer.
+
 ### El reporte en PDF
 
 Sale de lo que ya está en pantalla, con jsPDF + autotable en el navegador. Se
@@ -250,6 +300,8 @@ Todos en `dashboard/api/`. Todos exigen la cookie salvo `login`.
 | `GET/PUT /api/tarifas` | Lee y guarda las cuatro tablas de tarifas. |
 | `GET /api/alquileres` | Pagos con plata movida + datos de la reserva. |
 | `POST /api/cancelar` | Cancela la reserva y (si se pide) devuelve. |
+| `GET /api/comprobantes` | URL temporal (15 min) para ver y para bajar un comprobante. |
+| `PATCH /api/comprobantes` | Aprueba o rechaza un comprobante. **No mueve plata.** |
 | `GET/PATCH/DELETE /api/resenas` | Lista, aprueba y elimina reseñas. |
 
 ### Sin dependencias
