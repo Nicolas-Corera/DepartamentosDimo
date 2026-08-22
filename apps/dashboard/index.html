@@ -370,6 +370,39 @@
 
             <div class="card card-ancho">
               <div class="card-header">
+                <div class="card-icon icon-senia">
+                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">bookmark</span>
+                </div>
+                <h2 class="headline-md card-title">Seña</h2>
+              </div>
+
+              <p class="nota-card">
+                Qué porcentaje del total cobra el link de <strong>seña</strong> que
+                te llega en el mail de cada consulta. El link de <strong>total</strong>
+                no se toca: si el huésped ya señó, cobra solo el saldo que falta.
+              </p>
+
+              <div class="senia-fila">
+                <div class="senia-controles">
+                  <div class="input-group" style="margin-bottom: 0">
+                    <label class="label-md" for="porcentaje-reserva">Porcentaje de seña</label>
+                    <input
+                      id="porcentaje-reserva"
+                      max="100"
+                      min="1"
+                      required
+                      step="0.5"
+                      type="number"
+                    />
+                  </div>
+                  <span class="sufijo-porcentaje">%</span>
+                </div>
+                <p class="senia-ejemplo" id="senia-ejemplo">—</p>
+              </div>
+            </div>
+
+            <div class="card card-ancho">
+              <div class="card-header">
                 <div class="card-icon icon-calc">
                   <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">calculate</span>
                 </div>

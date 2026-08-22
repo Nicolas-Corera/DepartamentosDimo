@@ -12,6 +12,21 @@ function requerida(nombre, pista) {
   return valor;
 }
 
+function opcional(nombre, porDefecto = "") {
+  return (process.env[nombre] || "").trim() || porDefecto;
+}
+
+function listaDeMails(nombre) {
+  return opcional(nombre)
+    .split(/[,;\s]+/)
+    .map((m) => m.trim().toLowerCase())
+    .filter((m) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m));
+}
+
+function sinBarra(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
 function booleana(nombre, porDefecto) {
   const crudo = (process.env[nombre] || "").trim().toLowerCase();
   if (!crudo) return porDefecto;
@@ -22,6 +37,45 @@ function ambienteDeCredencial(valor) {
   if (valor.startsWith("TEST-")) return "test";
   if (valor.startsWith("APP_USR-")) return "produccion";
   return "desconocido";
+}
+
+const REMITENTES = {
+  consultas: "Departamentos Dimo <consultas@departamentosdimo.com.ar>",
+  reservas: "Departamentos Dimo <reservas@departamentosdimo.com.ar>",
+  pagos: "Departamentos Dimo <pagos@departamentosdimo.com.ar>",
+};
+
+export function leerConfigDeMails() {
+  const apiKey = opcional("RESEND_API_KEY");
+  const duenos = listaDeMails("DUENOS_EMAILS");
+
+  const motivos = [];
+  if (!apiKey) motivos.push("falta RESEND_API_KEY");
+  if (!duenos.length) motivos.push("DUENOS_EMAILS no tiene ninguna dirección válida");
+
+  return {
+    habilitados: motivos.length === 0,
+    motivo: motivos.join(" y "),
+    apiKey,
+    duenos,
+
+    de: {
+      consultas: opcional("MAIL_DE_CONSULTAS", REMITENTES.consultas),
+      reservas: opcional("MAIL_DE_RESERVAS", REMITENTES.reservas),
+      pagos: opcional("MAIL_DE_PAGOS", REMITENTES.pagos),
+    },
+
+    emisor: {
+      nombre: opcional("EMISOR_NOMBRE", "Diego Corera"),
+      marca: opcional("EMISOR_MARCA", "DepartamentosDIMO"),
+      cuit: opcional("EMISOR_CUIT"),
+      condicionIva: opcional("EMISOR_CONDICION_IVA"),
+      domicilio: opcional("EMISOR_DOMICILIO"),
+      email: opcional("EMISOR_EMAIL", "pagos@departamentosdimo.com.ar"),
+      sitio: opcional("EMISOR_SITIO", "departamentosdimo.com.ar"),
+      puntoVenta: Number(opcional("EMISOR_PUNTO_VENTA", "1")) || 1,
+    },
+  };
 }
 
 let cache = null;
@@ -119,6 +173,14 @@ export function leerConfig() {
     },
     supabase: { url: supabaseUrl, serviceRoleKey },
 
+    mails: leerConfigDeMails(),
+
+    urls: {
+      sitio: sinBarra(opcional("SITIO_URL", "https://departamentosdimo.com.ar")),
+      pago: sinBarra(opcional("PAGO_URL", "https://pago.departamentosdimo.com.ar")),
+      panel: sinBarra(opcional("PANEL_URL", "https://dash.departamentosdimo.com.ar")),
+    },
+
     moneda: "ARS",
     confirmarReservaAlAprobar: booleana("CONFIRMAR_RESERVA_AL_APROBAR", true),
     entorno: entornoVercel,
@@ -144,7 +206,14 @@ if (process.argv[1] && process.argv[1].endsWith("env.js")) {
     console.log(`      ambiente MercadoPago   ${c.mp.ambiente}`);
     console.log(`      entorno                ${c.entorno}`);
     console.log(`      supabase               ${c.supabase.url}`);
-    console.log(`      precios                en la base (temporadas / medios_pago / planes_cuotas)\n`);
+    console.log(`      precios                en la base (temporadas / medios_pago / planes_cuotas)`);
+    console.log(
+      `      mails                  ${
+        c.mails.habilitados
+          ? `activos → ${c.mails.duenos.length} dueño(s): ${c.mails.duenos.join(", ")}`
+          : `DESACTIVADOS (${c.mails.motivo})`
+      }\n`,
+    );
   } catch (e) {
     console.error(`\n  ERROR  ${e.message}\n`);
     process.exit(1);

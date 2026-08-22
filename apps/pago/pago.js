@@ -47,6 +47,7 @@ function mostrarPantalla(cual) {
 
 const estado = {
   ref: null,
+  modo: "total",
   datos: null,
   brick: null,
   brickFallo: false,
@@ -62,9 +63,15 @@ function medioActual() {
   return (estado.datos?.medios || []).find((m) => m.clave === estado.metodo) || null;
 }
 
+function baseACobrar() {
+  const cobro = estado.datos?.cobro;
+  if (cobro && Number.isFinite(Number(cobro.aCobrarBase))) return Number(cobro.aCobrarBase);
+  return estado.datos?.precio?.total || 0;
+}
+
 function cobroActual() {
   const medio = medioActual();
-  const base = estado.datos?.precio?.total || 0;
+  const base = baseACobrar();
 
   if (!medio) {
     return { total: base, recargo: 0, recargoPorcentaje: 0, cuotas: 1, valorCuota: base };
@@ -95,6 +102,12 @@ function leerRefDeLaUrl() {
   return (params.get("reserva") || params.get("ref") || "").trim();
 }
 
+function leerModoDeLaUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const modo = (params.get("modo") || "").trim().toLowerCase();
+  return modo === "reserva" ? "reserva" : "total";
+}
+
 function mostrarErrorDeCarga(titulo, detalle, { reintentar = true } = {}) {
   $("error-titulo").textContent = titulo;
   $("error-detalle").textContent = detalle;
@@ -107,6 +120,7 @@ async function cargarReserva() {
   mostrarPantalla("pantalla-carga");
 
   estado.ref = leerRefDeLaUrl();
+  estado.modo = leerModoDeLaUrl();
   if (!estado.ref) {
     mostrarErrorDeCarga(
       "Falta el código de reserva",
@@ -118,9 +132,10 @@ async function cargarReserva() {
 
   let respuesta;
   try {
-    respuesta = await fetch(`/api/reserva?ref=${encodeURIComponent(estado.ref)}`, {
-      headers: { Accept: "application/json" },
-    });
+    respuesta = await fetch(
+      `/api/reserva?ref=${encodeURIComponent(estado.ref)}&modo=${encodeURIComponent(estado.modo)}`,
+      { headers: { Accept: "application/json" } },
+    );
   } catch {
     mostrarErrorDeCarga(
       "No pudimos conectarnos",
@@ -145,24 +160,27 @@ async function cargarReserva() {
   pintarResumen(cuerpo);
 
   if (cuerpo.pago?.yaPagada) {
+    detenerRefresco();
     mostrarResultado({
       grupo: "aprobado",
       titulo: "Esta reserva ya está paga",
       detalle:
-        "Ya registramos el pago de esta reserva. Si necesitás el comprobante, escribinos.",
+        "Ya registramos el pago completo de esta reserva. Si necesitás el recibo, escribinos.",
       accion: "ninguna",
     });
     return;
   }
 
   const enCurso = cuerpo.transferencia;
-  if (enCurso && !fueDescartado(enCurso)) {
+  if (enCurso && enCurso.estado !== "confirmado" && !fueDescartado(enCurso)) {
     mostrarEstadoDeTransferencia(enCurso);
+    arrancarRefresco();
     return;
   }
 
   mostrarPantalla("checkout");
   await aplicarMetodo("credito");
+  arrancarRefresco();
 }
 
 const CLAVE_DESCARTE = "dimo:transferencia-descartada:";
@@ -256,10 +274,75 @@ function pintarResumen({ reserva, precio }) {
   actualizarTotales();
 }
 
+const AVISOS = {
+  reserva: {
+    icono: "bookmark",
+    tono: "reserva",
+    titulo: (c) => `Estás pagando la seña (${formatearPorcentaje(c.porcentajeReserva)}%)`,
+    detalle: (c) =>
+      `La seña son ${pesos.format(c.montoReserva)} de un total de ${pesos.format(c.montoTotal)}. ` +
+      `Con esto tu reserva queda tomada y el resto lo pagás cuando quieras.`,
+  },
+  saldo: {
+    icono: "account_balance_wallet",
+    tono: "saldo",
+    titulo: () => "Estás pagando el saldo pendiente",
+    detalle: (c) =>
+      `Ya tenemos registrados ${pesos.format(c.pagado)} de tu reserva. ` +
+      `Con este pago de ${pesos.format(c.aCobrarBase)} quedás al día.`,
+  },
+  total: {
+    icono: "payments",
+    tono: "total",
+    titulo: () => "Estás pagando el total de la estadía",
+    detalle: (c) =>
+      `Son ${pesos.format(c.montoTotal)} por la estadía completa. ` +
+      `Con este pago tu reserva queda confirmada y saldada.`,
+  },
+};
+
+function pintarAvisoDeConcepto() {
+  const aviso = $("aviso-concepto");
+  const cobro = estado.datos?.cobro;
+
+  if (!cobro) {
+    aviso.hidden = true;
+    return;
+  }
+
+  const plantilla = AVISOS[cobro.concepto] || AVISOS.total;
+  aviso.dataset.tono = plantilla.tono;
+  $("aviso-concepto-icono").textContent = plantilla.icono;
+  $("aviso-concepto-titulo").textContent = plantilla.titulo(cobro);
+  $("aviso-concepto-detalle").textContent = plantilla.detalle(cobro);
+  aviso.hidden = false;
+}
+
 function actualizarTotales() {
-  const base = estado.datos?.precio?.total || 0;
+  const base = baseACobrar();
+  const datosCobro = estado.datos?.cobro;
   const cobro = cobroActual();
   const medio = medioActual();
+
+  const filaPagado = $("fila-pagado");
+  if (datosCobro && datosCobro.pagado > 0) {
+    $("resumen-pagado").textContent = `- ${pesos.format(datosCobro.pagado)}`;
+    filaPagado.hidden = false;
+  } else {
+    filaPagado.hidden = true;
+  }
+
+  const filaConcepto = $("fila-concepto");
+  if (datosCobro && datosCobro.aCobrarBase !== datosCobro.montoTotal) {
+    $("resumen-concepto-label").textContent =
+      datosCobro.concepto === "reserva"
+        ? `Seña (${formatearPorcentaje(datosCobro.porcentajeReserva)}%)`
+        : "Saldo a pagar";
+    $("resumen-concepto").textContent = pesos.format(datosCobro.aCobrarBase);
+    filaConcepto.hidden = false;
+  } else {
+    filaConcepto.hidden = true;
+  }
 
   const filaRecargo = $("fila-recargo");
   if (cobro.recargo > 0) {
@@ -292,15 +375,30 @@ function actualizarTotales() {
   const transferencia = (estado.datos?.medios || []).find((m) => m.clave === "transferencia");
   $("transfer-monto").textContent = pesos.format(transferencia?.total ?? base);
 
-  const nota = $("nota-total");
+  $("resumen-total-label").textContent =
+    datosCobro?.concepto === "reserva" ? "Total a pagar ahora" : "Total";
+
+  const avisos = [];
+
   if (cobro.recargo > 0) {
-    nota.textContent =
-      `El precio de la estadía es ${pesos.format(base)}. ` +
-      `El total incluye el recargo por pagar con ${(medio?.nombre || "este medio").toLowerCase()}.`;
-    nota.hidden = false;
-  } else {
-    nota.hidden = true;
+    avisos.push(
+      `Sobre ${pesos.format(base)} se suma el recargo por pagar con ` +
+        `${(medio?.nombre || "este medio").toLowerCase()}.`,
+    );
   }
+
+  if (datosCobro && datosCobro.concepto === "reserva") {
+    const restante = datosCobro.montoTotal - datosCobro.pagado - datosCobro.aCobrarBase;
+    if (restante > 0) {
+      avisos.push(`Después de esta seña te van a quedar ${pesos.format(restante)} por pagar.`);
+    }
+  }
+
+  const nota = $("nota-total");
+  nota.textContent = avisos.join(" ");
+  nota.hidden = avisos.length === 0;
+
+  pintarAvisoDeConcepto();
 }
 
 function formatearPorcentaje(n) {
@@ -679,6 +777,7 @@ async function enviarComprobante() {
   try {
     const firma = await pedirJson("/api/comprobante", {
       ref: estado.ref,
+      modo: estado.modo,
       accion: "firmar",
       mime,
     });
@@ -696,6 +795,7 @@ async function enviarComprobante() {
 
     const registro = await pedirJson("/api/comprobante", {
       ref: estado.ref,
+      modo: estado.modo,
       accion: "registrar",
       path: firma.path,
     });
@@ -774,7 +874,7 @@ async function enviarPago(formData) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
 
-      body: JSON.stringify({ ref: estado.ref, formData }),
+      body: JSON.stringify({ ref: estado.ref, modo: estado.modo, formData }),
     });
 
     const cuerpo = await respuesta.json().catch(() => ({}));
@@ -844,6 +944,7 @@ const ICONOS = {
 
 function mostrarResultado(mensaje, pago) {
   setTimeout(desmontarBrick, 0);
+  detenerRefresco();
 
   const icono = ICONOS[mensaje.grupo] || ICONOS.rechazado;
   $("resultado-icono").className = `pantalla-icono ${icono.clase}`;
@@ -859,6 +960,15 @@ function mostrarResultado(mensaje, pago) {
     ];
     if (pago.cuotas > 1) filas.push(["Cuotas", String(pago.cuotas)]);
     if (pago.ultimosCuatro) filas.push(["Tarjeta", `•••• ${pago.ultimosCuatro}`]);
+    if (pago.etiqueta) filas.push(["Concepto", pago.etiqueta]);
+
+    if (pago.cobro) {
+      filas.push(["Total de la estadía", pesos.format(pago.cobro.montoTotal)]);
+      filas.push([
+        pago.cobro.completa ? "Saldo" : "Saldo pendiente",
+        pago.cobro.completa ? "Sin saldo pendiente" : pesos.format(pago.cobro.saldo),
+      ]);
+    }
 
     datos.replaceChildren(
       ...filas.map(([etiqueta, valor]) => {
@@ -889,6 +999,19 @@ function mostrarResultado(mensaje, pago) {
     boton.innerHTML =
       '<span class="material-symbols-rounded">refresh</span> Probar de nuevo';
     boton.addEventListener("click", () => window.location.reload());
+    acciones.appendChild(boton);
+  }
+
+  if (pago?.cobro && !pago.cobro.completa && pago.cobro.saldo > 0) {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "submit-btn";
+    boton.innerHTML =
+      '<span class="material-symbols-rounded">account_balance_wallet</span> ' +
+      `Pagar el saldo de ${pesos.format(pago.cobro.saldo)}`;
+    boton.addEventListener("click", () => {
+      window.location.search = `?ref=${encodeURIComponent(estado.ref)}&modo=total`;
+    });
     acciones.appendChild(boton);
   }
 
@@ -926,6 +1049,7 @@ async function volverAlCheckout() {
   for (const tab of document.querySelectorAll(".tab-btn")) {
     tab.classList.toggle("active", tab.dataset.metodo === "credito");
   }
+  arrancarRefresco();
   anunciar("Podés elegir otro medio de pago.");
 }
 
@@ -951,6 +1075,102 @@ function activarTabs() {
     });
   });
 }
+
+const REFRESCO_MS = 25_000;
+const REFRESCO_MAX_MS = 5 * 60_000;
+
+const refresco = { timer: null, espera: REFRESCO_MS, corriendo: false };
+
+function detenerRefresco() {
+  clearTimeout(refresco.timer);
+  refresco.timer = null;
+}
+
+function arrancarRefresco() {
+  detenerRefresco();
+  refresco.espera = REFRESCO_MS;
+  refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
+}
+
+async function ciclarRefresco() {
+  const cambio = await refrescarEstado();
+  if (cambio === "detener") return;
+
+  refresco.espera =
+    cambio === "error" ? Math.min(refresco.espera * 2, REFRESCO_MAX_MS) : REFRESCO_MS;
+
+  refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
+}
+
+async function refrescarEstado() {
+  if (refresco.corriendo) return "saltado";
+  if (estado.procesando) return "saltado";
+  if (document.hidden) return "saltado";
+  if (!estado.ref || !estado.datos) return "saltado";
+
+  refresco.corriendo = true;
+  try {
+    const respuesta = await fetch(
+      `/api/reserva?ref=${encodeURIComponent(estado.ref)}&modo=${encodeURIComponent(estado.modo)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!respuesta.ok) return "error";
+
+    const nuevo = await respuesta.json();
+    const antes = estado.datos;
+
+    if (nuevo.pago?.yaPagada) {
+      estado.datos = nuevo;
+      detenerRefresco();
+      mostrarResultado({
+        grupo: "aprobado",
+        titulo: "Esta reserva ya está paga",
+        detalle:
+          "Registramos el pago completo de esta reserva. Si necesitás el recibo, escribinos.",
+        accion: "ninguna",
+      });
+      return "detener";
+    }
+
+    const estadoAntes = antes.transferencia?.estado || null;
+    const estadoAhora = nuevo.transferencia?.estado || null;
+
+    if (estadoAntes !== estadoAhora && estadoAhora && estadoAhora !== "confirmado") {
+      estado.datos = nuevo;
+      if (!fueDescartado(nuevo.transferencia)) {
+        detenerRefresco();
+        mostrarEstadoDeTransferencia(nuevo.transferencia);
+        return "detener";
+      }
+    }
+
+    if (nuevo.cobro?.aCobrarBase !== antes.cobro?.aCobrarBase) {
+      estado.datos = nuevo;
+      mostrarAvisoDePago({
+        titulo: "El monto de tu reserva cambió",
+        detalle:
+          `Ahora te corresponde pagar ${pesos.format(nuevo.cobro.aCobrarBase)}. ` +
+          "Recargá la página para que el formulario tome el importe nuevo.",
+        grupo: "pendiente",
+      });
+      return "cambio";
+    }
+
+    estado.datos = nuevo;
+    return "sin_cambios";
+  } catch {
+    return "error";
+  } finally {
+    refresco.corriendo = false;
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (!refresco.timer) return;
+  arrancarRefresco();
+  refrescarEstado();
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   activarTabs();

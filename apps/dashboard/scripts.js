@@ -104,12 +104,14 @@ const estado = {
   resenas: [],
   cancelando: null,
   comprobante: null,
+  tarifasEditadas: false,
 };
 
 async function cargarTarifas() {
   try {
     estado.tarifas = await api("/tarifas");
     pintarTarifas();
+    estado.tarifasEditadas = false;
     $("tarifas-cargando").hidden = true;
     $("tarifas-form").hidden = false;
   } catch (error) {
@@ -120,7 +122,7 @@ async function cargarTarifas() {
 }
 
 function pintarTarifas() {
-  const { temporadas, medios, maxCuotas, planes, especiales } = estado.tarifas;
+  const { temporadas, medios, maxCuotas, planes, especiales, porcentajeReserva } = estado.tarifas;
 
   for (const t of temporadas) {
     $(`${t.clave}-desde`).value = t.desde;
@@ -132,6 +134,9 @@ function pintarTarifas() {
   $("max-cuotas").value = maxCuotas;
   pintarCuotas(maxCuotas, planes);
   pintarEspeciales(especiales);
+
+  $("porcentaje-reserva").value = porcentajeReserva;
+  actualizarEjemploDeSenia();
 
   actualizarTarifaDeHoy();
   revisarHuecos();
@@ -460,6 +465,7 @@ function configEnPantalla() {
     maxCuotas: Number($("max-cuotas").value || 1),
     planes: leerPlanes(),
     especiales: leerEspeciales(),
+    porcentajeReserva: Number($("porcentaje-reserva").value || 0),
   };
 }
 
@@ -507,6 +513,29 @@ function actualizarTarifaDeHoy() {
   const hoy = precioDeLaNoche(hoyISO(), config);
   $("tarifa-hoy-precio").textContent = `${pesos.format(hoy.precio)} / noche`;
   $("tarifa-hoy-nota").textContent = `(${hoy.etiqueta})`;
+}
+
+const NOCHES_DE_EJEMPLO = 7;
+
+function actualizarEjemploDeSenia() {
+  const nota = $("senia-ejemplo");
+  if (!nota) return;
+
+  const pct = Number($("porcentaje-reserva").value || 0);
+
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+    nota.textContent = "Poné un porcentaje entre 1 y 100.";
+    return;
+  }
+
+  const porNoche = precioDeLaNoche(hoyISO(), configEnPantalla()).precio;
+  const total = porNoche * NOCHES_DE_EJEMPLO;
+  const senia = Math.round((total * pct) / 100);
+
+  nota.textContent =
+    `Ejemplo: una estadía de ${NOCHES_DE_EJEMPLO} noches a la tarifa de hoy sale ` +
+    `${pesos.format(total)}. La seña sería ${pesos.format(senia)} y quedarían ` +
+    `${pesos.format(total - senia)} de saldo.`;
 }
 
 function revisarHuecos() {
@@ -769,6 +798,7 @@ async function guardarTarifas(evento) {
     });
 
     pintarTarifas();
+    estado.tarifasEditadas = false;
 
     gsap.killTweensOf(icono);
     gsap.set(icono, { rotation: 0 });
@@ -1551,6 +1581,7 @@ function activarPestanas() {
             { opacity: 0, y: 20 },
             { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" },
           );
+          refrescarPestanaActiva();
         },
       });
     });
@@ -1570,8 +1601,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("tarifas-form").addEventListener("submit", guardarTarifas);
 
   for (const id of ["alta-precio", "media-precio", "baja-precio"]) {
-    $(id).addEventListener("input", recalcularCalculadora);
+    $(id).addEventListener("input", () => {
+      recalcularCalculadora();
+      actualizarEjemploDeSenia();
+    });
   }
+
+  $("porcentaje-reserva").addEventListener("input", actualizarEjemploDeSenia);
 
   $("max-cuotas").addEventListener("input", () => {
     const max = Math.min(24, Math.max(1, Number($("max-cuotas").value || 1)));
@@ -1635,5 +1671,72 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!$("modal-cancelar").hidden) cerrarModal();
   });
 
+  $("tarifas-form").addEventListener("input", () => {
+    estado.tarifasEditadas = true;
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refrescarPestanaActiva();
+  });
+
   await Promise.all([cargarTarifas(), cargarAlquileres(), cargarResenas()]);
+
+  arrancarRefresco();
 });
+
+const REFRESCO_MS = 30_000;
+const REFRESCO_MAX_MS = 5 * 60_000;
+
+const refresco = { timer: null, espera: REFRESCO_MS, corriendo: false };
+
+function hayModalAbierto() {
+  return ["modal-cancelar", "modal-comprobante"].some((id) => $(id) && !$(id).hidden);
+}
+
+function pestanaActiva() {
+  return document.querySelector(".tab-content.active")?.id || null;
+}
+
+async function refrescarPestanaActiva() {
+  if (refresco.corriendo || document.hidden || hayModalAbierto()) return true;
+
+  refresco.corriendo = true;
+  try {
+    const pestana = pestanaActiva();
+
+    if (pestana === "tarifas") {
+      if (estado.tarifasEditadas) return true;
+      await cargarTarifas();
+      return true;
+    }
+
+    if (pestana === "alquileres") {
+      await cargarAlquileres();
+      return true;
+    }
+
+    if (pestana === "resenas") {
+      await cargarResenas();
+      return true;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn("[refresco] no se pudo actualizar:", error?.message || error);
+    return false;
+  } finally {
+    refresco.corriendo = false;
+  }
+}
+
+async function ciclarRefresco() {
+  const ok = await refrescarPestanaActiva();
+  refresco.espera = ok ? REFRESCO_MS : Math.min(refresco.espera * 2, REFRESCO_MAX_MS);
+  refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
+}
+
+function arrancarRefresco() {
+  clearTimeout(refresco.timer);
+  refresco.espera = REFRESCO_MS;
+  refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
+}

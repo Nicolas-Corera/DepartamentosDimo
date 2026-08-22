@@ -596,9 +596,18 @@ db.channel("reviews-live")
 ## 8. Consultas de reserva — tabla `booking_requests`
 
 El formulario **"Consultá tu Reserva"** guarda cada envío como una fila en
-`public.booking_requests`. No manda mails ni avisa a nadie: **solo persiste los
-datos** para poder reutilizarlos después (es la base sobre la que se va a armar
-el calendario de ocupación).
+`public.booking_requests`.
+
+> **Cambió en la Fase 4.** El alta ya no la hace el navegador: pasa por
+> [apps/sitio/api/consulta.js](../apps/sitio/api/consulta.js), que valida del
+> lado del servidor, escribe con la `service_role` y manda los mails de
+> `consultas@`. El endpoint necesita leer la fila recién creada para armar los
+> links de pago, y `booking_requests` no tiene política de `select`.
+>
+> Una vez que eso esté en producción hay que correr
+> [sql/cerrar-alta-publica-consultas.sql](../sql/cerrar-alta-publica-consultas.sql),
+> que saca el permiso de `insert` de `anon`. Lo que sigue de esta sección
+> describe la tabla, que no cambió, y la policy vieja.
 
 ### Diferencia clave con `reviews`
 

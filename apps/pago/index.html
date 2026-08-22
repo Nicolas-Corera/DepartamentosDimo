@@ -667,6 +667,60 @@
         color: var(--color-primary);
       }
 
+      .monto-descuento {
+        color: var(--color-exito);
+        font-weight: 600;
+      }
+
+      #fila-concepto {
+        font-weight: 600;
+        color: var(--color-tinta);
+        border-top: 1px solid var(--color-surface-variant);
+        padding-top: 12px;
+        margin-top: 4px;
+      }
+
+      .aviso-concepto {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 16px 18px;
+        margin-bottom: 20px;
+        border-radius: 14px;
+        background-color: var(--color-surface-container-low);
+        border-left: 4px solid var(--color-primary);
+      }
+
+      .aviso-concepto .material-symbols-rounded {
+        color: var(--color-primary);
+        font-size: 24px;
+        flex-shrink: 0;
+      }
+
+      .aviso-concepto strong {
+        display: block;
+        font-family: var(--font-headline);
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--color-tinta);
+      }
+
+      .aviso-concepto p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--color-on-surface-variant);
+      }
+
+      .aviso-concepto[data-tono="saldo"] {
+        background-color: var(--color-coral-subtle);
+        border-left-color: var(--color-tertiary-container);
+      }
+
+      .aviso-concepto[data-tono="saldo"] .material-symbols-rounded {
+        color: var(--color-tertiary-container);
+      }
+
       .submit-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
@@ -901,6 +955,14 @@
 
         <div class="left-column">
 
+          <div class="aviso-concepto" id="aviso-concepto" hidden>
+            <span class="material-symbols-rounded" id="aviso-concepto-icono">bookmark</span>
+            <div>
+              <strong id="aviso-concepto-titulo">—</strong>
+              <p id="aviso-concepto-detalle">—</p>
+            </div>
+          </div>
+
           <section class="card-section">
             <h2 class="section-title">
               <span class="material-symbols-rounded">person</span>
@@ -1051,6 +1113,16 @@
               <div class="price-row">
                 <span>Check-out</span>
                 <span id="resumen-checkout">—</span>
+              </div>
+
+              <div class="price-row" id="fila-pagado" hidden>
+                <span>Ya pagado</span>
+                <span id="resumen-pagado" class="monto-descuento">—</span>
+              </div>
+
+              <div class="price-row" id="fila-concepto" hidden>
+                <span id="resumen-concepto-label">A pagar ahora</span>
+                <span id="resumen-concepto">—</span>
               </div>
 
               <div class="price-row price-row--cuotas" id="fila-recargo" hidden>

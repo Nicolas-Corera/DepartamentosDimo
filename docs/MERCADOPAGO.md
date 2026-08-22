@@ -5,6 +5,11 @@ paga sin salir de `/pago/`.
 
 Este archivo cubre cómo funciona, qué hay que configurar y cómo probarlo.
 
+> **El monto ya no es siempre el total.** Desde la Fase 4 el link de pago acepta
+> `?modo=reserva|total`: cobra una seña, el saldo que falta o el total completo,
+> según lo que la reserva ya tenga pago. La lógica y los mails que salen de cada
+> cobro están en [MAILS-Y-COBROS.md](MAILS-Y-COBROS.md).
+
 ---
 
 ## 0. Estado

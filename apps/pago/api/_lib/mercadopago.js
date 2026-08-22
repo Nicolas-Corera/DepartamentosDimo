@@ -92,20 +92,27 @@ export function esPedidoDuplicado(error) {
   return Array.isArray(error.cause) && error.cause.some((c) => Number(c?.code) === 2001);
 }
 
-export async function buscarPagoPorReferencia(ref) {
+export async function buscarPagoPorReferencia(ref, monto) {
   const respuesta = await pagos().search({
     options: {
       external_reference: ref,
       sort: "date_created",
       criteria: "desc",
-      limit: 5,
+      limit: 10,
     },
   });
 
   const resultados = respuesta?.results || [];
   if (!resultados.length) return null;
 
-  return resultados.find((p) => p.status === "approved") || resultados[0];
+  const candidatos =
+    monto == null
+      ? resultados
+      : resultados.filter((p) => Math.abs(Number(p.transaction_amount) - Number(monto)) < 0.01);
+
+  if (!candidatos.length) return null;
+
+  return candidatos.find((p) => p.status === "approved") || candidatos[0];
 }
 
 export function resumirPago(pago) {
