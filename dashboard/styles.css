@@ -783,6 +783,11 @@ td {
 }
 
 .status-badge {
+  /* inline-block + nowrap: como `inline`, un texto de dos palabras se partia en
+     dos lineas y el fondo redondeado se cortaba al medio — se veian dos medias
+     pastillas apiladas ("COMPROBANTE" arriba, "RECHAZADO" abajo). */
+  display: inline-block;
+  white-space: nowrap;
   padding: 4px 12px;
   border-radius: 999px;
   font-size: 12px;
