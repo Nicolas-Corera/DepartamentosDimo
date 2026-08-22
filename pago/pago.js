@@ -202,8 +202,80 @@ async function cargarReserva() {
     return;
   }
 
+  /* Un comprobante en curso también decide qué se ve.
+
+     Va DESPUÉS de `yaPagada` a propósito: si la reserva se terminó pagando con
+     tarjeta, eso gana sobre cualquier comprobante viejo que haya quedado dando
+     vueltas.
+
+     Esto es lo que hace que la pantalla sobreviva a un F5. Antes el estado
+     vivía solo en la memoria de la pestaña: quien recargaba volvía al
+     formulario de pago como si nunca hubiera subido nada, y lo razonable era
+     pensar que tenía que transferir de nuevo. */
+  if (cuerpo.transferencia && cuerpo.transferencia.estado !== "rechazado") {
+    mostrarEstadoDeTransferencia(cuerpo.transferencia);
+    return;
+  }
+
   mostrarPantalla("checkout");
   await aplicarMetodo("credito");
+
+  // Rechazado es el único estado que deja seguir pagando, así que el checkout
+  // se arma primero y el cartel se pone encima: el botón "Pagar con otro
+  // medio" solo tiene adónde volver si abajo ya hay un formulario montado.
+  if (cuerpo.transferencia?.estado === "rechazado") {
+    mostrarEstadoDeTransferencia(cuerpo.transferencia);
+  }
+}
+
+/* ===========================================================================
+   1b. La pantalla del trámite de transferencia
+   ---------------------------------------------------------------------------
+   Los tres estados que puede tener un comprobante, dichos para quien lo subió.
+   Una sola función para las dos formas de llegar —recién subido o recargando
+   la página— así las dos muestran exactamente lo mismo.
+   =========================================================================== */
+
+function mostrarEstadoDeTransferencia(transferencia) {
+  const monto = pesos.format(transferencia.monto || 0);
+
+  if (transferencia.estado === "confirmado") {
+    // Mismo texto que un pago con tarjeta aprobado: para quien reservó es lo
+    // mismo, la reserva está paga.
+    mostrarResultado({
+      grupo: "aprobado",
+      titulo: "¡Listo! Tu pago fue aprobado",
+      detalle:
+        `Verificamos la transferencia de ${monto} y tu reserva quedó confirmada. ` +
+        "Te va a llegar el comprobante por mail. Ya podés cerrar esta página.",
+      accion: "ninguna",
+    });
+    return;
+  }
+
+  if (transferencia.estado === "rechazado") {
+    mostrarResultado({
+      grupo: "rechazado",
+      titulo: "No pudimos validar tu transferencia",
+      detalle:
+        `No encontramos la transferencia de ${monto} en nuestra cuenta. ` +
+        "Puede ser que el comprobante no corresponda o que la transferencia no " +
+        "haya salido. Podés pagar con otro medio acá abajo, o escribirnos si " +
+        "creés que es un error.",
+      accion: "otro_medio",
+    });
+    return;
+  }
+
+  mostrarResultado({
+    grupo: "pendiente",
+    titulo: "Recibimos tu comprobante",
+    detalle:
+      `Vamos a verificar la transferencia de ${monto} contra nuestra cuenta y ` +
+      "te confirmamos por mail dentro de las 24 horas hábiles. Podés cerrar " +
+      "esta página: cuando vuelvas con este mismo link vas a ver cómo salió.",
+    accion: "ninguna",
+  });
 }
 
 /* ===========================================================================
@@ -882,14 +954,10 @@ async function enviarComprobante() {
     });
 
     mostrarVeloProcesando(false);
-    mostrarResultado({
-      grupo: "pendiente",
-      titulo: "Recibimos tu comprobante",
-      detalle:
-        `Vamos a verificar la transferencia de ${pesos.format(registro.monto)} contra ` +
-        "nuestra cuenta y te confirmamos por mail dentro de las 24 horas hábiles.",
-      accion: "ninguna",
-    });
+
+    // El mismo cartel que va a ver si recarga la página: una sola función para
+    // los dos caminos, así no se pueden desincronizar los textos.
+    mostrarEstadoDeTransferencia({ estado: "pendiente", monto: registro.monto });
   } catch (error) {
     mostrarVeloProcesando(false);
     console.error("[comprobante]", error);
@@ -1105,6 +1173,7 @@ function mostrarResultado(mensaje, pago) {
 
   const acciones = $("resultado-acciones");
   acciones.innerHTML = "";
+
   if (mensaje.accion === "reintentar" || mensaje.accion === "otra_tarjeta") {
     const boton = document.createElement("button");
     boton.type = "button";
@@ -1115,9 +1184,53 @@ function mostrarResultado(mensaje, pago) {
     acciones.appendChild(boton);
   }
 
+  /* "Pagar con otro medio" NO recarga la página, y esa es toda la diferencia.
+
+     Un F5 volvería a pedir la reserva, el backend volvería a contar que el
+     comprobante está rechazado y la pantalla volvería a ser esta misma: un
+     botón que no lleva a ningún lado. Así que vuelve al checkout que ya está
+     montado abajo, con las tres pestañas disponibles. */
+  if (mensaje.accion === "otro_medio") {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "submit-btn";
+    boton.innerHTML =
+      '<span class="material-symbols-rounded">credit_card</span> Pagar con otro medio';
+    boton.addEventListener("click", volverAlCheckout);
+    acciones.appendChild(boton);
+  }
+
   mostrarPantalla("pantalla-resultado");
   anunciar(`${mensaje.titulo}. ${mensaje.detalle}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/**
+ * Del cartel de resultado de vuelta al formulario de pago.
+ *
+ * Se limpia el comprobante elegido: el que había es justamente el que se
+ * rechazó, y dejarlo cargado habilitaría el botón de enviarlo de nuevo.
+ */
+async function volverAlCheckout() {
+  estado.comprobante = null;
+  const input = $("comprobante-archivo");
+  if (input) {
+    input.value = "";
+    input.classList.remove("tiene-archivo");
+  }
+  decirDelComprobante(AYUDA_COMPROBANTE, false);
+  ocultarAvisoDePago();
+
+  mostrarPantalla("checkout");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // El Brick se desmontó al mostrar el cartel, así que hay que volver a
+  // montarlo. `aplicarMetodo` lo hace y de paso deja las pestañas coherentes.
+  await aplicarMetodo("credito");
+  for (const tab of document.querySelectorAll(".tab-btn")) {
+    tab.classList.toggle("active", tab.dataset.metodo === "credito");
+  }
+  anunciar("Podés elegir otro medio de pago.");
 }
 
 /* ===========================================================================

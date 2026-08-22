@@ -201,6 +201,40 @@ export async function leerConfigTarifas() {
   };
 }
 
+/**
+ * El último comprobante que subió esta reserva, o null si nunca subió ninguno.
+ *
+ * "El último" y no "el pendiente": lo que la página de pago tiene que mostrar
+ * es el estado actual del trámite, y si el anterior se rechazó y se subió otro,
+ * manda el nuevo. Ordenado por fecha de alta descendente y con límite 1.
+ */
+export async function ultimoComprobante(bookingId) {
+  const { data, error } = await db()
+    .from("transfer_receipts")
+    .select("id, estado, monto_declarado, created_at, revisado_en")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    // Que falle esto no puede tumbar el checkout: sin el dato, la página
+    // muestra el formulario normal, que es el comportamiento de antes.
+    log.warn("supabase.ultimoComprobante", { ref: bookingId, motivo: error.message });
+    return null;
+  }
+
+  const fila = data?.[0];
+  if (!fila) return null;
+
+  return {
+    id: fila.id,
+    estado: fila.estado, // pendiente | confirmado | rechazado
+    monto: Number(fila.monto_declarado || 0),
+    subidoEn: fila.created_at,
+    revisadoEn: fila.revisado_en,
+  };
+}
+
 /* ===========================================================================
    Comprobantes de transferencia
 

@@ -333,6 +333,36 @@ toca `payments` ni marca la reserva como paga: entra en `transfer_receipts` con
 `estado = 'pendiente'` y ahí espera. Ver
 [sql/comprobantes-transferencia.sql](sql/comprobantes-transferencia.sql).
 
+#### El trámite sobrevive a un F5
+
+`GET /api/reserva` devuelve el **último** comprobante de esa reserva en
+`transferencia: { estado, monto, subidoEn, revisadoEn }`, y es lo primero que
+mira la página después de `pago.yaPagada`. Sin eso, el estado vivía solo en la
+memoria de la pestaña: quien recargaba volvía al formulario de pago como si
+nunca hubiera subido nada, y lo razonable era pensar que tenía que transferir de
+nuevo.
+
+Con el mismo link, entonces, se ve en qué anda el trámite:
+
+| Estado | Qué se ve | Botón |
+| --- | --- | --- |
+| `pendiente` | *Recibimos tu comprobante* — se está verificando | ninguno |
+| `confirmado` | *¡Listo! Tu pago fue aprobado* — el mismo cartel que un pago con tarjeta | ninguno |
+| `rechazado` | *No pudimos validar tu transferencia* | **Pagar con otro medio** |
+
+Los tres los arma `mostrarEstadoDeTransferencia()`, y la usan los dos caminos
+—recién subido y recargando la página— para que no se puedan desincronizar los
+textos.
+
+**"Pagar con otro medio" no recarga la página**, y esa es toda la diferencia. Un
+F5 volvería a pedir la reserva, el backend volvería a contar que el comprobante
+está rechazado y la pantalla volvería a ser esa misma: un botón que no lleva a
+ningún lado. En vez de eso vuelve al checkout, que ya está montado abajo —por
+eso `cargarReserva()` arma el checkout **antes** de poner el cartel de
+rechazado—, y limpia el archivo elegido, que es justamente el que se rechazó.
+
+Un comprobante rechazado deja subir otro: el que manda es el más nuevo.
+
 #### La subida, en dos pasos
 
 El archivo **no pasa por nuestra función**:

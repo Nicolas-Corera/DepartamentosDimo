@@ -20,10 +20,15 @@
  *   - Aprobar dice "vi la plata en la cuenta": marca el comprobante como
  *     confirmado y pasa la reserva a 'confirmada', que es lo que bloquea las
  *     noches en el calendario del sitio.
- *   - Rechazar dice "esto no es válido": marca el comprobante y cancela la
- *     reserva, liberando las fechas. Si hubiera que devolver plata, se devuelve
- *     A MANO desde la cuenta de MercadoPago. Este endpoint no lo hace y no
- *     puede hacerlo.
+ *   - Rechazar dice "este comprobante no es válido", que NO es lo mismo que
+ *     "esta reserva se murió". La reserva queda como estaba y quien la hizo
+ *     puede volver al link de pago y pagar con otro medio, o subir otro
+ *     comprobante. Si hubiera que devolver plata, se devuelve A MANO desde la
+ *     cuenta de MercadoPago: este endpoint no lo hace y no puede hacerlo.
+ *
+ * Rechazar no libera fechas porque nunca las bloqueó: una reserva con un
+ * comprobante pendiente sigue en 'nueva', y `fechas_ocupadas()` solo cuenta las
+ * 'confirmada'. Lo único que se bloqueó alguna vez es lo que se aprobó.
  *
  * Es la diferencia con /api/cancelar, que sí mueve plata porque del otro lado
  * hay un pago de MercadoPago con su id.
@@ -160,14 +165,21 @@ export default async function handler(req, res) {
       throw new ErrorVisible(404, "Ese comprobante ya no existe.", "comprobante_inexistente");
     }
 
-    /* La reserva sigue al comprobante.
+    /* La reserva solo se toca al aprobar.
 
        'confirmada' es lo que bloquea las noches: `fechas_ocupadas()` solo
-       cuenta ese estado. Y 'cancelada' las libera, que es exactamente lo que
-       tiene que pasar si el comprobante no era válido. */
-    await actualizar("booking_requests", `id=eq.${fila.booking_id}`, {
-      estado: aprobado ? "confirmada" : "cancelada",
-    });
+       cuenta ese estado.
+
+       Al rechazar NO se toca: la reserva sigue viva y quien la hizo puede
+       volver al link de pago y pagar con otro medio. Cancelarla acá le cerraba
+       la puerta por un comprobante mal sacado, y encima no liberaba nada
+       —seguía en 'nueva', que nunca ocupó fechas—. Si además hay que dar de
+       baja la reserva, eso es una decisión aparte. */
+    if (aprobado) {
+      await actualizar("booking_requests", `id=eq.${fila.booking_id}`, {
+        estado: "confirmada",
+      });
+    }
 
     console.log(`[comprobantes] ${aprobado ? "aprobado" : "rechazado"} ${id}`);
 
@@ -175,7 +187,7 @@ export default async function handler(req, res) {
       ok: true,
       id,
       estado: aprobado ? "confirmado" : "rechazado",
-      estadoReserva: aprobado ? "confirmada" : "cancelada",
+      estadoReserva: aprobado ? "confirmada" : fila.booking_requests?.estado || null,
       // Se lo dice el backend para que el aviso del panel no dependa de que
       // alguien se acuerde de escribirlo en la pantalla.
       avisoDevolucion: aprobado

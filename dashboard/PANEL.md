@@ -211,7 +211,8 @@ Se distinguen por tres cosas:
 
 - en la columna **Pago** dicen `Transferencia` en vez de un número de operación,
   porque no hubo operación de MercadoPago;
-- el estado es **Esperando aprobación** hasta que alguien las mire;
+- el estado es **Esperando aprobación** hasta que alguien las mire, y después
+  *Confirmada* o *Comprobante rechazado*;
 - en **Acciones** tienen un ojito en vez del botón de cancelar.
 
 **Esa plata no suma a los totales mientras esté pendiente.** Va en su propio
@@ -230,7 +231,16 @@ permanente que se pueda filtrar.
 | Botón | Comprobante | Reserva | Fechas |
 | --- | --- | --- | --- |
 | **Aprobar** | `confirmado` | `confirmada` | se bloquean |
-| **Rechazar** | `rechazado` | `cancelada` | se liberan |
+| **Rechazar** | `rechazado` | **no se toca** | siguen libres |
+
+**Rechazar un comprobante no cancela la reserva.** Dice "este comprobante no es
+válido", que no es lo mismo que "esta reserva se murió": quien la hizo vuelve al
+link de pago, ve el aviso, y puede pagar con otro medio o subir otro
+comprobante. Cancelarla le cerraría la puerta por una foto mal sacada.
+
+Tampoco libera fechas, porque nunca las bloqueó: una reserva con un comprobante
+pendiente sigue en `nueva`, y `fechas_ocupadas()` solo cuenta las `confirmada`.
+Lo único que bloqueó fechas alguna vez es lo que se aprobó.
 
 Decidir dos veces sobre el mismo comprobante devuelve `409`: casi siempre es un
 doble clic o dos pestañas abiertas. Una vez resuelto, el ojito sigue abriendo el

@@ -23,6 +23,7 @@ import {
   tienePagoAprobado,
   buscarTarifasEspeciales,
   leerConfigTarifas,
+  ultimoComprobante,
 } from "./_lib/supabase.js";
 import { calcularPrecio, calcularRecargo, maximoDeCuotas } from "./_lib/precios.js";
 import { log } from "./_lib/log.js";
@@ -56,7 +57,10 @@ export default async function handler(req, res) {
     ]);
 
     const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
-    const pagoAprobado = await tienePagoAprobado(reserva.id);
+    const [pagoAprobado, comprobante] = await Promise.all([
+      tienePagoAprobado(reserva.id),
+      ultimoComprobante(reserva.id),
+    ]);
 
     // El total de cada pestaña, precalculado. Transferencia y débito son un
     // solo pago; crédito trae además el desglose de cada plan de cuotas.
@@ -131,6 +135,14 @@ export default async function handler(req, res) {
       pago: pagoAprobado
         ? { yaPagada: true, paymentId: pagoAprobado.mp_payment_id, monto: pagoAprobado.monto }
         : { yaPagada: false },
+
+      /* El trámite de la transferencia, si lo hay.
+
+         Es lo que hace que "Recibimos tu comprobante" sobreviva a un F5. Sin
+         esto la página volvía al formulario de pago como si nunca hubiera
+         pasado nada, y quien ya había transferido tenía toda la pinta de tener
+         que pagar de nuevo. */
+      transferencia: comprobante,
     });
   } catch (error) {
     manejarError(res, "reserva", error, { ref });

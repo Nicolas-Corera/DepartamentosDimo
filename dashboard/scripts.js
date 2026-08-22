@@ -926,7 +926,9 @@ function estadoDeAlquiler(a) {
     return { texto: "Esperando aprobación", clase: "status-espera" };
   }
   if (a.estadoComprobante === "rechazado") {
-    return { texto: "Rechazada", clase: "status-cancelado" };
+    // "Comprobante rechazado" y no "Cancelada": la reserva sigue viva y quien
+    // la hizo puede pagar con otro medio desde el mismo link.
+    return { texto: "Comprobante rechazado", clase: "status-cancelado" };
   }
 
   if (a.estadoPago === "charged_back") return { texto: "Contracargo", clase: "status-devuelto" };
@@ -1149,8 +1151,10 @@ async function resolverComprobante(accion) {
     accion === "rechazar" &&
     !window.confirm(
       `¿Rechazar el comprobante de ${alquiler.huesped.nombre || "esta reserva"}?\n\n` +
-        "La reserva se cancela y las fechas quedan libres. Si ya cobraste la " +
-        "transferencia, la devolución la tenés que hacer a mano desde MercadoPago.",
+        "La reserva NO se cancela: quien la hizo va a ver el aviso en el link de " +
+        "pago y va a poder pagar con otro medio.\n\n" +
+        "Si ya cobraste la transferencia, la devolución la tenés que hacer a mano " +
+        "desde MercadoPago.",
     )
   ) {
     return;
@@ -1169,7 +1173,7 @@ async function resolverComprobante(accion) {
     mostrarToast(
       accion === "aprobar"
         ? "Comprobante aprobado. La reserva quedó confirmada y las fechas bloqueadas."
-        : "Comprobante rechazado. Las fechas quedaron libres.",
+        : "Comprobante rechazado. En el link de pago ya le aparece para pagar con otro medio.",
       accion === "aprobar" ? "exito" : undefined,
     );
 
