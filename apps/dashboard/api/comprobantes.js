@@ -1,6 +1,7 @@
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
 import { exigirSesion } from "./_lib/sesion.js";
 import { seleccionar, actualizar, firmarLectura } from "./_lib/supabase.js";
+import { avisarTransferenciaConfirmada } from "./_lib/mails.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -23,7 +24,8 @@ function exigirId(valor) {
 async function buscarComprobante(id) {
   const filas = await seleccionar(
     "transfer_receipts",
-    `select=id,booking_id,path,mime,bytes,monto_declarado,estado,created_at,` +
+    `select=id,booking_id,path,mime,bytes,monto_declarado,monto_base,concepto,` +
+      `estado,created_at,revisado_en,` +
       `booking_requests(nombre,email,check_in,check_out,estado)` +
       `&id=eq.${id}`,
   );
@@ -93,10 +95,11 @@ export default async function handler(req, res) {
     }
 
     const aprobado = accion === "aprobar";
+    const revisadoEn = new Date().toISOString();
 
     const actualizadas = await actualizar("transfer_receipts", `id=eq.${id}`, {
       estado: aprobado ? "confirmado" : "rechazado",
-      revisado_en: new Date().toISOString(),
+      revisado_en: revisadoEn,
     });
     if (!actualizadas?.length) {
       throw new ErrorVisible(404, "Ese comprobante ya no existe.", "comprobante_inexistente");
@@ -110,11 +113,25 @@ export default async function handler(req, res) {
 
     console.log(`[comprobantes] ${aprobado ? "aprobado" : "rechazado"} ${id}`);
 
+    let recibo = null;
+    if (aprobado) {
+      try {
+        const resultado = await avisarTransferenciaConfirmada({ ...fila, revisado_en: revisadoEn });
+        recibo = resultado?.recibo?.numeroTexto || null;
+      } catch (error) {
+        console.error(
+          "[comprobantes] el comprobante quedó aprobado pero los mails fallaron:",
+          error.message,
+        );
+      }
+    }
+
     return json(res, 200, {
       ok: true,
       id,
       estado: aprobado ? "confirmado" : "rechazado",
       estadoReserva: aprobado ? "confirmada" : fila.booking_requests?.estado || null,
+      recibo,
 
       avisoDevolucion: aprobado
         ? null

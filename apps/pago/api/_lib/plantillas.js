@@ -81,10 +81,18 @@ function grupoTexto(reserva) {
   return partesTexto.join(" · ") || "—";
 }
 
+const VEHICULOS = {
+  auto: "Auto",
+  suv: "SUV",
+  camioneta: "Camioneta",
+  moto: "Moto",
+  bici: "Bicicleta",
+};
+
 function vehiculoTexto(reserva) {
   if (!reserva.vehiculo) return "Sin vehículo";
   const trozos = [
-    reserva.vehiculoTipo,
+    VEHICULOS[reserva.vehiculoTipo] || reserva.vehiculoTipo,
     reserva.vehiculoMarca,
     reserva.vehiculoModelo,
     reserva.vehiculoAnio,

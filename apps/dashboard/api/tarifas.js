@@ -18,13 +18,15 @@ const CLAVES_TEMPORADA = Object.keys(TEMPORADAS);
 const CLAVES_MEDIO = Object.keys(MEDIOS);
 const MAX_CUOTAS_POSIBLES = 24;
 const PRECIO_MAX = 100_000_000;
+const PORCENTAJE_RESERVA_POR_DEFECTO = 30;
 
 async function leerTodo() {
-  const [temporadas, medios, planes, especiales] = await Promise.all([
+  const [temporadas, medios, planes, especiales, cobro] = await Promise.all([
     seleccionar("temporadas", "select=clave,nombre,fecha_desde,fecha_hasta,precio_por_noche,orden&order=orden"),
     seleccionar("medios_pago", "select=clave,nombre,habilitado,recargo_porcentaje,orden&order=orden"),
     seleccionar("planes_cuotas", "select=cuotas,habilitado,recargo_porcentaje&order=cuotas"),
     seleccionar("tarifas_especiales", "select=id,fecha_desde,fecha_hasta,precio_por_noche,motivo&order=fecha_desde"),
+    seleccionar("configuracion_pagos", "select=porcentaje_reserva&id=eq.1"),
   ]);
 
   const normalizados = (planes || []).map((p) => ({
@@ -36,6 +38,7 @@ async function leerTodo() {
   const habilitadas = normalizados.filter((p) => p.habilitado).map((p) => p.cuotas);
 
   return {
+    porcentajeReserva: Number(cobro?.[0]?.porcentaje_reserva ?? PORCENTAJE_RESERVA_POR_DEFECTO),
     temporadas: (temporadas || []).map((t) => ({
       clave: t.clave,
       nombre: t.nombre,
@@ -153,15 +156,24 @@ function validar(cuerpo) {
     especiales.push({ id, fecha_desde: desde, fecha_hasta: hasta, precio_por_noche: precio, motivo });
   }
 
+  const porcentajeReserva = porcentaje(cuerpo.porcentajeReserva);
+  if (porcentajeReserva === null || porcentajeReserva <= 0) {
+    errores.push("El porcentaje de seña tiene que ser un número mayor a 0 y hasta 100.");
+  }
+
   if (errores.length) {
     throw new ErrorVisible(400, errores.join(" "), "validacion");
   }
 
-  return { temporadas, medios, planes, especiales };
+  return { temporadas, medios, planes, especiales, porcentajeReserva };
 }
 
 async function guardarTodo(datos) {
   const sello = new Date().toISOString();
+
+  await upsert("configuracion_pagos", [
+    { id: 1, porcentaje_reserva: datos.porcentajeReserva, actualizado_en: sello },
+  ]);
 
   await upsert("temporadas", datos.temporadas.map((t) => ({ ...t, actualizado_en: sello })));
   await upsert("medios_pago", datos.medios.map((m) => ({ ...m, actualizado_en: sello })));
