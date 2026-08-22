@@ -970,7 +970,7 @@ function filaDeAlquiler(a) {
   tr.appendChild(celda(a.huesped.nombre, a.huesped.email || a.huesped.telefono || ""));
   tr.appendChild(
     celda(
-      a.checkIn ? `${fechaCorta(a.checkIn)} – ${fechaCorta(a.checkOut)}` : "—",
+      a.checkIn ? `Desde: ${fechaCorta(a.checkIn)} Hasta: ${fechaCorta(a.checkOut)}` : "—",
       a.huesped.procedencia || "",
     ),
   );
@@ -1411,7 +1411,7 @@ function descargarReporte() {
 
   doc.autoTable({
     startY: 96,
-    head: [["Pago", "Huésped", "Contacto", "Fechas", "Pers.", "Medio", "Monto", "Estado"]],
+    head: [["Pago", "Inqulino", "Contacto", "Fechas", "Pers.", "Medio", "Monto", "Estado"]],
     body: estado.alquileres.map((a) => [
       // Una transferencia no tiene número de operación: imprimir "Op. null"
       // en el papel sería peor que no imprimir nada.
