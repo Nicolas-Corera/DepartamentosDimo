@@ -9,6 +9,7 @@ import { calcularPrecio } from "./_lib/precios.js";
 import { montoDeLaSenia } from "./_lib/cobro.js";
 import { avisarConsultaNueva } from "./_lib/mails.js";
 import { normalizarTelefono, telefonoParaWhatsapp } from "./_lib/telefono.js";
+import { exigirCupoDeIp, exigirCupoGlobal } from "./_lib/limite.js";
 
 const TZ = "America/Argentina/Buenos_Aires";
 const HORA_CIERRE = 9;
@@ -196,7 +197,11 @@ export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "POST")) return;
 
   try {
+    exigirCupoDeIp(req, "consulta");
+
     const fila = validar(leerBody(req));
+
+    await exigirCupoGlobal("consulta");
 
     let reserva;
     try {

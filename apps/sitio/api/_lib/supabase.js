@@ -44,6 +44,13 @@ export function seleccionar(tabla, consulta = "select=*") {
   return pedir(`${tabla}?${consulta}`);
 }
 
+export async function contarDesde(tabla, desdeISO, tope) {
+  const filas = await pedir(
+    `${tabla}?select=created_at&created_at=gte.${encodeURIComponent(desdeISO)}&limit=${tope}`,
+  );
+  return filas?.length || 0;
+}
+
 export async function insertarConsulta(fila) {
   const filas = await pedir("booking_requests", {
     method: "POST",
