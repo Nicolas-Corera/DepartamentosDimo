@@ -902,15 +902,68 @@ function estadoDeAlquiler(a) {
   return { texto: "Pagada", clase: "status-pendiente" };
 }
 
+const AREAS_DE_TRES = new Set([
+  "220", "221", "223", "230", "236", "237", "249", "260", "261", "263", "264",
+  "266", "280", "291", "297", "299", "336", "341", "342", "343", "345", "348",
+  "351", "353", "358", "362", "364", "370", "376", "379", "380", "381", "383",
+  "385", "387", "388",
+]);
+
+function soloDigitos(valor) {
+  return String(valor == null ? "" : valor).replace(/\D/g, "");
+}
+
+function limpiarArgentino(crudo) {
+  let n = soloDigitos(crudo).replace(/^0+/, "");
+
+  if (n.length === 12) {
+    for (const i of [2, 3, 4]) {
+      if (n.slice(i, i + 2) === "15") {
+        n = n.slice(0, i) + n.slice(i + 2);
+        break;
+      }
+    }
+  }
+
+  return n;
+}
+
 function telefonoParaWhatsapp(crudo) {
-  let n = String(crudo || "").replace(/\D/g, "");
+  const texto = String(crudo == null ? "" : crudo).trim();
+  let n = soloDigitos(texto).replace(/^00/, "");
   if (!n) return "";
 
-  n = n.replace(/^00/, "");
-  if (n.startsWith("54")) return n;
+  const tienePais = texto.startsWith("+") || n.startsWith("54");
 
-  n = n.replace(/^0/, "");
-  return n.startsWith("9") ? `54${n}` : `549${n}`;
+  if (n.startsWith("54")) {
+    const resto = n.slice(2);
+    const sinNueve = resto.startsWith("9") ? resto.slice(1) : resto;
+    const limpio = limpiarArgentino(sinNueve);
+    return limpio.length === 10 ? `549${limpio}` : n;
+  }
+
+  if (tienePais) return n;
+
+  const limpio = limpiarArgentino(n);
+  return limpio.length === 10 ? `549${limpio}` : `54${limpio}`;
+}
+
+function formatearTelefono(crudo) {
+  const texto = String(crudo == null ? "" : crudo).trim();
+  const n = soloDigitos(texto);
+  if (!n) return texto;
+
+  if (n.startsWith("549") && n.length === 13) {
+    const nacional = n.slice(3);
+    const area = nacional.startsWith("11")
+      ? 2
+      : AREAS_DE_TRES.has(nacional.slice(0, 3))
+        ? 3
+        : 4;
+    return `+54 9 ${nacional.slice(0, area)} ${nacional.slice(area)}`;
+  }
+
+  return texto.startsWith("+") ? texto : `+${n}`;
 }
 
 function contactosDelHuesped(huesped) {
@@ -933,7 +986,7 @@ function contactosDelHuesped(huesped) {
     wa.href = `https://wa.me/${numero}`;
     wa.target = "_blank";
     wa.rel = "noopener";
-    wa.textContent = huesped.telefono;
+    wa.textContent = formatearTelefono(huesped.telefono);
     wa.title = "Abrir WhatsApp";
     caja.appendChild(wa);
   }

@@ -880,6 +880,37 @@ p {
   box-shadow: 0 0 0 4px rgba(63, 167, 199, 0.18);
   outline: none;
 }
+.tel-grupo {
+  display: flex;
+  gap: 8px;
+}
+
+.tel-grupo select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 106px;
+}
+
+.tel-grupo input#telefonoOtroPais {
+  flex: 0 0 84px;
+  width: 84px;
+}
+
+.tel-grupo input#telefono {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tel-eco {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--celeste-deep);
+}
+
+.tel-eco[data-estado="error"] {
+  color: var(--coral);
+}
+
 .date-trigger {
   display: flex;
   align-items: center;

@@ -8,6 +8,7 @@ import {
 import { calcularPrecio } from "./_lib/precios.js";
 import { montoDeLaSenia } from "./_lib/cobro.js";
 import { avisarConsultaNueva } from "./_lib/mails.js";
+import { normalizarTelefono, telefonoParaWhatsapp } from "./_lib/telefono.js";
 
 const TZ = "America/Argentina/Buenos_Aires";
 const HORA_CIERRE = 9;
@@ -70,6 +71,25 @@ function entero(valor, { min, max, campo }) {
   return n;
 }
 
+function normalizarDelCuerpo(cuerpo) {
+  const crudo = String(cuerpo.telefono || "").trim();
+  const pais = String(cuerpo.telefonoPais || "").replace(/\D/g, "");
+
+  const e164 = pais ? normalizarTelefono(pais, crudo) : `+${telefonoParaWhatsapp(crudo)}`;
+
+  const digitos = e164.replace(/\D/g, "");
+
+  if (digitos.length < 10 || digitos.length > 15) {
+    throw new ErrorVisible(
+      400,
+      "Revisá el teléfono: elegí el código de país y escribí el número completo.",
+      "validacion",
+    );
+  }
+
+  return e164;
+}
+
 function validar(cuerpo) {
   const nombre = texto(cuerpo.nombre, { min: 2, max: 80, campo: "nombre" });
 
@@ -83,7 +103,7 @@ function validar(cuerpo) {
     throw new ErrorVisible(400, "Revisá el DNI: tiene que tener entre 6 y 9 dígitos.", "validacion");
   }
 
-  const telefono = texto(cuerpo.telefono, { min: 6, max: 30, campo: "teléfono" });
+  const telefono = normalizarDelCuerpo(cuerpo);
 
   const checkIn = fechaISO(cuerpo.check_in, "entrada");
   const checkOut = fechaISO(cuerpo.check_out, "salida");
