@@ -5,7 +5,7 @@
   "description": "Panel de administración de Departamentos Dimo — tarifas, alquileres y reseñas",
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=.env scripts/dev-server.mjs",
+    "dev": "node --env-file=.env tools/dev-server.mjs",
     "env:check": "node --env-file=.env api/_lib/env.js"
   },
   "engines": {

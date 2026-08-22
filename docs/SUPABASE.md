@@ -3,7 +3,7 @@
 Estado actual del front: la sección de reseñas ya **no tiene datos hardcodeados**.
 Arranca vacía, muestra el cartel *"Todavía no hay reseñas"* con el botón *"Dejá tu
 reseña"*, y todo el acoplamiento con el backend está aislado en **dos funciones**
-dentro de [script.js](script.js):
+dentro de [script.js](../apps/sitio/script.js):
 
 | Función | Qué hace hoy | Qué tiene que hacer con Supabase |
 | --- | --- | --- |
@@ -23,8 +23,8 @@ Los límites que aplica el formulario (y que replican los `check` del SQL):
 **nombre** hasta 40 caracteres, **comentario** hasta 180 caracteres y 35 palabras.
 No son arbitrarios: es lo que entra en la tarjeta cuadrada sin que se corte el
 texto. Si los cambiás, ajustá también `REVIEW_MAX_CHARS` / `REVIEW_MAX_WORDS` en
-[script.js](script.js), el `maxlength` del textarea en [index.html](index.html) y
-el `min-height` de `.review-card` en [style.css](style.css).
+[script.js](../apps/sitio/script.js), el `maxlength` del textarea en [index.html](../apps/sitio/index.html) y
+el `min-height` de `.review-card` en [style.css](../apps/sitio/style.css).
 
 ---
 
@@ -43,7 +43,7 @@ referencia de cómo está armado y cómo tocarlo, no una lista de pendientes.
 | Modo de publicación | **moderada** — nada sale al sitio sin aprobarlo en el panel (ver sección 2) |
 | `.env` local | completo, fuera del repo |
 | Variables en Vercel | `SUPABASE_URL` y `SUPABASE_ANON_KEY` |
-| `index.html` / `script.js` | cableados contra Supabase |
+| `apps/sitio/index.html` / `apps/sitio/script.js` | cableados contra Supabase |
 
 Verificado de punta a punta contra la base real: alta de reseña desde el
 navegador, la reseña queda pendiente y **no** aparece en el carrusel, se ve en el
@@ -202,7 +202,7 @@ Lo que implicaría volver a este modo:
   justo para esto: es el interruptor manual para ocultar algo sin borrarlo.
 - Si aparece spam, la vuelta a moderación es correr el bloque de la sección
   anterior (default `false` + políticas restrictivas).
-- `createReview()` en [script.js](script.js) manda `approved: false` explícito.
+- `createReview()` en [script.js](../apps/sitio/script.js) manda `approved: false` explícito.
   Con estas políticas ese insert sería **rechazado**: habría que sacar esa línea
   antes de correr el SQL de abajo.
 
@@ -281,17 +281,17 @@ esconderla, está para otras tres cosas:
 
 | Archivo | ¿Se sube al repo? | Qué es |
 | --- | --- | --- |
-| [.env.example](.env.example) | sí | La **plantilla**. Tiene los nombres de las variables y valores de ejemplo, ninguna clave real. Sirve para saber qué hay que completar. |
-| `.env` | **no** (está en [.gitignore](.gitignore)) | Tus claves reales. Solo existe en tu máquina. |
-| [scripts/build-config.mjs](scripts/build-config.mjs) | sí | El script que lee el `.env`, valida y genera el archivo de abajo. |
-| `supabase-config.js` | **no** (generado) | Lo que realmente carga el navegador. **No se edita a mano**: se regenera. En local sale del `.env`; en Vercel lo genera el build. |
-| [vercel.json](vercel.json) | sí | Le dice a Vercel que antes de publicar corra el generador. |
+| [.env.example](../apps/sitio/.env.example) | sí | La **plantilla**. Tiene los nombres de las variables y valores de ejemplo, ninguna clave real. Sirve para saber qué hay que completar. |
+| `.env` | **no** (está en [.gitignore](../.gitignore)) | Tus claves reales. Solo existe en tu máquina. |
+| [scripts/build-config.mjs](../apps/sitio/tools/build-config.mjs) | sí | El script que lee el `.env`, valida y genera el archivo de abajo. |
+| `apps/sitio/supabase-config.js` | **no** (generado) | Lo que realmente carga el navegador. **No se edita a mano**: se regenera. En local sale del `.env`; en Vercel lo genera el build. |
+| [vercel.json](../apps/sitio/vercel.json) | sí | Le dice a Vercel que antes de publicar corra el generador. |
 
 > **Sobre "que las claves no queden públicas":** hay que ser preciso, porque son
 > dos cosas distintas.
 >
 > - **Fuera del repo de GitHub:** ✅ resuelto. El `.env` está en `.gitignore` y
->   `supabase-config.js` ya no se versiona. En Vercel las variables se cargan en
+>   `apps/sitio/supabase-config.js` ya no se versiona. En Vercel las variables se cargan en
 >   Settings → Environment Variables y el archivo se genera durante el build.
 > - **Invisible para el visitante:** ❌ imposible, y no hace falta. El navegador
 >   necesita la clave para hablar con Supabase, así que va a estar en el JS que
@@ -338,7 +338,7 @@ Reglas del formato, que son las que más errores dan:
 - Un `#` al principio de la línea es un comentario.
 - Nada de esto es case-insensitive: los nombres van tal cual, en mayúsculas.
 
-### 3.2 — Generar `supabase-config.js`
+### 3.2 — Generar `apps/sitio/supabase-config.js`
 
 Desde la raíz del proyecto:
 
@@ -377,7 +377,7 @@ se lee en tiempo real: el navegador solo ve el archivo generado.
 El sitio es HTML/CSS/JS estático, sin bundler, así que se usa el build UMD del
 SDK por CDN.
 
-En [index.html](index.html), **justo antes** de `<script src="script.js"></script>`
+En [index.html](../apps/sitio/index.html), **justo antes** de `<script src="script.js"></script>`
 (al final del `<body>`), agregá:
 
 ```html
@@ -386,9 +386,9 @@ En [index.html](index.html), **justo antes** de `<script src="script.js"></scrip
 <script src="script.js"></script>
 ```
 
-El orden importa: el SDK primero, después la configuración, y `script.js` último.
+El orden importa: el SDK primero, después la configuración, y `apps/sitio/script.js` último.
 
-`supabase-config.js` deja el cliente listo en la variable global **`db`**, que es
+`apps/sitio/supabase-config.js` deja el cliente listo en la variable global **`db`**, que es
 la que usan las funciones del paso 4:
 
 ```js
@@ -414,7 +414,7 @@ cargan en el panel del proyecto.
 
    Marcalas para **Production**, **Preview** y **Development**.
 
-2. El [vercel.json](vercel.json) ya está en el repo y le dice a Vercel qué hacer:
+2. El [vercel.json](../apps/sitio/vercel.json) ya está en el repo y le dice a Vercel qué hacer:
 
    ```json
    {
@@ -424,7 +424,7 @@ cargan en el panel del proyecto.
    ```
 
    En cada deploy, Vercel corre el generador, que esta vez lee las variables
-   desde el entorno en lugar del `.env`, y escribe `supabase-config.js` justo
+   desde el entorno en lugar del `.env`, y escribe `apps/sitio/supabase-config.js` justo
    antes de publicar. Por eso el archivo no necesita estar en el repo.
 
 3. Si falta una variable, **el build falla con un mensaje claro** en vez de
@@ -437,7 +437,7 @@ cargan en el panel del proyecto.
 
 ---
 
-## 4. Reemplazar las dos funciones en `script.js`
+## 4. Reemplazar las dos funciones en `apps/sitio/script.js`
 
 Buscá el bloque `RESEÑAS: ORIGEN DE DATOS` (arranca con `let reviews = [];`) y
 dejá las funciones así:
@@ -576,13 +576,13 @@ db.channel("reviews-live")
 
 | Síntoma | Causa probable |
 | --- | --- |
-| `supabase is not defined` | El `<script>` del CDN falta o va después de `supabase-config.js`. |
+| `supabase is not defined` | El `<script>` del CDN falta o va después de `apps/sitio/supabase-config.js`. |
 | `db.from is not a function` | El cliente se llamó `supabase` y pisó el namespace del UMD. Usá otro nombre. |
 | El `SELECT` devuelve `[]` sin error | No hay filas con `approved = true`. RLS filtra en silencio, no tira error. |
 | `new row violates row-level security policy` (HTTP 401, `42501`) | Falta la política de `insert`, o se está mandando `approved: true` en el insert. También lo tira un `.select()` encadenado al insert: la fila nace con `approved = false` y no pasa la política de `SELECT`. |
 | HTTP 400 con código `23514` al publicar una reseña | `check_violation`: el largo quedó fuera de rango. `name` va de 2 a 40 caracteres y `text` de 5 a 180, **contados sobre el valor ya trimmeado**. Pasa con comentarios de prueba tipo `ok` o `test`. El formulario ahora lo valida antes de mandar. |
 | HTTP 409 con código `23505` al publicar una reseña | `unique_violation` del índice `reviews_dedupe_idx`: ya existe una reseña con el mismo nombre y el mismo comentario. |
-| Error de CORS | Se abrió el `index.html` con `file://`. Usá un servidor local. |
+| Error de CORS | Se abrió el `apps/sitio/index.html` con `file://`. Usá un servidor local. |
 | `db is not defined` | Falta el `<script src="supabase-config.js">` en el HTML, o el archivo nunca se generó. Corré `npm run config`. |
 | `ERROR Falta la variable SUPABASE_URL` | El `.env` no existe o la variable quedó vacía. `cp .env.example .env` y completá los dos valores. |
 | Cambiaste el `.env` y el sitio sigue igual | El `.env` no se lee en vivo. Hay que volver a correr `npm run config` y recargar con Ctrl+F5. |
@@ -648,7 +648,7 @@ segundo `insert` sin transacción, para no ganar nada.
 ### Los `check` de la tabla replican las validaciones del front
 
 Si tocás una validación, tocá las dos: están en `armarConsulta()` dentro de
-[script.js](script.js) y en los `constraint` de la tabla.
+[script.js](../apps/sitio/script.js) y en los `constraint` de la tabla.
 
 - La salida tiene que ser posterior a la entrada (`booking_requests_fechas_ok`).
 - `adultos + ninos` tiene que dar exactamente `personas` (`booking_requests_grupo_ok`),
@@ -671,10 +671,10 @@ por eso el select de niños llega hasta `total - 1` — siempre queda lugar para
 menos un adulto.
 
 En la grilla, el select del total ocupa las dos columnas (`.field-full` en
-[style.css](style.css)) y abajo quedan adultos y niños, uno en cada columna.
+[style.css](../apps/sitio/style.css)) y abajo quedan adultos y niños, uno en cada columna.
 
 La lógica está en `renderGrupo()` / `onTotalChange()` / `onAdultosChange()` /
-`onNinosChange()` en [script.js](script.js). Las tres funciones terminan
+`onNinosChange()` en [script.js](../apps/sitio/script.js). Las tres funciones terminan
 llamando a `renderGrupo()`, que es el único lugar que pinta los dos selects: si
 hay que tocar el reparto, se toca ahí y nada más.
 
@@ -782,7 +782,7 @@ día siguiente. Antes de las 09:00, hoy sigue disponible.
 La hora se mide **siempre en la zona del departamento**
 (`America/Argentina/Buenos_Aires`), nunca en la del visitante: si alguien
 consulta desde España a las 03:00 de su reloj, lo que decide es qué hora es
-en San Bernardo. Eso lo resuelve `ahoraEnDestino()` en [script.js](script.js),
+en San Bernardo. Eso lo resuelve `ahoraEnDestino()` en [script.js](../apps/sitio/script.js),
 con `Intl.DateTimeFormat` — no hay librería de fechas de por medio.
 
 Cómo se ve, en los dos calendarios (el del formulario y el de *Ver
@@ -812,7 +812,7 @@ apretó enviar a las 09:01), el front lo reconoce por el código `42501` y
 muestra *"Las reservas para el mismo día cierran a las 09:00. Volvé a elegir
 las fechas"* en vez del error genérico.
 
-Para cambiar el horario de corte: `HORA_CIERRE` en [script.js](script.js) y
+Para cambiar el horario de corte: `HORA_CIERRE` en [script.js](../apps/sitio/script.js) y
 el `time '09:00'` de la policy. Son los dos únicos lugares.
 
 ### Dónde se ven los avisos
@@ -820,7 +820,7 @@ el `time '09:00'` de la policy. Son los dos únicos lugares.
 Ningún mensaje de "salió bien" / "salió mal" vive ya dentro del formulario
 ni del modal que lo dispara: **todos salen por un toast en la esquina
 inferior izquierda**, y todos pasan por la misma función,
-`mostrarToast(mensaje, tipo)` en [script.js](script.js), con `tipo` en
+`mostrarToast(mensaje, tipo)` en [script.js](../apps/sitio/script.js), con `tipo` en
 `"exito"` o `"error"`.
 
 El contenedor es un `<div id="toastStack">` vacío al final del `body`. Está
@@ -846,9 +846,9 @@ fechas — o sea, tapada detrás del overlay, con el visitante viendo que
 
 ### Agregar un campo nuevo al formulario
 
-1. El campo en [index.html](index.html).
+1. El campo en [index.html](../apps/sitio/index.html).
 2. `alter table public.booking_requests add column <campo> <tipo>;`
-3. Una línea más en el objeto que devuelve `armarConsulta()` en [script.js](script.js).
+3. Una línea más en el objeto que devuelve `armarConsulta()` en [script.js](../apps/sitio/script.js).
 
 No hace falta tocar nada más: el insert manda el objeto entero.
 

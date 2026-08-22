@@ -27,7 +27,7 @@ Thumbs.db
 # Si algún día pasás a un deploy con build (GitHub Actions, Netlify, Vercel),
 # descomentá la línea de abajo y generá el archivo en el paso de build a partir
 # de los secrets del proveedor:
-supabase-config.js
+apps/sitio/supabase-config.js
 
 # Link local del proyecto de Vercel (lo crea el CLI)
 .vercel/

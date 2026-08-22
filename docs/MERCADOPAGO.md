@@ -29,9 +29,9 @@ ambiente de prueba de MercadoPago. Resultados:
 Infraestructura lista:
 
 - Tabla `payments` creada en `departamentosDimo DataBase` (`aiytevmxalwwbxxbgtwe`).
-- Variables cargadas en el proyecto `departamentosdimopagoweb` (Root Directory `pago`),
+- Variables cargadas en el proyecto `departamentosdimopagoweb` (Root Directory `apps/pago`),
   en Production, Preview y Development.
-- `pago/.env` local generado (gitignoreado).
+- `apps/pago/.env` local generado (gitignoreado).
 
 ### Reservas de prueba
 
@@ -126,14 +126,14 @@ De Supabase (Project Settings → API):
 | `SUPABASE_SERVICE_ROLE_KEY` | `service_role` / `sb_secret_…` | **Sí** |
 
 > **Por qué la `service_role` y no la `anon`:** `booking_requests` es solo-alta
-> (ver [SUPABASE.md](../SUPABASE.md), sección 8). La `anon` puede insertar pero
+> (ver [SUPABASE.md](SUPABASE.md), sección 8). La `anon` puede insertar pero
 > no leer. Para leer la reserva y calcular el monto hay que saltear RLS, y eso
 > solo lo hace la `service_role`. Esa clave vive **exclusivamente** en el
 > backend: no se manda al navegador, no se loguea y no se commitea.
 
 ### Dónde se cargan
 
-**Local:** el `pago/.env` **ya existe**, con la parte de Supabase completa. Los
+**Local:** el `apps/pago/.env` **ya existe**, con la parte de Supabase completa. Los
 precios ya no van acá (están en la base, ver la sección 4). Faltan solo las tres
 variables de MercadoPago, que están al principio del archivo y vacías. Abrilo,
 pegá los valores del panel y verificá:
@@ -144,7 +144,7 @@ npm run env:check     # valida que la configuración cierre, sin imprimir claves
 ```
 
 (Si alguna vez hay que rehacerlo desde cero, la plantilla completa está en
-[`.env.example`](.env.example): `cp .env.example .env`.)
+[`.env.example`](../apps/pago/.env.example): `cp .env.example .env`.)
 
 **Vercel** — proyecto con *Root Directory* = `pago`, en
 Settings → Environment Variables. Cargá cada variable **dos veces**, con distinto
@@ -168,7 +168,7 @@ El backend valida esto solo al arrancar:
 
 ### Lo que nunca hay que hacer
 
-- Escribir una credencial en un archivo que se commitea. `pago/.env` está
+- Escribir una credencial en un archivo que se commitea. `apps/pago/.env` está
   cubierto por el `.gitignore` de la raíz (`.env` y `.env.*`, con
   `!.env.example`).
 - Mandar el `MP_ACCESS_TOKEN` o la `service_role` al navegador. Solo sale al
@@ -178,7 +178,7 @@ El backend valida esto solo al arrancar:
 
 ## 3. Base de datos
 
-**Ya está creada.** El script quedó en [`sql/payments.sql`](sql/payments.sql) por
+**Ya está creada.** El script quedó en [`sql/payments.sql`](../sql/payments.sql) por
 si hay que rehacerla en otro proyecto — es idempotente (`create table if not
 exists`), así que volver a correrlo no rompe nada.
 
@@ -219,7 +219,7 @@ de pago.
 > precios ya **no** están en variables de entorno de Vercel: viven en cuatro
 > tablas de Supabase (`temporadas`, `medios_pago`, `planes_cuotas` y
 > `tarifas_especiales`) y tienen efecto en el próximo pago, sin redeploy. Para
-> crearlas, correr [`sql/configuracion-tarifas.sql`](sql/configuracion-tarifas.sql).
+> crearlas, correr [`sql/configuracion-tarifas.sql`](../sql/configuracion-tarifas.sql).
 
 ### Etapa 1 — el precio base
 
@@ -331,7 +331,7 @@ hay un archivo elegido (PNG, JPG, JPEG o PDF, hasta 5 MB).
 **Un comprobante no es un pago.** Es alguien diciendo "ya transferí". Por eso no
 toca `payments` ni marca la reserva como paga: entra en `transfer_receipts` con
 `estado = 'pendiente'` y ahí espera. Ver
-[sql/comprobantes-transferencia.sql](sql/comprobantes-transferencia.sql).
+[sql/comprobantes-transferencia.sql](../sql/comprobantes-transferencia.sql).
 
 #### El trámite sobrevive a un F5
 
@@ -460,13 +460,13 @@ podría bloquear el calendario entero mandando el formulario con fechas
 inventadas — sin pagar y sin dar un dato real. `confirmada` la ponés vos, o la
 pone un pago aprobado. Si preferís que las consultas sin pagar también bloqueen,
 es agregar el estado al `where` de la vista en
-[`sql/tarifas-y-ocupacion.sql`](sql/tarifas-y-ocupacion.sql) y volver a correrlo.
+[`sql/tarifas-y-ocupacion.sql`](../sql/tarifas-y-ocupacion.sql) y volver a correrlo.
 
 **El día de salida también se bloquea:** una reserva del 10 al 14 cobra las
 noches 10, 11, 12 y 13 —  el precio va por noche y el 14 esa mañana se van— pero
 en el calendario se tachan los cinco días. El 14 no puede ser el check-in de
 otra persona: queda como margen para limpiar y preparar, y evita el cruce de dos
-grupos el mismo día. Está marcado en `script.js` dónde revertirlo.
+grupos el mismo día. Está marcado en `apps/sitio/script.js` dónde revertirlo.
 
 Además, el calendario no deja elegir un rango que *cruce* días ocupados: sin eso
 se puede pedir del 8 al 16 con el 12 ya reservado, que es una reserva imposible.
@@ -475,7 +475,7 @@ se puede pedir del 8 al 16 con el 12 ya reservado, que es una reserva imposible.
 
 ## 6. Los endpoints
 
-Los tres viven en `pago/api/`. La lógica compartida está en `pago/api/_lib/`
+Los tres viven en `apps/pago/api/`. La lógica compartida está en `apps/pago/api/_lib/`
 (Vercel ignora las carpetas que empiezan con `_`, así que no se publican como
 endpoints).
 
@@ -655,7 +655,7 @@ npm install
 npm run dev
 ```
 
-Levanta [`scripts/dev-server.mjs`](scripts/dev-server.mjs) en
+Levanta [`apps/pago/tools/dev-server.mjs`](../apps/pago/tools/dev-server.mjs) en
 `http://localhost:3000`: sirve los archivos estáticos y ejecuta las funciones de
 `api/` igual que Vercel (emula `req.query` — incluida la clave `data.id` con
 punto que manda el webhook —, `req.body` y los helpers `res.status()/.send()`).
@@ -699,19 +699,14 @@ npm run env:check
 
 ```
 pago/
-├── index.html              la página (el Brick se monta en #cardPaymentBrick_container)
+apps/pago/
+├── index.html              el checkout
 ├── pago.js                 front: pide la reserva, monta el Brick, muestra el resultado
 ├── package.json            deps: mercadopago, @supabase/supabase-js
-├── vercel.json             config del proyecto (Root Directory = pago)
+├── vercel.json             config del proyecto (Root Directory = apps/pago)
 ├── .env.example            plantilla de variables — el .env real no se commitea
-├── MERCADOPAGO.md          este archivo
-├── scripts/
+├── tools/
 │   └── dev-server.mjs      servidor local (solo desarrollo, no se despliega)
-├── sql/
-│   ├── payments.sql                 la tabla de pagos, con RLS cerrado
-│   ├── tarifas-y-ocupacion.sql      tarifas especiales + función fechas_ocupadas
-│   ├── configuracion-tarifas.sql    temporadas, medios de pago y planes de cuotas
-│   └── comprobantes-transferencia.sql  transfer_receipts + el bucket privado
 └── api/
     ├── reserva.js          GET  — resumen + monto + public key
     ├── pagos.js            POST — crea el pago (Checkout API)
@@ -725,4 +720,12 @@ pago/
         ├── mensajes.js     status_detail -> mensaje para una persona
         ├── precios.js      cálculo del monto y del recargo (fuente de verdad)
         └── supabase.js     cliente service_role y queries
+
+sql/                        se corren a mano en el SQL Editor de Supabase
+├── payments.sql                 la tabla de pagos, con RLS cerrado
+├── tarifas-y-ocupacion.sql      tarifas especiales + función fechas_ocupadas
+├── configuracion-tarifas.sql    temporadas, medios de pago y planes de cuotas
+└── comprobantes-transferencia.sql  transfer_receipts + el bucket privado
+
+docs/MERCADOPAGO.md         este archivo
 ```

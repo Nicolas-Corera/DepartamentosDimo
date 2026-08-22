@@ -130,7 +130,7 @@ recargos viejos.
 | `tarifas_especiales` | Largo variable: se agregan y se borran desde el carrusel. |
 
 El esquema completo está en
-[`pago/sql/configuracion-tarifas.sql`](../pago/sql/configuracion-tarifas.sql).
+[`sql/configuracion-tarifas.sql`](../sql/configuracion-tarifas.sql).
 Las cuatro tienen RLS activo **sin ninguna política**: el navegador no las toca
 ni para leer. Las lee el backend del checkout y las escribe el del panel, los dos
 con service_role.
@@ -152,7 +152,7 @@ Usa los valores que están **en pantalla**, guardados o no. Es lo que permite
 cambiar un precio, ver cuánto queda la estadía y recién después decidir si se
 guarda.
 
-Repite la lógica de [`pago/api/_lib/precios.js`](../pago/api/_lib/precios.js) del
+Repite la lógica de [`apps/pago/api/_lib/precios.js`](../apps/pago/api/_lib/precios.js) del
 lado del navegador. Está duplicada a propósito y no compartida: son dos proyectos
 de Vercel separados, y lo del panel es una previsualización, no lo que se cobra.
 Si algún día divergen, **el que manda es `precios.js`**.
@@ -327,7 +327,7 @@ escribió. Modera, no reescribe.
 
 ## 6. Los endpoints
 
-Todos en `dashboard/api/`. Todos exigen la cookie salvo `login`.
+Todos en `apps/dashboard/api/`. Todos exigen la cookie salvo `login`.
 
 | Endpoint | Qué hace |
 | --- | --- |
@@ -342,7 +342,7 @@ Todos en `dashboard/api/`. Todos exigen la cookie salvo `login`.
 
 ### Sin dependencias
 
-`dashboard/package.json` no tiene ninguna. Supabase se consulta por PostgREST con
+`apps/dashboard/package.json` no tiene ninguna. Supabase se consulta por PostgREST con
 `fetch` (`api/_lib/supabase.js`, unas 40 líneas) y MercadoPago igual. El SDK
 `@supabase/supabase-js` entero, con sus dependencias de realtime y storage que acá
 no se usan, es lo único que obligaría a este proyecto a tener `node_modules`.
@@ -358,7 +358,7 @@ npm run env:check          # valida sin imprimir credenciales
 npm run dev                # http://localhost:3100/login_panel.html
 ```
 
-`scripts/dev-server.mjs` sirve los archivos estáticos y ejecuta las funciones de
+`apps/dashboard/tools/dev-server.mjs` sirve los archivos estáticos y ejecuta las funciones de
 `api/` igual que lo haría Vercel (query, body, `res.status()`, ruteo
 `/api/<archivo>`). **Solo para desarrollo**: en producción quien ejecuta los
 handlers es Vercel y este archivo no interviene.
@@ -390,7 +390,7 @@ dashboard/
 ├── scripts.js              toda la lógica del panel
 ├── styles.css              estilos
 ├── package.json            sin dependencias
-├── vercel.json             config del proyecto (Root Directory = dashboard)
+├── vercel.json             config del proyecto (Root Directory = apps/dashboard)
 ├── .env.example            plantilla — el .env real no se commitea
 ├── PANEL.md                este archivo
 ├── scripts/

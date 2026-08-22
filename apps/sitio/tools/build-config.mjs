@@ -21,7 +21,17 @@ import { dirname, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const ENV_FILE = resolve(ROOT, ".env");
+
+/* El .env se busca primero en la app y después en la raíz del monorepo.
+
+   Las dos ubicaciones son legítimas: `apps/sitio/.env` si querés que el sitio
+   tenga el suyo, o el de la raíz —que es donde ya viven las credenciales de
+   todo el proyecto— para no repetir la URL y la clave en dos lados.
+
+   En Vercel no existe ninguno de los dos: ahí las variables se cargan en el
+   panel y se leen de `process.env`. */
+const ENV_CANDIDATOS = [resolve(ROOT, ".env"), resolve(ROOT, "..", "..", ".env")];
+const ENV_FILE = ENV_CANDIDATOS.find((ruta) => existsSync(ruta)) || ENV_CANDIDATOS[0];
 const OUT_FILE = resolve(ROOT, "supabase-config.js");
 const CHECK_ONLY = process.argv.includes("--check");
 

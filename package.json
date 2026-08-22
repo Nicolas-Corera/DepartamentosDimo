@@ -1,13 +1,15 @@
 {
-  "name": "departamentos-dimo-web",
+  "name": "departamentos-dimo",
   "version": "1.0.0",
   "private": true,
-  "description": "Sitio de Departamentos Dimo (HTML/CSS/JS estático)",
+  "description": "Monorepo de Departamentos Dimo: el sitio, el checkout y el panel",
   "type": "module",
   "scripts": {
-    "config": "node scripts/build-config.mjs",
-    "config:check": "node scripts/build-config.mjs --check",
-    "dev": "npx --yes serve . --listen 8000"
+    "dev": "npm --prefix apps/sitio run dev",
+    "dev:pago": "npm --prefix apps/pago run dev",
+    "dev:dashboard": "npm --prefix apps/dashboard run dev",
+    "config": "npm --prefix apps/sitio run config",
+    "config:check": "npm --prefix apps/sitio run config:check"
   },
   "engines": {
     "node": ">=18"

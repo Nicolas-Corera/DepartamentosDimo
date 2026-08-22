@@ -1,0 +1,15 @@
+{
+  "name": "departamentos-dimo-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sitio de Departamentos Dimo (HTML/CSS/JS estático)",
+  "type": "module",
+  "scripts": {
+    "config": "node tools/build-config.mjs",
+    "config:check": "node tools/build-config.mjs --check",
+    "dev": "npx --yes serve . --listen 8000"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
