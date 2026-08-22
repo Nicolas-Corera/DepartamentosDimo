@@ -239,7 +239,7 @@ export async function guardarComprobante(fila) {
   return data;
 }
 
-export async function leerPorcentajeDeReserva() {
+export async function leerConfigDeCobro() {
   const { data, error } = await db()
     .from("configuracion_pagos")
     .select("porcentaje_reserva")
@@ -247,7 +247,7 @@ export async function leerPorcentajeDeReserva() {
     .maybeSingle();
 
   if (error) {
-    log.error("supabase.leerPorcentajeDeReserva", error, {});
+    log.error("supabase.leerConfigDeCobro", error, {});
     throw new Error(
       `No se pudo leer la configuración de cobro: ${error.message}. ` +
         "Corré sql/fase4-pagos-y-mails.sql en Supabase.",
@@ -261,7 +261,11 @@ export async function leerPorcentajeDeReserva() {
         "Revisalo en el panel, pestaña Tarifas.",
     );
   }
-  return pct;
+
+  const limpieza = Number(data?.tarifa_limpieza ?? 0);
+  const tarifaLimpieza = Number.isFinite(limpieza) && limpieza > 0 ? limpieza : 0;
+
+  return { porcentajeReserva: pct, tarifaLimpieza };
 }
 
 export async function pagosAprobados(bookingId) {

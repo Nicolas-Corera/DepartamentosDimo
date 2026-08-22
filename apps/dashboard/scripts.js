@@ -122,7 +122,8 @@ async function cargarTarifas() {
 }
 
 function pintarTarifas() {
-  const { temporadas, medios, maxCuotas, planes, especiales, porcentajeReserva } = estado.tarifas;
+  const { temporadas, medios, maxCuotas, planes, especiales, porcentajeReserva, tarifaLimpieza } =
+    estado.tarifas;
 
   for (const t of temporadas) {
     $(`${t.clave}-desde`).value = t.desde;
@@ -136,7 +137,9 @@ function pintarTarifas() {
   pintarEspeciales(especiales);
 
   $("porcentaje-reserva").value = porcentajeReserva;
+  $("tarifa-limpieza").value = tarifaLimpieza ?? 0;
   actualizarEjemploDeSenia();
+  actualizarEjemploDeLimpieza();
 
   actualizarTarifaDeHoy();
   revisarHuecos();
@@ -466,6 +469,7 @@ function configEnPantalla() {
     planes: leerPlanes(),
     especiales: leerEspeciales(),
     porcentajeReserva: Number($("porcentaje-reserva").value || 0),
+    tarifaLimpieza: Number($("tarifa-limpieza").value || 0),
   };
 }
 
@@ -529,13 +533,44 @@ function actualizarEjemploDeSenia() {
   }
 
   const porNoche = precioDeLaNoche(hoyISO(), configEnPantalla()).precio;
-  const total = porNoche * NOCHES_DE_EJEMPLO;
+  const alojamiento = porNoche * NOCHES_DE_EJEMPLO;
+  const limpieza = limpiezaEnPantalla();
+  const total = alojamiento + limpieza;
   const senia = Math.round((total * pct) / 100);
+
+  const conLimpieza = limpieza > 0 ? ` más ${pesos.format(limpieza)} de limpieza` : "";
 
   nota.textContent =
     `Ejemplo: una estadía de ${NOCHES_DE_EJEMPLO} noches a la tarifa de hoy sale ` +
-    `${pesos.format(total)}. La seña sería ${pesos.format(senia)} y quedarían ` +
+    `${pesos.format(alojamiento)}${conLimpieza}, o sea ${pesos.format(total)}. ` +
+    `La seña sería ${pesos.format(senia)} y quedarían ` +
     `${pesos.format(total - senia)} de saldo.`;
+}
+
+function limpiezaEnPantalla() {
+  const valor = Number($("tarifa-limpieza")?.value || 0);
+  return Number.isFinite(valor) && valor > 0 ? Math.round(valor) : 0;
+}
+
+function actualizarEjemploDeLimpieza() {
+  const nota = $("limpieza-ejemplo");
+  if (!nota) return;
+
+  const limpieza = limpiezaEnPantalla();
+
+  if (limpieza <= 0) {
+    nota.textContent =
+      "En 0: no se cobra y no aparece en el resumen ni en los mails.";
+    return;
+  }
+
+  const porNoche = precioDeLaNoche(hoyISO(), configEnPantalla()).precio;
+  const alojamiento = porNoche * NOCHES_DE_EJEMPLO;
+
+  nota.textContent =
+    `Se suma una sola vez: ${NOCHES_DE_EJEMPLO} noches a la tarifa de hoy son ` +
+    `${pesos.format(alojamiento)} y el total queda en ` +
+    `${pesos.format(alojamiento + limpieza)}.`;
 }
 
 function revisarHuecos() {
@@ -660,7 +695,9 @@ function recalcularCalculadora() {
     noches.push({ iso, ...precioDeLaNoche(iso, config) });
   }
 
-  const base = noches.reduce((s, n) => s + n.precio, 0);
+  const alojamiento = noches.reduce((s, n) => s + n.precio, 0);
+  const limpieza = limpiezaEnPantalla();
+  const base = alojamiento + limpieza;
   const claveMedio = $("calc-medio").value;
   const cuotas = Number($("calc-cuotas").value || 1);
 
@@ -680,9 +717,13 @@ function recalcularCalculadora() {
   const lineas = [
     linea(
       `${cantidad} ${cantidad === 1 ? "noche" : "noches"}`,
-      pesos.format(base),
+      pesos.format(alojamiento),
     ),
   ];
+
+  if (limpieza > 0) {
+    lineas.push(linea("Tarifa de limpieza", pesos.format(limpieza)));
+  }
 
   if (recargoMedio > 0) {
     const nombre =
@@ -1728,6 +1769,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   $("porcentaje-reserva").addEventListener("input", actualizarEjemploDeSenia);
+  $("tarifa-limpieza").addEventListener("input", () => {
+    actualizarEjemploDeLimpieza();
+    actualizarEjemploDeSenia();
+  });
 
   $("max-cuotas").addEventListener("input", () => {
     const max = Math.min(24, Math.max(1, Number($("max-cuotas").value || 1)));

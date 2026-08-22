@@ -4,7 +4,7 @@ import {
   buscarReserva,
   buscarTarifasEspeciales,
   leerConfigTarifas,
-  leerPorcentajeDeReserva,
+  leerConfigDeCobro,
   pagosAprobados,
   transferenciasConfirmadas,
   ultimoComprobante,
@@ -37,13 +37,13 @@ export default async function handler(req, res) {
     const config = leerConfig();
     const reserva = await buscarReserva(ref);
 
-    const [tarifasConfig, especiales, porcentajeReserva] = await Promise.all([
+    const [tarifasConfig, especiales, cobroConfig] = await Promise.all([
       leerConfigTarifas(),
       buscarTarifasEspeciales(reserva.check_in, reserva.check_out),
-      leerPorcentajeDeReserva(),
+      leerConfigDeCobro(),
     ]);
 
-    const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales);
+    const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales, cobroConfig.tarifaLimpieza);
 
     const [pagos, transferencias, comprobante] = await Promise.all([
       pagosAprobados(reserva.id),
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     const cobro = calcularCobro({
       precioTotal: precio.total,
-      porcentajeReserva,
+      porcentajeReserva: cobroConfig.porcentajeReserva,
       pagadoBase: sumarPagado({ pagos, transferencias }),
       modo,
     });

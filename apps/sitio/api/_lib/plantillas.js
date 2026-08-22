@@ -345,6 +345,12 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
         etiqueta: `Total de la estadía · ${cantidad} ${plural(cantidad, "noche", "noches")}`,
         valor: pesos(precio.total),
       }),
+      precio.hayLimpieza
+        ? filas([
+            { etiqueta: `Alojamiento · ${cantidad} ${plural(cantidad, "noche", "noches")}`, valor: pesos(precio.alojamiento) },
+            { etiqueta: "Tarifa de limpieza", valor: pesos(precio.limpieza) },
+          ])
+        : "",
       datosDelHuesped(reserva),
       datosDeLaEstadia(reserva),
       reserva.mensaje
