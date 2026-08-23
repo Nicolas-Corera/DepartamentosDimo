@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=.env tools/dev-server.mjs",
+    "firma:check": "node tools/verificar-firma.mjs",
     "env:check": "node --env-file=.env api/_lib/env.js",
     "dev:vercel": "vercel dev"
   },

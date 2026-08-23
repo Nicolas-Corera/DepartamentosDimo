@@ -142,7 +142,7 @@ function normalizarCuotas(valor) {
   return Number.isInteger(n) && n >= 1 && n <= 24 ? n : null;
 }
 
-const TOLERANCIA_FIRMA_S = 15 * 60;
+const TOLERANCIA_FIRMA_MS = 15 * 60 * 1000;
 
 export function esPagoInexistente(error) {
   if (!error) return false;
@@ -151,7 +151,7 @@ export function esPagoInexistente(error) {
   return Array.isArray(error.cause) && error.cause.some((c) => Number(c?.code) === 2000);
 }
 
-export function validarFirmaWebhook({ signatureHeader, requestId, dataId, secreto }) {
+export function validarFirmaWebhook({ signatureHeader, requestId, dataId, secreto, ahora }) {
   if (!secreto) return { valido: false, motivo: "no hay MP_WEBHOOK_SECRET configurado" };
   if (!dataId) return { valido: false, motivo: "falta data.id" };
 
@@ -163,20 +163,34 @@ export function validarFirmaWebhook({ signatureHeader, requestId, dataId, secret
       xRequestId: requestId,
       dataId,
       secret: secreto,
-      toleranceSeconds: TOLERANCIA_FIRMA_S,
     });
-    return { valido: true, ts };
   } catch (error) {
     if (error instanceof InvalidWebhookSignatureError) {
       return { valido: false, motivo: error.reason, ts };
     }
     throw error;
   }
+
+  const emitidoEnMs = tsEnMs(ts);
+  if (emitidoEnMs == null) return { valido: false, motivo: "MissingTimestamp", ts };
+
+  const desfasaje = Math.abs((ahora ?? Date.now()) - emitidoEnMs);
+  if (desfasaje > TOLERANCIA_FIRMA_MS) {
+    return { valido: false, motivo: "TimestampOutOfTolerance", ts, desfasaje_ms: desfasaje };
+  }
+
+  return { valido: true, ts };
 }
 
 function tsDeLaFirma(signatureHeader) {
   const m = /(?:^|,)\s*ts\s*=\s*(\d+)/.exec(String(signatureHeader || ""));
   return m ? Number(m[1]) : null;
+}
+
+export function tsEnMs(ts) {
+  const n = Number(ts);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 1e12 ? n * 1000 : n;
 }
 
 let catalogoMedios = null;

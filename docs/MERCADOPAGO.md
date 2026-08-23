@@ -567,6 +567,36 @@ omite entero, y el id va en minúsculas.
 Si en los logs aparece el motivo `MissingHash`, es exactamente eso: MercadoPago
 migró a una versión de firma nueva y hay que actualizar `mercadopago`.
 
+#### La ventana de 15 minutos la controlamos nosotros
+
+Una firma vieja no vale: si el `ts` está a más de 15 minutos del reloj del
+servidor, el webhook la rechaza igual aunque el HMAC dé bien. Eso corta los
+replays — alguien que capturó una notificación no puede reenviarla mañana.
+
+Esa comparación **no** se delega en el SDK. `WebhookSignatureValidator` acepta
+un `toleranceSeconds`, pero lo aplica mal: hace `Math.abs(Date.now() - ts)` con
+`Date.now()` en milisegundos y el `ts` de MercadoPago en **segundos**. La
+diferencia da del orden de mil setecientos millones de segundos y el chequeo
+rechaza *todas* las notificaciones, incluso una recién emitida, con el motivo
+`TimestampOutOfTolerance`. Con eso puesto el webhook devolvía 401 siempre y los
+estados no se sincronizaban nunca.
+
+Así que se llama al validador sin `toleranceSeconds` —el HMAC lo sigue
+calculando él— y la ventana se mide acá, normalizando el `ts` a milisegundos
+antes de comparar (`tsEnMs`: si viene con menos de 13 dígitos son segundos).
+Aguanta las dos unidades, porque el simulador del panel no siempre manda la
+misma que las notificaciones reales.
+
+Hay un chequeo que cubre justo eso:
+
+```bash
+npm run firma:check
+```
+
+Firma ocho notificaciones de mentira —en segundos, en milisegundos, vencida,
+del futuro, con el secreto cambiado— y verifica que cada una caiga donde tiene
+que caer. Si alguien vuelve a pasarle `toleranceSeconds` al SDK, falla.
+
 ---
 
 ## 7. Configurar el webhook en el panel
@@ -699,6 +729,7 @@ npm run env:check
 | `invalid card_token_id` | `MP_PUBLIC_KEY` y `MP_ACCESS_TOKEN` de ambientes distintos. El backend ahora lo detecta al arrancar y aborta con un mensaje explícito |
 | La página se queda en *"Cargando el formulario seguro…"* | Public Key inválida o un bloqueador de anuncios. A los 12 segundos aparece el aviso; mirá la consola del navegador |
 | El webhook devuelve 401 siempre | `MP_WEBHOOK_SECRET` no coincide con la clave del panel, o se cambió en el panel y no se volvió a deployar |
+| 401 con motivo `TimestampOutOfTolerance` en los logs | El HMAC dio bien y lo que falló fue la ventana de tiempo. Correr `npm run firma:check`; si pasa, mirar el reloj del servidor. Ver sección 6 |
 | Los pagos se cobran pero `payments` queda vacía | Falta correr `sql/payments.sql`, o `SUPABASE_SERVICE_ROLE_KEY` tiene la clave `anon` |
 | *"No encontramos esa reserva"* con un uuid que existe | El backend está apuntando a otro proyecto de Supabase (`SUPABASE_URL`), o la clave no es `service_role` |
 | El monto que se cobra no es el que se muestra | El navegador tiene la config vieja en pantalla: recargá. El monto lo recalcula siempre `/api/pagos` con lo que hay en la base |

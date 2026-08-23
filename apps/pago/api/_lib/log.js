@@ -60,12 +60,17 @@ export function ofuscarEmail(email) {
   return `${usuario.slice(0, 2)}***@${dominio}`;
 }
 
+const CLAVES_RESERVADAS = ["ts", "nivel", "evento"];
+
 function emitir(nivel, evento, datos) {
+  const limpios = limpiar(datos || {});
+  for (const clave of CLAVES_RESERVADAS) delete limpios[clave];
+
   const linea = {
     ts: new Date().toISOString(),
     nivel,
     evento,
-    ...limpiar(datos || {}),
+    ...limpios,
   };
   const salida = nivel === "error" ? console.error : nivel === "warn" ? console.warn : console.log;
   salida(`[pagos] ${JSON.stringify(linea)}`);

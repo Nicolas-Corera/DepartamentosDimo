@@ -5,6 +5,7 @@ import {
   consultarPago,
   resumirPago,
   esPagoInexistente,
+  tsEnMs,
 } from "./_lib/mercadopago.js";
 import {
   guardarPago,
@@ -33,9 +34,8 @@ import { log } from "./_lib/log.js";
 const TIPOS_DE_PAGO = new Set(["payment", "payment.created", "payment.updated"]);
 
 function demoraDesde(ts) {
-  if (!ts || Number.isNaN(ts)) return null;
-  const enMs = ts < 1e12 ? ts * 1000 : ts;
-  return Date.now() - enMs;
+  const enMs = tsEnMs(ts);
+  return enMs == null ? null : Date.now() - enMs;
 }
 
 const MEDIO_POR_TIPO = {
@@ -150,7 +150,13 @@ export default async function handler(req, res) {
     });
 
     if (!firma.valido) {
-      log.warn("webhook.firma_invalida", { data_id: dataId, tipo, motivo: firma.motivo });
+      log.warn("webhook.firma_invalida", {
+        data_id: dataId,
+        tipo,
+        motivo: firma.motivo,
+        firma_ts: firma.ts ?? null,
+        desfasaje_ms: firma.desfasaje_ms ?? null,
+      });
       return json(res, 401, { error: "firma inválida" });
     }
 
