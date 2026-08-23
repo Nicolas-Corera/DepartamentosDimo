@@ -12,6 +12,7 @@
     "config:check": "npm --prefix apps/sitio run config:check",
     "prepare": "node tools/instalar-hooks.mjs",
     "hooks": "node tools/instalar-hooks.mjs",
+    "firma:check": "npm --prefix apps/pago run firma:check",
     "secretos": "node tools/buscar-secretos.mjs --todo",
     "secretos:historial": "node tools/buscar-secretos.mjs --historial"
   },
