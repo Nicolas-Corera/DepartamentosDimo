@@ -76,19 +76,17 @@ export async function avisarSeniaPagada({ reserva, pago, cobro }) {
 
   const contexto = { reserva: datos, pago, cobro, links };
 
-  await Promise.all([
-    enviarUnaVez(`${clave}:inquilino`, "reserva_inquilino", [datos.email], async () => ({
-      from: config.mails.de.reservas,
-      replyTo: config.mails.duenos[0],
-      ...reservaInquilino({ ...contexto, contacto: config.mails.contacto }),
-    })),
+  await enviarUnaVez(`${clave}:inquilino`, "reserva_inquilino", [datos.email], async () => ({
+    from: config.mails.de.reservas,
+    replyTo: config.mails.duenos[0],
+    ...reservaInquilino({ ...contexto, contacto: config.mails.contacto }),
+  }));
 
-    enviarUnaVez(`${clave}:duenos`, "reserva_duenos", config.mails.duenos, async () => ({
-      from: config.mails.de.reservas,
-      replyTo: datos.email,
-      ...reservaDueno(contexto),
-    })),
-  ]);
+  await enviarUnaVez(`${clave}:duenos`, "reserva_duenos", config.mails.duenos, async () => ({
+    from: config.mails.de.reservas,
+    replyTo: datos.email,
+    ...reservaDueno(contexto),
+  }));
 }
 
 export async function avisarPagoCompletado({ reserva, pago, cobro, comprobante }) {
@@ -111,30 +109,28 @@ export async function avisarPagoCompletado({ reserva, pago, cobro, comprobante }
   const clave = comprobante ? `pago:transfer:${comprobante.id}` : `pago:${pago.referencia}`;
   const contexto = { reserva: datos, pago, cobro };
 
-  await Promise.all([
-    enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
-      from: config.mails.de.pagos,
-      replyTo: config.mails.duenos[0],
-      ...pagoInquilino({ ...contexto, contacto: config.mails.contacto }),
-    })),
+  await enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
+    from: config.mails.de.pagos,
+    replyTo: config.mails.duenos[0],
+    ...pagoInquilino({ ...contexto, contacto: config.mails.contacto }),
+  }));
 
-    enviarUnaVez(`${clave}:duenos`, "pago_duenos", config.mails.duenos, async () => ({
-      from: config.mails.de.pagos,
-      replyTo: datos.email,
-      adjuntos: adjuntosDuenos,
-      ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > 0 }),
-    })),
-  ]);
+  await enviarUnaVez(`${clave}:duenos`, "pago_duenos", config.mails.duenos, async () => ({
+    from: config.mails.de.pagos,
+    replyTo: datos.email,
+    adjuntos: adjuntosDuenos,
+    ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > 0 }),
+  }));
 }
 
-export async function avisarComprobanteSubido({ reserva, comprobante, cobro }) {
+export async function avisarComprobanteSubido({ reserva, comprobante, cobro, archivo }) {
   const config = leerConfig();
   const datos = desdeLaBase(reserva);
   const clave = `comprobante:${comprobante.id}`;
 
   let adjunto = [];
-  if (comprobante.path) {
-    const bytes = await descargarComprobante(comprobante.path);
+  if (archivo || comprobante.path) {
+    const bytes = archivo || (await descargarComprobante(comprobante.path));
     if (bytes) {
       adjunto = [
         {
@@ -147,18 +143,16 @@ export async function avisarComprobanteSubido({ reserva, comprobante, cobro }) {
 
   const contexto = { reserva: datos, comprobante, cobro };
 
-  await Promise.all([
-    enviarUnaVez(`${clave}:inquilino`, "comprobante_inquilino", [datos.email], async () => ({
-      from: config.mails.de.reservas,
-      replyTo: config.mails.duenos[0],
-      ...comprobanteInquilino({ ...contexto, contacto: config.mails.contacto }),
-    })),
+  await enviarUnaVez(`${clave}:inquilino`, "comprobante_inquilino", [datos.email], async () => ({
+    from: config.mails.de.reservas,
+    replyTo: config.mails.duenos[0],
+    ...comprobanteInquilino({ ...contexto, contacto: config.mails.contacto }),
+  }));
 
-    enviarUnaVez(`${clave}:duenos`, "comprobante_duenos", config.mails.duenos, async () => ({
-      from: config.mails.de.reservas,
-      replyTo: datos.email,
-      adjuntos: adjunto,
-      ...comprobanteDuenos({ ...contexto, panelUrl: `${config.urls.panel}/#alquileres` }),
-    })),
-  ]);
+  await enviarUnaVez(`${clave}:duenos`, "comprobante_duenos", config.mails.duenos, async () => ({
+    from: config.mails.de.reservas,
+    replyTo: datos.email,
+    adjuntos: adjunto,
+    ...comprobanteDuenos({ ...contexto, panelUrl: `${config.urls.panel}/#alquileres` }),
+  }));
 }

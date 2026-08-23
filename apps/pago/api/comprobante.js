@@ -8,7 +8,7 @@ import {
   transferenciasConfirmadas,
   firmarSubidaDeComprobante,
   leerObjetoDeComprobante,
-  leerCabeceraDeComprobante,
+  descargarComprobante,
   borrarComprobante,
   guardarComprobante,
 } from "./_lib/supabase.js";
@@ -16,6 +16,7 @@ import { tipoRealDeArchivo } from "./_lib/formato-archivo.js";
 import { calcularPrecio, calcularRecargo } from "./_lib/precios.js";
 import { calcularCobro, sumarPagado, normalizarModo } from "./_lib/cobro.js";
 import { avisarComprobanteSubido } from "./_lib/mails.js";
+import { enSegundoPlano } from "./_lib/segundo-plano.js";
 import { log } from "./_lib/log.js";
 
 const FORMATOS = {
@@ -144,7 +145,8 @@ export default async function handler(req, res) {
         );
       }
 
-      const mime = tipoRealDeArchivo(await leerCabeceraDeComprobante(path));
+      const archivo = await descargarComprobante(path);
+      const mime = tipoRealDeArchivo(archivo);
 
       if (!mime) {
         await borrarComprobante(path);
@@ -178,23 +180,29 @@ export default async function handler(req, res) {
         monto: importe.total,
       });
 
-      try {
-        await avisarComprobanteSubido({
-          reserva,
-          comprobante: {
-            id: fila.id,
-            path,
-            mime,
-            monto: importe.total,
-            montoBase: importe.totalBase,
-            concepto: cobro.concepto,
-            subidoEn: fila.created_at,
-          },
-          cobro,
-        });
-      } catch (error) {
-        log.error("comprobante.mails_fallaron", error, { ref: reserva.id, comprobante: fila.id });
-      }
+      await enSegundoPlano(
+        "comprobante.mails",
+        () =>
+          avisarComprobanteSubido({
+            reserva,
+            comprobante: {
+              id: fila.id,
+              path,
+              mime,
+              monto: importe.total,
+              montoBase: importe.totalBase,
+              concepto: cobro.concepto,
+              subidoEn: fila.created_at,
+            },
+            cobro,
+            archivo,
+          }),
+        (error) =>
+          log.error("comprobante.mails_fallaron", error, {
+            ref: reserva.id,
+            comprobante: fila.id,
+          }),
+      );
 
       return json(res, 201, {
         ok: true,

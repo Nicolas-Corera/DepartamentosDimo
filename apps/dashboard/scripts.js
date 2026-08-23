@@ -1797,8 +1797,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   arrancarRefresco();
 });
 
-const REFRESCO_MS = 30_000;
-const REFRESCO_MAX_MS = 5 * 60_000;
+const REFRESCO_MS = 8_000;
+const REFRESCO_MAX_MS = 2 * 60_000;
 
 const refresco = { timer: null, espera: REFRESCO_MS, corriendo: false };
 

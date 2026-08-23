@@ -27,6 +27,7 @@ import {
 } from "./_lib/mercadopago.js";
 import { mensajeDePago } from "./_lib/mensajes.js";
 import { avisarSeniaPagada, avisarPagoCompletado, medioTexto } from "./_lib/mails.js";
+import { enSegundoPlano } from "./_lib/segundo-plano.js";
 import { log, ofuscarEmail } from "./_lib/log.js";
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -250,18 +251,18 @@ export default async function handler(req, res) {
         fecha: resumen.aprobado_en || new Date().toISOString(),
       };
 
-      try {
-        if (cobro.concepto === "reserva") {
-          await avisarSeniaPagada({ reserva, pago: detalle, cobro: cobroFinal });
-        } else {
-          await avisarPagoCompletado({ reserva, pago: detalle, cobro: cobroFinal });
-        }
-      } catch (error) {
-        log.error("pago.mails_fallaron", error, {
-          ref: reserva.id,
-          payment_id: resumen.mp_payment_id,
-        });
-      }
+      await enSegundoPlano(
+        "pago.mails",
+        () =>
+          cobro.concepto === "reserva"
+            ? avisarSeniaPagada({ reserva, pago: detalle, cobro: cobroFinal })
+            : avisarPagoCompletado({ reserva, pago: detalle, cobro: cobroFinal }),
+        (error) =>
+          log.error("pago.mails_fallaron", error, {
+            ref: reserva.id,
+            payment_id: resumen.mp_payment_id,
+          }),
+      );
     }
 
     const mensaje = mensajeDePago(resumen.status, resumen.status_detail);

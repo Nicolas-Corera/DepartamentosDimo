@@ -52,21 +52,29 @@ export async function avisarConsultaNueva({ reserva, precio, cobro }) {
   const links = linksDePago(config.urls.pago, reserva.id);
   const clave = `consulta:${reserva.id}`;
 
-  const resultados = await Promise.all([
-    enviarUnaVez(`${clave}:inquilino`, "consulta_inquilino", [datos.email], async () => ({
+  const inquilino = await enviarUnaVez(
+    `${clave}:inquilino`,
+    "consulta_inquilino",
+    [datos.email],
+    async () => ({
       from: config.mails.de.consultas,
       replyTo: config.mails.duenos[0],
       ...consultaInquilino({ reserva: datos, contacto: config.mails.contacto }),
-    })),
+    }),
+  );
 
-    enviarUnaVez(`${clave}:duenos`, "consulta_duenos", config.mails.duenos, async () => ({
+  const duenos = await enviarUnaVez(
+    `${clave}:duenos`,
+    "consulta_duenos",
+    config.mails.duenos,
+    async () => ({
       from: config.mails.de.consultas,
       replyTo: datos.email,
       ...consultaDuenos({ reserva: datos, precio, cobro, links }),
-    })),
-  ]);
+    }),
+  );
 
-  return { inquilino: resultados[0], duenos: resultados[1] };
+  return { inquilino, duenos };
 }
 
 export async function avisarResenaNueva({ resena }) {

@@ -2,6 +2,7 @@ import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib
 import { exigirSesion } from "./_lib/sesion.js";
 import { seleccionar, actualizar, firmarLectura } from "./_lib/supabase.js";
 import { avisarTransferenciaConfirmada } from "./_lib/mails.js";
+import { enSegundoPlano } from "./_lib/segundo-plano.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -114,14 +115,15 @@ export default async function handler(req, res) {
     console.log(`[comprobantes] ${aprobado ? "aprobado" : "rechazado"} ${id}`);
 
     if (aprobado) {
-      try {
-        await avisarTransferenciaConfirmada({ ...fila, revisado_en: revisadoEn });
-      } catch (error) {
-        console.error(
-          "[comprobantes] el comprobante quedó aprobado pero los mails fallaron:",
-          error.message,
-        );
-      }
+      await enSegundoPlano(
+        "comprobantes.mails",
+        () => avisarTransferenciaConfirmada({ ...fila, revisado_en: revisadoEn }),
+        (error) =>
+          console.error(
+            "[comprobantes] el comprobante quedó aprobado pero los mails fallaron:",
+            error.message,
+          ),
+      );
     }
 
     return json(res, 200, {

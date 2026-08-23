@@ -29,6 +29,7 @@ import {
   deducirConcepto,
 } from "./_lib/cobro.js";
 import { avisarSeniaPagada, avisarPagoCompletado, medioTexto } from "./_lib/mails.js";
+import { enSegundoPlano } from "./_lib/segundo-plano.js";
 import { log } from "./_lib/log.js";
 
 const TIPOS_DE_PAGO = new Set(["payment", "payment.created", "payment.updated"]);
@@ -194,14 +195,15 @@ export default async function handler(req, res) {
     }
 
     if (resumen.status === "approved" && bookingId) {
-      try {
-        await avisarPorMail(resumen, bookingId, guardado);
-      } catch (error) {
-        log.error("webhook.mails_fallaron", error, {
-          payment_id: resumen.mp_payment_id,
-          ref: bookingId,
-        });
-      }
+      await enSegundoPlano(
+        "webhook.mails",
+        () => avisarPorMail(resumen, bookingId, guardado),
+        (error) =>
+          log.error("webhook.mails_fallaron", error, {
+            payment_id: resumen.mp_payment_id,
+            ref: bookingId,
+          }),
+      );
     }
 
     log.info("webhook.procesado", {
