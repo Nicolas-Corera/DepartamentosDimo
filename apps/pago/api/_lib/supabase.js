@@ -242,7 +242,7 @@ export async function guardarComprobante(fila) {
 export async function leerConfigDeCobro() {
   const { data, error } = await db()
     .from("configuracion_pagos")
-    .select("porcentaje_reserva")
+    .select("porcentaje_reserva, tarifa_limpieza")
     .eq("id", 1)
     .maybeSingle();
 
