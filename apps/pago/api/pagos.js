@@ -37,6 +37,13 @@ function fechaCorta(iso) {
   return `${m[3]} ${MESES[Number(m[2]) - 1]}`;
 }
 
+function diaDeSalida(ultimaNoche) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ultimaNoche));
+  if (!m) return String(ultimaNoche);
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + 86_400_000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
 const PREFIJOS = {
   reserva: "Seña reserva Dimo",
   saldo: "Saldo reserva Dimo",
@@ -44,7 +51,7 @@ const PREFIJOS = {
 };
 
 function textoDescripcion(reserva, concepto, cuotas) {
-  const base = `${PREFIJOS[concepto] || PREFIJOS.total} ${fechaCorta(reserva.check_in)} al ${fechaCorta(reserva.check_out)}`;
+  const base = `${PREFIJOS[concepto] || PREFIJOS.total} ${fechaCorta(reserva.check_in)} al ${fechaCorta(diaDeSalida(reserva.check_out))}`;
   return cuotas > 1 ? `${base} (${cuotas} cuotas)` : base;
 }
 

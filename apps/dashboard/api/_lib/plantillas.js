@@ -55,7 +55,15 @@ export function noches(checkIn, checkOut) {
   const b = partes(checkOut);
   if (!a || !b) return 0;
   const ms = Date.UTC(b.anio, b.mes - 1, b.dia) - Date.UTC(a.anio, a.mes - 1, a.dia);
-  return Math.max(0, Math.round(ms / 86_400_000));
+  const dias = Math.round(ms / 86_400_000);
+  return dias < 0 ? 0 : dias + 1;
+}
+
+export function diaDeSalida(ultimaNoche) {
+  const p = partes(ultimaNoche);
+  if (!p) return String(ultimaNoche || "");
+  const ms = Date.UTC(p.anio, p.mes - 1, p.dia) + 86_400_000;
+  return new Date(ms).toISOString().slice(0, 10);
 }
 
 export function esc(valor) {
@@ -190,10 +198,13 @@ export function urlCopiable(url) {
 function datosDeLaEstadia(reserva) {
   return filas([
     { etiqueta: "Check-in", valor: fechaLarga(reserva.checkIn) },
-    { etiqueta: "Check-out", valor: fechaLarga(reserva.checkOut) },
+    {
+      etiqueta: "Check-out",
+      valor: `${fechaLarga(diaDeSalida(reserva.checkOut))} (a la mañana)`,
+    },
     {
       etiqueta: "Noches",
-      valor: String(noches(reserva.checkIn, reserva.checkOut)),
+      valor: `${noches(reserva.checkIn, reserva.checkOut)} — del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}`,
     },
     { etiqueta: "Huéspedes", valor: grupoTexto(reserva) },
     { etiqueta: "Vehículo", valor: vehiculoTexto(reserva) },
@@ -247,7 +258,7 @@ export function linkDeWhatsapp(telefono, mensaje) {
 
 export function contactoDelCliente({ contacto, reserva }) {
   const mensaje = reserva
-    ? `Hola! Escribo por mi reserva del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)} (código ${String(reserva.id || "").slice(0, 8)}).`
+    ? `Hola! Escribo por mi reserva del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))} (código ${String(reserva.id || "").slice(0, 8)}).`
     : "Hola! Escribo por una consulta.";
 
   return {
@@ -324,7 +335,7 @@ export function consultaInquilino({ reserva, contacto }) {
     {
       contacto: contactoDelCliente({ contacto, reserva }),
       pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
-      preheader: `Tu consulta del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)} ya nos llegó.`,
+      preheader: `Tu consulta del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))} ya nos llegó.`,
       encabezado: "Consulta de reserva",
     },
   );
@@ -334,12 +345,12 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
   const cantidad = noches(reserva.checkIn, reserva.checkOut);
 
   return armar(
-    `Nueva consulta — ${reserva.nombre} — ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}`,
+    `Nueva consulta — ${reserva.nombre} — ${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))}`,
     [
       titulo("Nueva consulta de reserva"),
       parrafo(
         `<strong>${esc(reserva.nombre)}</strong> consultó por ${cantidad} ${plural(cantidad, "noche", "noches")}, ` +
-          `del ${esc(fechaLarga(reserva.checkIn))} al ${esc(fechaLarga(reserva.checkOut))}.`,
+          `del ${esc(fechaLarga(reserva.checkIn))} al ${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}.`,
       ),
       bloque({
         etiqueta: `Total de la estadía · ${cantidad} ${plural(cantidad, "noche", "noches")}`,
@@ -397,7 +408,7 @@ export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
       parrafo(
         `Gracias, ${esc(reserva.nombre.split(" ")[0])}. Tu reserva del ` +
           `<strong>${esc(fechaLarga(reserva.checkIn))}</strong> al ` +
-          `<strong>${esc(fechaLarga(reserva.checkOut))}</strong> quedó tomada.`,
+          `<strong>${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}</strong> quedó tomada.`,
       ),
       bloque({ etiqueta: "Seña pagada", valor: pesos(pago.monto), color: COLOR.verde }),
       filas([
@@ -440,12 +451,12 @@ export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
 
 export function reservaDueno({ reserva, pago, cobro, links }) {
   return armar(
-    `Seña cobrada — ${reserva.nombre} — ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}`,
+    `Seña cobrada — ${reserva.nombre} — ${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))}`,
     [
       titulo("Entró una seña"),
       parrafo(
         `<strong>${esc(reserva.nombre)}</strong> pagó la seña de su reserva del ` +
-          `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(reserva.checkOut))}.`,
+          `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(diaDeSalida(reserva.checkOut)))}.`,
       ),
       bloque({ etiqueta: "Cobrado", valor: pesos(pago.monto), color: COLOR.verde }),
       filas([
@@ -492,7 +503,7 @@ export function pagoInquilino({ reserva, pago, cobro, contacto }) {
         `Gracias, ${esc(reserva.nombre.split(" ")[0])}. ` +
           (completo
             ? `Tu reserva del <strong>${esc(fechaLarga(reserva.checkIn))}</strong> al ` +
-              `<strong>${esc(fechaLarga(reserva.checkOut))}</strong> quedó <strong>confirmada y paga por completo</strong>.`
+              `<strong>${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}</strong> quedó <strong>confirmada y paga por completo</strong>.`
             : "Registramos el pago que hiciste."),
       ),
       bloque({ etiqueta: conceptoTexto(pago.concepto), valor: pesos(pago.monto), color: COLOR.verde }),
@@ -530,7 +541,7 @@ export function pagoDuenos({ reserva, pago, cobro, comprobanteAdjunto }) {
       titulo(completo ? "Estadía paga por completo" : "Entró un pago"),
       parrafo(
         `<strong>${esc(reserva.nombre)}</strong> pagó ${esc(conceptoTexto(pago.concepto).toLowerCase())} de su reserva del ` +
-          `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(reserva.checkOut))}.`,
+          `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(diaDeSalida(reserva.checkOut)))}.`,
       ),
       bloque({ etiqueta: "Cobrado", valor: pesos(pago.monto), color: COLOR.verde }),
       filas([
@@ -598,7 +609,7 @@ export function comprobanteDuenos({ reserva, comprobante, cobro, panelUrl }) {
       titulo("Hay un comprobante esperando"),
       parrafo(
         `<strong>${esc(reserva.nombre)}</strong> subió un comprobante de transferencia por su reserva del ` +
-          `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(reserva.checkOut))}. ` +
+          `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(diaDeSalida(reserva.checkOut)))}. ` +
           "Hasta que lo apruebes en el panel, no cuenta como pago.",
       ),
       bloque({

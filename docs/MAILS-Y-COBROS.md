@@ -23,10 +23,15 @@ romper nada.
 ## 1. La lógica de cobro
 
 El precio de la estadía se calcula noche por noche contra las tablas
-`temporadas` y `tarifas_especiales`: del 9/10 al 13/10 son las noches del 9, 10,
-11 y 12 — el día de check-out no se cobra. A eso se le suma la tarifa de
-limpieza, una vez por estadía. Lo que cambia entre un pago y otro es **cuánto de
-ese precio se cobra en cada uno**.
+`temporadas` y `tarifas_especiales`. El huésped marca las noches que se queda y
+se cobran todas, las dos puntas incluidas: del 1/10 al 10/10 son diez noches. A
+eso se le suma la tarifa de limpieza, una vez por estadía. Lo que cambia entre un
+pago y otro es **cuánto de ese precio se cobra en cada uno**.
+
+`check_in` y `check_out` guardan la primera y la última noche. El **check-out
+real es el día siguiente** — en el ejemplo, el 11/10 a la mañana — y es lo que
+dicen los mails, el checkout y el panel. Lo resuelve `diaDeSalida()`; no se
+guarda en ningún lado.
 
 El checkout y los mails salen los dos de `calcularPrecio()`, así que muestran la
 misma cifra. Si alguna vez difieren, es que una de las tres copias de

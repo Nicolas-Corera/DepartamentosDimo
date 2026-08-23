@@ -168,6 +168,17 @@ limpieza. Si vuelven a diferir, lo primero que hay que mirar es el `select` de
 `leerConfigDeCobro()` en cada `apps/*/api/_lib/supabase.js`: los tres tienen que
 pedir `porcentaje_reserva` **y** `tarifa_limpieza`.
 
+### Qué día es el check-out
+
+`check_in` y `check_out` guardan **la primera y la última noche** que marcó el
+huésped, y se cobran las dos. El check-out real es el día siguiente a
+`check_out`, y es lo que se muestra en la lista de alquileres, en los modales, en
+el CSV, en los mails y en el checkout. La conversión la hace `diaDeSalida()` y
+**no se guarda**: la base sigue teniendo las noches.
+
+En la calculadora los dos campos se llaman *Primera noche* y *Última noche* por
+lo mismo, y el resultado incluye una línea con el check-out ya convertido.
+
 ### Fechas absolutas y el aviso de huecos
 
 Los rangos de temporada llevan año (`2026-12-15` al `2027-01-31`), así que **no

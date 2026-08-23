@@ -28,6 +28,13 @@ function fechaLarga(iso) {
   return p ? `${p.d} ${MESES[p.m - 1]}, ${p.y}` : String(iso);
 }
 
+function diaDeSalida(ultimaNoche) {
+  const p = partes(ultimaNoche);
+  if (!p) return String(ultimaNoche);
+  const ms = Date.UTC(p.y, p.m - 1, p.d) + 86_400_000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
 function fechaConDia(iso) {
   const p = partes(iso);
   if (!p) return String(iso);
@@ -124,7 +131,7 @@ function mensajeDeWhatsapp() {
   if (!reserva) return "Hola! Escribo por una consulta.";
   return (
     `Hola! Escribo por mi reserva del ${fechaCorta(reserva.checkIn)} ` +
-    `al ${fechaCorta(reserva.checkOut)} (código ${String(estado.ref || "").slice(0, 8)}).`
+    `al ${fechaCorta(diaDeSalida(reserva.checkOut))} (código ${String(estado.ref || "").slice(0, 8)}).`
   );
 }
 
@@ -374,7 +381,7 @@ function pintarResumen({ reserva, precio }) {
 
   const n = precio.cantidadNoches;
   $("resumen-fechas").textContent =
-    `${fechaCorta(reserva.checkIn)} - ${fechaCorta(reserva.checkOut)} ` +
+    `${fechaCorta(reserva.checkIn)} - ${fechaCorta(diaDeSalida(reserva.checkOut))} ` +
     `(${n} ${n === 1 ? "noche" : "noches"})`;
 
   $("resumen-alojamiento-label").textContent = precio.tarifaUniforme
@@ -391,7 +398,12 @@ function pintarResumen({ reserva, precio }) {
   pintarDetalleDeNoches(precio);
 
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);
-  $("resumen-checkout").textContent = fechaLarga(reserva.checkOut);
+  $("resumen-checkout").textContent = fechaLarga(diaDeSalida(reserva.checkOut));
+
+  $("nota-salida").textContent =
+    `Se cobran las ${n} ${n === 1 ? "noche" : "noches"} que elegiste, ` +
+    `del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}. ` +
+    `Salís a la mañana del ${fechaCorta(diaDeSalida(reserva.checkOut))}.`;
 
   actualizarTotales();
 }

@@ -468,6 +468,7 @@
                   <span id="fechasLabel">Seleccionar fechas</span>
                 </button>
                 <input type="hidden" id="fechasInput" name="fechas" required />
+                <p class="nota-fechas" id="fechasNota" hidden></p>
               </div>
               <div class="field field-full">
                 <label for="personas">Cantidad total de personas *</label>
@@ -713,8 +714,9 @@
         </button>
         <h3 id="modalDispTitle">Disponibilidad</h3>
         <p class="modal-desc">
-          Elegí un rango de fechas para consultar. Las que aparecen tildadas ya
-          están reservadas.
+          Marcá las noches que querés quedarte. Las que aparecen tildadas ya
+          están reservadas. El check-out es a la mañana del día siguiente a la
+          última noche que elijas.
         </p>
         <div class="calendar" id="calDisponibilidad"></div>
         <a href="#reserva" class="btn btn-primary btn-block" data-close-modal
@@ -734,7 +736,11 @@
           <svg class="ic-sm"><use href="#ic-close" /></svg>
         </button>
         <h3 id="modalFechasTitle">Elegí tus fechas de estadía</h3>
-        <p class="modal-desc">Tocá el día de llegada y luego el de salida.</p>
+        <p class="modal-desc">
+          Marcá <strong>todas las noches</strong> que te quedás: tocá la primera
+          y después la última. Se cobran todas, y el check-out es a la mañana del
+          día siguiente a la última.
+        </p>
         <div class="calendar" id="calFormulario"></div>
         <button
           type="button"
