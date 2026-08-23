@@ -73,7 +73,7 @@
       size: "tall",
     },
     {
-      src: "/assets/images/galeria/frente.jpeg",
+      src: "/assets/images/galeria/frente_2.jpeg",
       alt: "Frente del edificio",
       size: "xtall",
     },
