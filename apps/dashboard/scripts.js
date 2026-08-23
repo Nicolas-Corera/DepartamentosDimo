@@ -27,6 +27,11 @@ function fechaCorta(iso) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
 }
 
+function diaDeSalida(ultimaNoche) {
+  const ms = aUTC(ultimaNoche);
+  return Number.isNaN(ms) ? String(ultimaNoche || "") : aISO(ms + UN_DIA);
+}
+
 function fechaHora(ts) {
   if (!ts) return "—";
   const d = new Date(ts);
@@ -621,15 +626,15 @@ function recalcularCalculadora() {
     salida.replaceChildren(crearVacio("Elegí las fechas para ver el cálculo."));
     return;
   }
-  if (checkOut <= checkIn) {
+  if (checkOut < checkIn) {
     salida.replaceChildren(
-      crearVacio("El check-out tiene que ser posterior al check-in."),
+      crearVacio("La última noche no puede ser anterior a la primera."),
     );
     return;
   }
 
   const config = configEnPantalla();
-  const cantidad = Math.round((aUTC(checkOut) - aUTC(checkIn)) / UN_DIA);
+  const cantidad = Math.round((aUTC(checkOut) - aUTC(checkIn)) / UN_DIA) + 1;
 
   if (cantidad > 365) {
     salida.replaceChildren(
@@ -668,6 +673,7 @@ function recalcularCalculadora() {
       `${cantidad} ${cantidad === 1 ? "noche" : "noches"}`,
       pesos.format(alojamiento),
     ),
+    linea("Check-out", `${fechaCorta(diaDeSalida(checkOut))} a la mañana`),
   ];
 
   if (limpieza > 0) {
@@ -1030,7 +1036,7 @@ function filaDeAlquiler(a) {
   tr.appendChild(
     celda(
       a.checkIn
-        ? `Desde: ${fechaCorta(a.checkIn)} Hasta: ${fechaCorta(a.checkOut)}`
+        ? `Desde: ${fechaCorta(a.checkIn)} Hasta: ${fechaCorta(diaDeSalida(a.checkOut))}`
         : "—",
       a.huesped.procedencia || "",
     ),
@@ -1136,7 +1142,7 @@ async function abrirModalComprobante(alquiler) {
   const pendiente = alquiler.estadoComprobante === "pendiente";
   $("comprobante-detalle").textContent =
     `${alquiler.huesped.nombre || "Sin nombre"} — ` +
-    `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(alquiler.checkOut)}. ` +
+    `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(diaDeSalida(alquiler.checkOut))}. ` +
     `Dice haber transferido ${pesos.format(alquiler.monto)}.`;
 
   $("comprobante-aprobar").hidden = !pendiente;
@@ -1269,7 +1275,7 @@ function abrirModalCancelar(alquiler) {
 
   $("modal-detalle").textContent =
     `${alquiler.huesped.nombre || "Sin nombre"} — ` +
-    `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(alquiler.checkOut)}. ` +
+    `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(diaDeSalida(alquiler.checkOut))}. ` +
     `Se cobraron ${pesos.format(alquiler.monto)}` +
     (alquiler.devuelto > 0
       ? `, de los que ya se devolvieron ${pesos.format(alquiler.devuelto)}.`
@@ -1457,7 +1463,7 @@ function descargarReporte() {
         .filter(Boolean)
         .join("\n") || "—",
       a.checkIn
-        ? `Desde: ${fechaCorta(a.checkIn)}\nHasta: ${fechaCorta(a.checkOut)}`
+        ? `Desde: ${fechaCorta(a.checkIn)}\nHasta: ${fechaCorta(diaDeSalida(a.checkOut))}`
         : "—",
       a.personas == null ? "—" : String(a.personas),
       (NOMBRE_MEDIO[a.tipo] || a.tipo || "—") +

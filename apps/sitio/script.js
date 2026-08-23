@@ -496,6 +496,26 @@
     return `${d}/${m}/${y}`;
   }
 
+  function diaDeSalida(ultimaNoche) {
+    const d = keyADate(ultimaNoche);
+    d.setDate(d.getDate() + 1);
+    return fmtKey(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function pintarNotaDeFechas(start, end) {
+    const nota = document.getElementById("fechasNota");
+    if (!nota) return;
+
+    const cantidad =
+      Math.round((keyADate(end) - keyADate(start)) / 86400000) + 1;
+
+    nota.textContent =
+      `Se cobran ${cantidad} ${cantidad === 1 ? "noche" : "noches"}, ` +
+      `del ${fmtDisplay(start)} al ${fmtDisplay(end)}. ` +
+      `Salís a la mañana del ${fmtDisplay(diaDeSalida(end))}.`;
+    nota.hidden = false;
+  }
+
   document.getElementById("btnDisponibilidad").addEventListener("click", () => {
     dispoCalendar.refresh();
     openModal(document.getElementById("modalDisponibilidad"));
@@ -516,6 +536,7 @@
     if (start && end) {
       fechasLabel.textContent = `${fmtDisplay(start)} → ${fmtDisplay(end)}`;
       fechasInput.value = `${start} a ${end}`;
+      pintarNotaDeFechas(start, end);
       closeModal(document.getElementById("modalFechas"));
       return;
     }
@@ -1015,6 +1036,7 @@
       resetContadores();
       fechasLabel.textContent = "Seleccionar fechas";
       fechasInput.value = "";
+      document.getElementById("fechasNota").hidden = true;
       formCalendar.reset();
       cargarFechasOcupadas();
     } catch (err) {

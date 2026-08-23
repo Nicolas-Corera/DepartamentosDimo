@@ -1413,6 +1413,12 @@ p {
   font-size: 0.88rem;
   color: #4c6a70;
 }
+.nota-fechas {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #4c6a70;
+}
 .modal-close {
   position: absolute;
   top: 16px;

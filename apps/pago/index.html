@@ -557,6 +557,13 @@
         margin-bottom: 24px;
       }
 
+      .nota-salida {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--color-on-surface-variant);
+        margin: -4px 0 12px;
+      }
+
       .cuotas-selector {
         margin-bottom: 20px;
       }
@@ -1191,6 +1198,8 @@
                 <span id="resumen-checkout">—</span>
               </div>
 
+              <p class="nota-salida" id="nota-salida"></p>
+
               <div class="price-row" id="fila-pagado" hidden>
                 <span>Ya pagado</span>
                 <span id="resumen-pagado" class="monto-descuento">—</span>
@@ -1233,6 +1242,10 @@
               </h4>
               <ul class="info-list">
                 <li>El horario de check-in es a partir de las 15:00 hs.</li>
+                <li>
+                  Se cobran todas las noches que elegiste. El check-out es a la
+                  mañana del día siguiente a la última.
+                </li>
                 <li>
                   No se admiten mascotas en las instalaciones (Política
                   Pet-Free).

@@ -228,9 +228,16 @@ de pago.
 
 ### Etapa 1 — el precio base
 
-Se calcula **noche por noche**, no con una tarifa única por estadía. Una estadía
-del 10 al 14 son las noches del 10, 11, 12 y 13: la del 14 no se cobra porque esa
-mañana se van.
+Se calcula **noche por noche**, no con una tarifa única por estadía. El huésped
+marca en el calendario **las noches que se queda**, y se cobran todas, las dos
+puntas incluidas: del 1 al 10 son diez noches — 1, 2, 3, 4, 5, 6, 7, 8, 9 y 10.
+
+`check_in` y `check_out` en la base guardan **la primera y la última noche**, tal
+cual las marcó. El check-out real es el día siguiente a `check_out`, y es lo que
+se muestra en todos lados: en el ejemplo, entra el 1 y sale la mañana del 11. Esa
+conversión la hace `diaDeSalida()`, que está repetida en las plantillas de mail,
+en el checkout, en `apps/pago/api/pagos.js` y en el panel. Nunca se guarda: es
+solo presentación.
 
 **a. La temporada.** Cada noche cae en el rango de `temporadas` que la contenga.
 Son rangos **absolutos, con año** (`2026-12-15` al `2027-01-31`), no día y mes:
@@ -473,13 +480,15 @@ pone un pago aprobado. Si preferís que las consultas sin pagar también bloquee
 es agregar el estado al `where` de la vista en
 [`sql/tarifas-y-ocupacion.sql`](../sql/tarifas-y-ocupacion.sql) y volver a correrlo.
 
-**El día de salida se bloquea pero no se cobra:** una reserva del 10 al 14 cobra
-las noches 10, 11, 12 y 13 — el precio va por noche y el 14 esa mañana se van —
-pero en el calendario se tachan los cinco días. El 14 no puede ser el check-in de
-otra persona: queda como margen para limpiar y preparar, y evita el cruce de dos
-grupos el mismo día. Que se bloquee y no se cobre es a propósito. El bloqueo está
-marcado en `apps/sitio/script.js` y el cobro sale de `calcularNoches()` en
-`apps/*/api/_lib/precios.js`.
+**Lo que se bloquea es exactamente lo que se cobra:** una reserva del 1 al 10
+tacha esos diez días en el calendario y cobra esas diez noches. Son los mismos
+días que marcó el huésped, así que no hay que explicarle por qué le cobramos uno
+que no eligió ni por qué le bloqueamos uno que no pagó.
+
+El día del check-out real — el 11 — **queda libre**: esa mañana se van y otro
+puede entrar a la tarde. El bloqueo vive en `apps/sitio/script.js` y el cobro en
+`calcularNoches()` de `apps/*/api/_lib/precios.js`: los dos van de `check_in` a
+`check_out` inclusive, y tienen que moverse juntos.
 
 Además, el calendario no deja elegir un rango que *cruce* días ocupados: sin eso
 se puede pedir del 8 al 16 con el 12 ya reservado, que es una reserva imposible.
