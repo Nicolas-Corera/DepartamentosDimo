@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { config, CARPETA_REPORTES } from "../lib/config.mjs";
 import { exigirSoloLocal } from "../lib/guardia.mjs";
 import { crearRegistro } from "../lib/registro.mjs";
+import { servidoresListos } from "../lib/preflight.mjs";
 import { pedir, dormir } from "../lib/http.mjs";
 import { consultaConTopes, resenaConTopes, REF_INEXISTENTE } from "../lib/datos.mjs";
 
@@ -13,6 +14,7 @@ const registro = crearRegistro(BOT);
 const urls = [config.urls.sitio, config.urls.pago, config.urls.panel];
 
 exigirSoloLocal(BOT, urls);
+if (!(await servidoresListos(BOT, ["sitio", "pago", "panel"]))) process.exit(1);
 
 const SEMILLA = Date.now();
 

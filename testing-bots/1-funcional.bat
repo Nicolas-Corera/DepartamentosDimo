@@ -53,11 +53,6 @@ if not exist ".env" (
   echo.
 )
 
-echo  Los dev servers tienen que estar levantados. Desde la raiz del repo:
-echo    npm run dev             (sitio,    http://localhost:8000^)
-echo    npm run dev:pago        (checkout, http://localhost:3000^)
-echo    npm run dev:dashboard   (panel,    http://localhost:3100^)
-echo.
 
 call npx playwright test %*
 set CODIGO=%ERRORLEVEL%

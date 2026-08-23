@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { config, CARPETA_REPORTES } from "../lib/config.mjs";
 import { exigirSoloLocal, hostDe } from "../lib/guardia.mjs";
 import { crearRegistro } from "../lib/registro.mjs";
+import { servidoresListos } from "../lib/preflight.mjs";
 
 const BOT = "4-vulnerabilidades";
 
@@ -33,6 +34,11 @@ function objetivosPedidos() {
 const objetivos = objetivosPedidos();
 
 exigirSoloLocal(BOT, objetivos.map((o) => o.url));
+const apps = objetivos
+  .map((o) => o.nombre)
+  .filter((n) => ["sitio", "pago", "panel"].includes(n));
+
+if (!(await servidoresListos(BOT, apps))) process.exit(1);
 
 function hayDocker() {
   const prueba = spawnSync("docker", ["version", "--format", "{{.Server.Version}}"], {

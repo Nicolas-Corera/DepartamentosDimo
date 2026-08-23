@@ -51,6 +51,61 @@ function numero(valor, porDefecto) {
   return Number.isFinite(n) ? n : porDefecto;
 }
 
+const ARCHIVO_ENV = join(RAIZ, ".env");
+
+function lineaEnElEnv(clave) {
+  try {
+    const lineas = readFileSync(ARCHIVO_ENV, "utf8").split(/\r?\n/);
+    const i = lineas.findIndex((l) => l.trim().startsWith(`${clave}=`));
+    return i === -1 ? null : i + 1;
+  } catch {
+    return null;
+  }
+}
+
+function exigirUrlValida(clave, valor) {
+  const limpio = String(valor || "").trim().replace(/\/+$/, "");
+
+  let url;
+  try {
+    url = new URL(limpio);
+  } catch {
+    url = null;
+  }
+
+  if (!url || !["http:", "https:"].includes(url.protocol) || !url.hostname) {
+    const linea = lineaEnElEnv(clave);
+
+    console.error("");
+    console.error("  ███  CONFIGURACIÓN INVÁLIDA  ███");
+    console.error("");
+    console.error(`  ${clave} no es una URL válida:`);
+    console.error("");
+    console.error(`      ${clave}=${limpio || "(vacío)"}`);
+    console.error("");
+
+    if (linea) {
+      console.error(`  Está en la línea ${linea} de:`);
+      console.error(`      ${ARCHIVO_ENV}`);
+    } else {
+      console.error("  Viene de config.json o de una variable de entorno.");
+    }
+
+    console.error("");
+    console.error("  Tiene que ser algo así, con UN solo dos puntos antes del puerto:");
+    console.error("");
+    console.error("      URL_SITIO=http://localhost:8000");
+    console.error("      URL_PAGO=http://localhost:3000");
+    console.error("      URL_PANEL=http://localhost:3100");
+    console.error("");
+    console.error("  Si las querés tomar de config.json, dejalas vacías.");
+    console.error("");
+    process.exit(1);
+  }
+
+  return limpio;
+}
+
 const archivo = JSON.parse(readFileSync(join(RAIZ, "config.json"), "utf8"));
 
 const entorno = env("ENTORNO", archivo.entornoPorDefecto);
@@ -65,9 +120,9 @@ export const config = {
   entorno,
 
   urls: {
-    sitio: env("URL_SITIO", base.sitio).replace(/\/+$/, ""),
-    pago: env("URL_PAGO", base.pago).replace(/\/+$/, ""),
-    panel: env("URL_PANEL", base.panel).replace(/\/+$/, ""),
+    sitio: exigirUrlValida("URL_SITIO", env("URL_SITIO", base.sitio)),
+    pago: exigirUrlValida("URL_PAGO", env("URL_PAGO", base.pago)),
+    panel: exigirUrlValida("URL_PANEL", env("URL_PANEL", base.panel)),
   },
 
   permitirEscritura: env("PERMITIR_ESCRITURA", "0") === "1",

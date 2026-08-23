@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { config, RAIZ, CARPETA_REPORTES } from "../lib/config.mjs";
 import { exigirSoloLocal } from "../lib/guardia.mjs";
 import { crearRegistro } from "../lib/registro.mjs";
+import { servidoresListos } from "../lib/preflight.mjs";
 
 const BOT = "3-carga";
 
@@ -12,6 +13,7 @@ const registro = crearRegistro(BOT);
 const urls = [config.urls.sitio, config.urls.pago];
 
 exigirSoloLocal(BOT, urls);
+if (!(await servidoresListos(BOT, ["sitio", "pago"]))) process.exit(1);
 
 function hayK6() {
   const prueba = spawnSync("k6", ["version"], { encoding: "utf8", shell: true });
