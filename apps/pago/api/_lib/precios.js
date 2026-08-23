@@ -14,8 +14,7 @@ export function calcularNoches(checkIn, checkOut) {
   const a = aUTC(checkIn);
   const b = aUTC(checkOut);
   if (Number.isNaN(a) || Number.isNaN(b)) return 0;
-  const dias = Math.round((b - a) / UN_DIA);
-  return dias < 0 ? 0 : dias + 1;
+  return Math.max(0, Math.round((b - a) / UN_DIA));
 }
 
 export function nochesDe(checkIn, checkOut) {
