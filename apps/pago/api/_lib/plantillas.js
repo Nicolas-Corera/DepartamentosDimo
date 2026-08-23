@@ -18,8 +18,18 @@ const FUENTE =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
 const MESES = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
 ];
 
 const PESOS = new Intl.NumberFormat("es-AR", {
@@ -38,6 +48,11 @@ function partes(iso) {
   return { anio: Number(m[1]), mes: Number(m[2]), dia: Number(m[3]) };
 }
 
+function diaCorto(iso) {
+  const p = partes(iso);
+  return p ? p.d : String(iso);
+}
+
 export function fechaLarga(iso) {
   const p = partes(iso);
   if (!p) return String(iso || "");
@@ -54,7 +69,8 @@ export function noches(checkIn, checkOut) {
   const a = partes(checkIn);
   const b = partes(checkOut);
   if (!a || !b) return 0;
-  const ms = Date.UTC(b.anio, b.mes - 1, b.dia) - Date.UTC(a.anio, a.mes - 1, a.dia);
+  const ms =
+    Date.UTC(b.anio, b.mes - 1, b.dia) - Date.UTC(a.anio, a.mes - 1, a.dia);
   const dias = Math.round(ms / 86_400_000);
   return dias < 0 ? 0 : dias + 1;
 }
@@ -84,7 +100,8 @@ function grupoTexto(reserva) {
   const adultos = Number(reserva.adultos || 0);
   const ninos = Number(reserva.ninos || 0);
 
-  if (adultos) partesTexto.push(`${adultos} ${plural(adultos, "adulto", "adultos")}`);
+  if (adultos)
+    partesTexto.push(`${adultos} ${plural(adultos, "adulto", "adultos")}`);
   if (ninos) {
     const edades = (reserva.edadesNinos || []).filter((e) => e != null);
     const detalle = edades.length ? ` (${edades.join(", ")} años)` : "";
@@ -109,7 +126,9 @@ function vehiculoTexto(reserva) {
     reserva.vehiculoModelo,
     reserva.vehiculoAnio,
   ].filter(Boolean);
-  return trozos.length ? trozos.join(" ") : "Sí";
+  return trozos.length
+    ? `${trozos[0]} · ${trozos.slice(1, 3).join(" ")} · ${trozos[3]}`
+    : "Sí";
 }
 
 export function layout({ titulo, preheader, encabezado, cuerpo, pie }) {
@@ -124,11 +143,11 @@ export function layout({ titulo, preheader, encabezado, cuerpo, pie }) {
 <div style="display:none;font-size:1px;color:${COLOR.fondo};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${esc(preheader || "")}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${COLOR.fondo};padding:24px 12px;">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:${COLOR.tarjeta};border-radius:18px;overflow:hidden;box-shadow:0 12px 30px -14px rgba(22,50,56,0.28);">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:700px;width:100%;background:${COLOR.tarjeta};border-radius:18px;overflow:hidden;box-shadow:0 12px 30px -14px rgba(22,50,56,0.28);">
 
 <tr><td style="background:${COLOR.celeste};padding:26px 32px;">
-<div style="font-family:${FUENTE};font-size:19px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">Departamentos Dimo</div>
-<div style="font-family:${FUENTE};font-size:13px;color:#cfe8f0;margin-top:3px;">${esc(encabezado || "Mar del Plata")}</div>
+<div style="font-family:${FUENTE};font-size:19px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">DepartamentosDimo</div>
+<div style="font-family:${FUENTE};font-size:13px;color:#cfe8f0;margin-top:3px;">${esc(encabezado || "San Bernardo")}</div>
 </td></tr>
 
 <tr><td style="padding:32px;font-family:${FUENTE};font-size:15px;line-height:1.62;color:${COLOR.tinta};">
@@ -136,7 +155,7 @@ ${cuerpo}
 </td></tr>
 
 <tr><td style="background:#f1e7d4;padding:20px 32px;font-family:${FUENTE};font-size:12px;line-height:1.6;color:${COLOR.suave};">
-${pie || `Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente. Podés responderlo si necesitás algo.`}
+${pie || `DepartamentosDimo · San Bernardo, Argentina<br>Este mail se generó automáticamente. Podés responderlo si necesitás algo.`}
 </td></tr>
 
 </table>
@@ -197,14 +216,17 @@ export function urlCopiable(url) {
 
 function datosDeLaEstadia(reserva) {
   return filas([
-    { etiqueta: "Check-in", valor: fechaLarga(reserva.checkIn) },
     {
-      etiqueta: "Check-out",
-      valor: `${fechaLarga(diaDeSalida(reserva.checkOut))} (a la mañana)`,
+      etiqueta: "Check-in",
+      valor: `${fechaLarga(reserva.checkIn)} a partir de las 11:00 a.m.`,
     },
     {
-      etiqueta: "Noches",
-      valor: `${noches(reserva.checkIn, reserva.checkOut)} — del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}`,
+      etiqueta: "Check-out",
+      valor: `${fechaLarga(diaDeSalida(reserva.checkOut))} a las 9:00 a.m.`,
+    },
+    {
+      etiqueta: "Total de Noches",
+      valor: `${noches(reserva.checkIn, reserva.checkOut)} (noches) desde el ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}`,
     },
     { etiqueta: "Huéspedes", valor: grupoTexto(reserva) },
     { etiqueta: "Vehículo", valor: vehiculoTexto(reserva) },
@@ -281,7 +303,8 @@ export function contactoDelHuesped(reserva) {
 }
 
 function pieDeContacto(contacto, pieExtra) {
-  if (!contacto || (!contacto.mail && !contacto.whatsapp)) return pieExtra || "";
+  if (!contacto || (!contacto.mail && !contacto.whatsapp))
+    return pieExtra || "";
 
   const enlaces = [
     contacto.mail
@@ -306,17 +329,21 @@ function armar(subject, partesHtml, opciones = {}) {
     pie: pieDeContacto(opciones.contacto, opciones.pie),
     cuerpo: partesHtml.filter(Boolean).join("\n"),
   });
-  return { subject, html, texto: textoPlano(partesHtml.filter(Boolean).join("\n")) };
+  return {
+    subject,
+    html,
+    texto: textoPlano(partesHtml.filter(Boolean).join("\n")),
+  };
 }
 
 export function consultaInquilino({ reserva, contacto }) {
   return armar(
-    "Recibimos tu consulta — Departamentos Dimo",
+    "Recibimos tu consulta — DepartamentosDimo",
     [
       titulo(`¡Gracias, ${reserva.nombre.split(" ")[0]}!`),
       parrafo(
-        "Recibimos tu consulta de reserva y la vamos a responder <strong>a la brevedad</strong>. " +
-          "Te escribimos a este mismo mail con la disponibilidad y el precio final de tu estadía.",
+        "Recibimos tu consulta de estadía y la vamos a responder <strong>a la brevedad</strong>. " +
+          "Te contactaremos por este mismo medio o al número indicado para informarte la disponibilidad y el precio final de tu estadía.",
       ),
       separador(),
       `<div style="font-family:${FUENTE};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${COLOR.suave};margin:0 0 12px;">Tu estadía</div>`,
@@ -328,13 +355,13 @@ export function consultaInquilino({ reserva, contacto }) {
 <div style="padding:14px 16px;background:#f6f1e6;border-radius:12px;font-family:${FUENTE};font-size:14px;line-height:1.6;color:${COLOR.tinta};margin:0 0 20px;white-space:pre-wrap;">${esc(reserva.mensaje)}</div>`
         : "",
       nota(
-        "Si algo de estos datos está mal, respondé este mail o escribinos por WhatsApp y lo corregimos. " +
-          "Todavía no reservaste ni pagaste nada: esto es solo la consulta.",
+        "Si algo de estos datos está mal, Escribinos a la dirección de correo indicada al pie o escribinos por WhatsApp y lo corregimos. <br>" +
+          "<strong>Importante:</strong> todavía no realizaste ninguna reserva ni pago. Esto es únicamente una consulta y no implica ningún compromiso.",
       ),
     ],
     {
       contacto: contactoDelCliente({ contacto, reserva }),
-      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
+      pie: "DepartamentosDimo · San Bernardo, Argentina<br>Este mail se generó automáticamente.",
       preheader: `Tu consulta del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))} ya nos llegó.`,
       encabezado: "Consulta de reserva",
     },
@@ -349,8 +376,8 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
     [
       titulo("Nueva consulta de reserva"),
       parrafo(
-        `<strong>${esc(reserva.nombre)}</strong> consultó por ${cantidad} ${plural(cantidad, "noche", "noches")}, ` +
-          `del ${esc(fechaLarga(reserva.checkIn))} al ${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}.`,
+        `<strong>${esc(reserva.nombre)}</strong> consultó por <strong>${cantidad} ${plural(cantidad, "noche", "noches")}</strong>, ` +
+          `del <strong>${esc(fechaLarga(reserva.checkIn))}</strong> al <strong>${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}</strong>.`,
       ),
       bloque({
         etiqueta: `Total de la estadía · ${cantidad} ${plural(cantidad, "noche", "noches")}`,
@@ -358,7 +385,10 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
       }),
       precio.hayLimpieza
         ? filas([
-            { etiqueta: `Alojamiento · ${cantidad} ${plural(cantidad, "noche", "noches")}`, valor: pesos(precio.alojamiento) },
+            {
+              etiqueta: `Alojamiento · ${cantidad} ${plural(cantidad, "noche", "noches")}`,
+              valor: pesos(precio.alojamiento),
+            },
             { etiqueta: "Tarifa de limpieza", valor: pesos(precio.limpieza) },
           ])
         : "",
@@ -371,8 +401,8 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
       separador(),
       titulo("Enlaces de cobro"),
       parrafo(
-        "Mandale al huésped el que corresponda. Los dos apuntan a la misma reserva: " +
-          "el sistema recalcula el monto solo, así que no hay nada que completar a mano.",
+        "Mandale al huésped el que corresponda. Ambos corresponden a la misma reserva. " +
+          "El sistema recalcula el monto automáticamente, así que no es necesario completar nada a mano.",
       ),
       `<div style="font-family:${FUENTE};font-size:14px;font-weight:700;color:${COLOR.tinta};margin:0 0 8px;">Seña · ${esc(String(cobro.porcentajeReserva))}% — ${esc(pesos(cobro.montoReserva))}</div>`,
       boton(links.reserva, "Abrir link de la seña", COLOR.celeste),
@@ -381,19 +411,19 @@ export function consultaDuenos({ reserva, precio, cobro, links }) {
       boton(links.total, "Abrir link del total", COLOR.coral),
       urlCopiable(links.total),
       nota(
-        "Si el huésped ya pagó la seña con el primer link, el link del total le cobra " +
-          "únicamente el saldo que falta. No hace falta que elijas: mandá el del total y el sistema resuelve.",
+        "Si el huésped ya pagó la seña con el primer link, el link de pago del total le cobrará <strong>únicamente el saldo pendiente</strong>. " +
+          "No hace falta que elijas qué monto cobrar: mandá directamente el link del total y el sistema calculará automáticamente el importe que falta pagar.",
       ),
       nota(
-        "Los montos de arriba son el precio base. Si el huésped paga con tarjeta, " +
-          "se le suma el recargo del medio de pago configurado en el panel.",
+        "Los montos indicados corresponden al <strong>precio base</strong> de la estadía. " +
+          "Si el huésped paga con tarjeta, se aplicará el recargo correspondiente al medio de pago configurado en el panel.",
       ),
     ],
     {
       contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} · ${cantidad} ${plural(cantidad, "noche", "noches")} · ${pesos(precio.total)}`,
-      encabezado: "Aviso para los dueños",
-      pie: "Departamentos Dimo · aviso interno<br>Respondé este mail para escribirle directo al huésped, o tocá el número para abrirle el WhatsApp.",
+      encabezado: "Consulta de huésped",
+      pie: "DepartamentosDimo · aviso interno<br>Escribinos a la dirección de correo indicada al pie para escribirle directo al huésped, o tocá el número para abrirle el WhatsApp.",
     },
   );
 }
@@ -402,7 +432,7 @@ export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
   const faltaAlgo = cobro.saldo > 0;
 
   return armar(
-    "Tu seña está paga — Departamentos Dimo",
+    "Tu seña está paga — DepartamentosDimo",
     [
       titulo("¡Listo! Recibimos tu seña"),
       parrafo(
@@ -410,7 +440,11 @@ export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
           `<strong>${esc(fechaLarga(reserva.checkIn))}</strong> al ` +
           `<strong>${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}</strong> quedó tomada.`,
       ),
-      bloque({ etiqueta: "Seña pagada", valor: pesos(pago.monto), color: COLOR.verde }),
+      bloque({
+        etiqueta: "Seña pagada",
+        valor: pesos(pago.monto),
+        color: COLOR.verde,
+      }),
       filas([
         { etiqueta: "Total de la estadía", valor: pesos(cobro.montoTotal) },
         { etiqueta: "Pagado hasta ahora", valor: pesos(cobro.pagado) },
@@ -428,12 +462,18 @@ export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
             titulo("Cuando quieras, saldá el resto"),
             parrafo(
               `Te queda pendiente <strong>${esc(pesos(cobro.saldo))}</strong>. ` +
-                "Con este link pagás exactamente eso: el sistema ya descontó tu seña.",
+                "Con este link vas a pagar exactamente ese importe: el sistema ya descontó el monto de la seña que abonaste.",
             ),
-            boton(links.total, `Pagar el saldo · ${pesos(cobro.saldo)}`, COLOR.coral),
+            boton(
+              links.total,
+              `Pagar el saldo · ${pesos(cobro.saldo)}`,
+              COLOR.coral,
+            ),
             urlCopiable(links.total),
           ].join("\n")
-        : parrafo("<strong>Tu estadía ya está paga por completo.</strong> No queda saldo pendiente."),
+        : parrafo(
+            "<strong>Tu estadía ya está paga por completo.</strong> No queda saldo pendiente.",
+          ),
       separador(),
       datosDeLaEstadia(reserva),
       nota(
@@ -442,7 +482,7 @@ export function reservaInquilino({ reserva, pago, cobro, links, contacto }) {
     ],
     {
       contacto: contactoDelCliente({ contacto, reserva }),
-      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
+      pie: "DepartamentosDimo · San Bernardo, Argentina<br>Este mail se generó automáticamente.",
       preheader: `Seña de ${pesos(pago.monto)} recibida. ${faltaAlgo ? `Saldo pendiente: ${pesos(cobro.saldo)}.` : "Estadía paga por completo."}`,
       encabezado: "Reserva confirmada",
     },
@@ -458,7 +498,11 @@ export function reservaDueno({ reserva, pago, cobro, links }) {
         `<strong>${esc(reserva.nombre)}</strong> pagó la seña de su reserva del ` +
           `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(diaDeSalida(reserva.checkOut)))}.`,
       ),
-      bloque({ etiqueta: "Cobrado", valor: pesos(pago.monto), color: COLOR.verde }),
+      bloque({
+        etiqueta: "Cobrado",
+        valor: pesos(pago.monto),
+        color: COLOR.verde,
+      }),
       filas([
         { etiqueta: "Total de la estadía", valor: pesos(cobro.montoTotal) },
         { etiqueta: "Pagado hasta ahora", valor: pesos(cobro.pagado) },
@@ -471,8 +515,14 @@ export function reservaDueno({ reserva, pago, cobro, links }) {
       cobro.saldo > 0
         ? [
             separador(),
-            parrafo(`Link para que salde los <strong>${esc(pesos(cobro.saldo))}</strong> que faltan:`),
-            boton(links.total, `Cobrar el saldo · ${pesos(cobro.saldo)}`, COLOR.coral),
+            parrafo(
+              `Link para que salde los <strong>${esc(pesos(cobro.saldo))}</strong> que faltan:`,
+            ),
+            boton(
+              links.total,
+              `Cobrar el saldo · ${pesos(cobro.saldo)}`,
+              COLOR.coral,
+            ),
             urlCopiable(links.total),
           ].join("\n")
         : parrafo("<strong>La estadía quedó paga por completo.</strong>"),
@@ -480,8 +530,8 @@ export function reservaDueno({ reserva, pago, cobro, links }) {
     {
       contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} señó ${pesos(pago.monto)}. Falta ${pesos(cobro.saldo)}.`,
-      encabezado: "Aviso para los dueños",
-      pie: "Departamentos Dimo · aviso interno",
+      encabezado: "Aviso para propietarios",
+      pie: "DepartamentosDimo · aviso interno",
     },
   );
 }
@@ -496,7 +546,9 @@ export function pagoInquilino({ reserva, pago, cobro, contacto }) {
   const completo = cobro.saldo <= 0;
 
   return armar(
-    completo ? "Pago recibido — tu reserva está confirmada" : "Recibimos tu pago — Departamentos Dimo",
+    completo
+      ? "Pago recibido — tu reserva está confirmada"
+      : "Recibimos tu pago — DepartamentosDimo",
     [
       titulo(completo ? "¡Tu estadía está paga!" : "Recibimos tu pago"),
       parrafo(
@@ -506,7 +558,11 @@ export function pagoInquilino({ reserva, pago, cobro, contacto }) {
               `<strong>${esc(fechaLarga(diaDeSalida(reserva.checkOut)))}</strong> quedó <strong>confirmada y paga por completo</strong>.`
             : "Registramos el pago que hiciste."),
       ),
-      bloque({ etiqueta: conceptoTexto(pago.concepto), valor: pesos(pago.monto), color: COLOR.verde }),
+      bloque({
+        etiqueta: conceptoTexto(pago.concepto),
+        valor: pesos(pago.monto),
+        color: COLOR.verde,
+      }),
       filas([
         { etiqueta: "Total de la estadía", valor: pesos(cobro.montoTotal) },
         { etiqueta: "Pagado", valor: pesos(cobro.pagado) },
@@ -519,13 +575,13 @@ export function pagoInquilino({ reserva, pago, cobro, contacto }) {
       separador(),
       datosDeLaEstadia(reserva),
       parrafo(
-        "Nos vemos en Mar del Plata. Cualquier cosa que necesites antes de llegar, " +
-          "respondé este mail o escribinos por WhatsApp.",
+        "Nos vemos en San Bernardo. Cualquier cosa que necesites antes de llegar, " +
+          "Escribinos a la dirección de correo indicada al pie o escribinos por WhatsApp.",
       ),
     ],
     {
       contacto: contactoDelCliente({ contacto, reserva }),
-      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
+      pie: "DepartamentosDimo · San Bernardo, Argentina<br>Este mail se generó automáticamente.",
       preheader: `${conceptoTexto(pago.concepto)}: ${pesos(pago.monto)}. ${completo ? "Estadía paga." : `Saldo: ${pesos(cobro.saldo)}.`}`,
       encabezado: "Comprobante de pago",
     },
@@ -543,31 +599,45 @@ export function pagoDuenos({ reserva, pago, cobro, comprobanteAdjunto }) {
         `<strong>${esc(reserva.nombre)}</strong> pagó ${esc(conceptoTexto(pago.concepto).toLowerCase())} de su reserva del ` +
           `${esc(fechaCorta(reserva.checkIn))} al ${esc(fechaCorta(diaDeSalida(reserva.checkOut)))}.`,
       ),
-      bloque({ etiqueta: "Cobrado", valor: pesos(pago.monto), color: COLOR.verde }),
+      bloque({
+        etiqueta: "Cobrado",
+        valor: pesos(pago.monto),
+        color: COLOR.verde,
+      }),
       filas([
         { etiqueta: "Total de la estadía", valor: pesos(cobro.montoTotal) },
         { etiqueta: "Pagado", valor: pesos(cobro.pagado) },
         { etiqueta: "Saldo pendiente", valor: pesos(cobro.saldo) },
         { etiqueta: "Medio de pago", valor: pago.medioTexto },
         { etiqueta: "N° de operación", valor: pago.referencia },
-        { etiqueta: "Neto acreditado", valor: pago.neto ? pesos(pago.neto) : null },
+        {
+          etiqueta: "Neto acreditado",
+          valor: pago.neto ? pesos(pago.neto) : null,
+        },
       ]),
       datosDelHuesped(reserva),
       datosDeLaEstadia(reserva),
       comprobanteAdjunto
-        ? parrafo("Adjuntamos el <strong>comprobante de transferencia</strong> que subió el huésped.")
+        ? parrafo(
+            "Adjuntamos el <strong>comprobante de transferencia</strong> que subió el huésped.",
+          )
         : "",
     ],
     {
       contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} pagó ${pesos(pago.monto)}. ${completo ? "Estadía paga." : `Falta ${pesos(cobro.saldo)}.`}`,
-      encabezado: "Aviso para los dueños",
-      pie: "Departamentos Dimo · aviso interno",
+      encabezado: "Aviso para propietarios",
+      pie: "DepartamentosDimo · aviso interno",
     },
   );
 }
 
-export function comprobanteInquilino({ reserva, comprobante, cobro, contacto }) {
+export function comprobanteInquilino({
+  reserva,
+  comprobante,
+  cobro,
+  contacto,
+}) {
   return armar(
     "Recibimos tu comprobante de transferencia",
     [
@@ -595,7 +665,7 @@ export function comprobanteInquilino({ reserva, comprobante, cobro, contacto }) 
     ],
     {
       contacto: contactoDelCliente({ contacto, reserva }),
-      pie: "Departamentos Dimo · Mar del Plata, Argentina<br>Este mail se generó automáticamente.",
+      pie: "DepartamentosDimo · San Bernardo, Argentina<br>Este mail se generó automáticamente.",
       preheader: `Comprobante por ${pesos(comprobante.monto)} recibido. Lo estamos verificando.`,
       encabezado: "Transferencia en revisión",
     },
@@ -630,8 +700,8 @@ export function comprobanteDuenos({ reserva, comprobante, cobro, panelUrl }) {
     {
       contacto: contactoDelHuesped(reserva),
       preheader: `${reserva.nombre} transfirió ${pesos(comprobante.monto)}. Falta aprobarlo en el panel.`,
-      encabezado: "Aviso para los dueños",
-      pie: "Departamentos Dimo · aviso interno",
+      encabezado: "Aviso para propietarios",
+      pie: "DepartamentosDimo · aviso interno",
     },
   );
 }
@@ -685,7 +755,10 @@ export function resenaNueva({ resena, panelUrl }) {
         `<strong>${esc(resena.name)}</strong> publicó una reseña de ${puntaje} ${puntaje === 1 ? "estrella" : "estrellas"}. ` +
           "Queda <strong>pendiente de aprobación</strong>: no se ve en el sitio hasta que la apruebes en el panel.",
       ),
-      bloque({ etiqueta: "Puntaje", valor: `${estrellas(puntaje)}   ${puntaje}/5` }),
+      bloque({
+        etiqueta: "Puntaje",
+        valor: `${estrellas(puntaje)}   ${puntaje}/5`,
+      }),
       `<div style="font-family:${FUENTE};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${COLOR.suave};margin:0 0 12px;">Comentario</div>
 <div style="padding:16px 18px;background:#f6f1e6;border-radius:12px;font-family:${FUENTE};font-size:15px;line-height:1.6;color:${COLOR.tinta};margin:0 0 20px;white-space:pre-wrap;">${esc(resena.text)}</div>`,
       filas([
@@ -701,8 +774,8 @@ export function resenaNueva({ resena, panelUrl }) {
     ],
     {
       preheader: `${resena.name} dejó una reseña de ${puntaje}/5. Falta aprobarla.`,
-      encabezado: "Aviso para los dueños",
-      pie: "Departamentos Dimo · aviso interno",
+      encabezado: "Aviso para propietarios",
+      pie: "DepartamentosDimo · aviso interno",
     },
   );
 }
