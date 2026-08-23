@@ -45,10 +45,17 @@ document.addEventListener("DOMContentLoaded", () => {
   function bloquear(si) {
     enviando = si;
     boton.disabled = si;
+
     for (const i of inputs) i.disabled = si;
-    boton.querySelector("span:first-child").textContent = si
-      ? "Verificando…"
-      : "Verificar y Entrar";
+
+    const texto = boton.querySelector(".btn-text");
+    const icono = boton.querySelector(".btn-icon");
+
+    texto.textContent = si ? "Verificando…" : "Verificar y Entrar";
+
+    icono.textContent = si ? "autorenew" : "arrow_forward";
+
+    icono.classList.toggle("loading", si);
   }
 
   async function entrar() {
@@ -131,6 +138,5 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((r) => {
       if (r.ok) window.location.replace("/index.html");
     })
-    .catch(() => {
-    });
+    .catch(() => {});
 });

@@ -49,7 +49,7 @@
         --spacing-md: 20px;
         --spacing-lg: 40px;
         --spacing-section: 84px;
-        --max-width: 1500px;
+        --max-width: 1800px;
       }
 
       * {
@@ -274,6 +274,35 @@
         padding: 12px 16px;
         font-size: 16px;
         color: var(--color-on-surface);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .static-value-texto {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .btn-copiar {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        display: inline-flex;
+        flex-shrink: 0;
+        color: var(--color-on-surface);
+        opacity: 0.6;
+      }
+
+      .btn-copiar:hover {
+        opacity: 1;
+      }
+
+      .btn-copiar .material-symbols-rounded {
+        font-size: 18px;
       }
 
       .file-input {
@@ -368,6 +397,64 @@
         margin-bottom: 8px;
       }
 
+      #supportForm {
+        color: var(--color-tertiary);
+        cursor: pointer;
+      }
+      #supportForm:hover {
+        color: var(--color-tertiary-container);
+        text-decoration: underline;
+      }
+
+      .tooltip-trigger {
+        position: relative;
+        cursor: pointer;
+        text-decoration: underline;
+        color: var(--color-tinta);
+      }
+
+      .tooltip-box {
+        position: absolute;
+        bottom: 130%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--color-tinta, #222);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        white-space: nowrap;
+        z-index: 10;
+      }
+
+      .tooltip-box,
+      .tooltip-box * {
+        color: #fff;
+      }
+
+      .tooltip-box a {
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .tooltip-box a:hover {
+        text-decoration: underline;
+      }
+
+      .tooltip-box .material-symbols-rounded {
+        font-size: 16px;
+        vertical-align: middle;
+        line-height: 1;
+      }
+
+      .tooltip-flecha {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: var(--color-tinta, #222);
+      }
       .brick-wrapper {
         min-height: 320px;
         position: relative;
@@ -979,7 +1066,7 @@
         white-space: nowrap;
         border: 0;
       }
-</style>
+    </style>
   </head>
   <body>
     <main class="page-container">
@@ -1001,10 +1088,16 @@
         <div class="pantalla-icono pantalla-icono--error">
           <span class="material-symbols-rounded">link_off</span>
         </div>
-        <h2 class="pantalla-titulo" id="error-titulo">No pudimos abrir tu reserva</h2>
+        <h2 class="pantalla-titulo" id="error-titulo">
+          No pudimos abrir tu reserva
+        </h2>
         <p class="pantalla-detalle" id="error-detalle"></p>
         <div class="pantalla-acciones">
-          <button class="submit-btn btn-secundario" type="button" id="error-reintentar">
+          <button
+            class="submit-btn btn-secundario"
+            type="button"
+            id="error-reintentar"
+          >
             <span class="material-symbols-rounded">refresh</span>
             Reintentar
           </button>
@@ -1016,7 +1109,13 @@
               <span class="material-symbols-rounded">mail</span>
               <span></span>
             </a>
-            <a class="contacto-link contacto-link--wa" id="contacto-error-wa" href="#" target="_blank" rel="noopener">
+            <a
+              class="contacto-link contacto-link--wa"
+              id="contacto-error-wa"
+              href="#"
+              target="_blank"
+              rel="noopener"
+            >
               <span class="material-symbols-rounded">chat</span>
               <span>WhatsApp</span>
             </a>
@@ -1025,11 +1124,11 @@
       </section>
 
       <div class="layout-grid" id="checkout" hidden>
-
         <div class="left-column">
-
           <div class="aviso-concepto" id="aviso-concepto" hidden>
-            <span class="material-symbols-rounded" id="aviso-concepto-icono">bookmark</span>
+            <span class="material-symbols-rounded" id="aviso-concepto-icono"
+              >bookmark</span
+            >
             <div>
               <strong id="aviso-concepto-titulo">—</strong>
               <p id="aviso-concepto-detalle">—</p>
@@ -1076,7 +1175,11 @@
             </div>
 
             <div class="tabs-container">
-              <button class="tab-btn active" data-metodo="credito" type="button">
+              <button
+                class="tab-btn active"
+                data-metodo="credito"
+                type="button"
+              >
                 <span class="material-symbols-rounded">credit_card</span>
                 Tarjeta de crédito
               </button>
@@ -1091,12 +1194,13 @@
             </div>
 
             <div class="form-container">
-
               <div class="form-content active" id="form-card">
                 <p class="nota-metodo" id="nota-metodo"></p>
 
                 <div class="cuotas-selector" id="cuotas-selector" hidden>
-                  <label class="input-label" for="selector-cuotas">Cantidad de cuotas</label>
+                  <label class="input-label" for="selector-cuotas"
+                    >Cantidad de cuotas</label
+                  >
                   <select id="selector-cuotas"></select>
                 </div>
 
@@ -1113,11 +1217,37 @@
                 <div class="form-grid">
                   <div class="input-group">
                     <label class="input-label">CBU / CVU</label>
-                    <div class="static-value">0000003100054321678901</div>
+                    <div class="static-value">
+                      <span class="static-value-texto"
+                        >0000003100054321678901</span
+                      >
+                      <button
+                        type="button"
+                        class="btn-copiar"
+                        data-copiar="0000003100054321678901"
+                        aria-label="Copiar CBU"
+                      >
+                        <span class="material-symbols-rounded"
+                          >content_copy</span
+                        >
+                      </button>
+                    </div>
                   </div>
                   <div class="input-group">
                     <label class="input-label">Alias</label>
-                    <div class="static-value">DIMO.PLAYA.RESERVA</div>
+                    <div class="static-value">
+                      <span class="static-value-texto">DIMO.PLAYA.RESERVA</span>
+                      <button
+                        type="button"
+                        class="btn-copiar"
+                        data-copiar="DIMO.PLAYA.RESERVA"
+                        aria-label="Copiar alias"
+                      >
+                        <span class="material-symbols-rounded"
+                          >content_copy</span
+                        >
+                      </button>
+                    </div>
                   </div>
                   <div class="input-group">
                     <label class="input-label">Titular</label>
@@ -1233,7 +1363,8 @@
             </button>
             <p class="nota-segura">
               <span class="material-symbols-rounded">verified_user</span>
-              Pago protegido por MercadoPago. No guardamos los datos de tu tarjeta.
+              Pago protegido por MercadoPago. No guardamos los datos de tu
+              tarjeta.
             </p>
             <div class="info-box mt-lg">
               <h4 class="info-title">
@@ -1241,16 +1372,27 @@
                 Importante
               </h4>
               <ul class="info-list">
-                <li>El horario de check-in es a partir de las 15:00 hs.</li>
-                <li>
-                  Se cobran todas las noches que elegiste. El check-out es a la
-                  mañana del día siguiente a la última.
-                </li>
-                <li>
-                  No se admiten mascotas en las instalaciones (Política
-                  Pet-Free).
-                </li>
-                <li>Cancelación gratuita hasta 7 días antes del ingreso.</li>
+                <ul class="info-list">
+                  <li>El check-in es a partir de las 11:00 a.m.</li>
+                  <li>El check-out es a las 9:00 a.m.</li>
+                  <li>No se admiten mascotas en las instalaciones.</li>
+                  <li>
+                    Para solicitar una cancelación, haga clic
+                    <span id="supportForm" class="tooltip-trigger"
+                      >aquí
+                      <span class="tooltip-box" id="supportTooltip" hidden>
+                        <span class="material-symbols-rounded">call</span>
+                        <a href="https://wa.me/5491159367822?text=Hola%2C%20quiero%20solicitar%20la%20cancelaci%C3%B3n%20de%20mi%20reserva.">+54 9 11 1234-5678</a
+                        ><br />
+                        <span class="material-symbols-rounded">mail</span>
+                        <a href="mailto:contacto@departamentosdimo.com"
+                          >contacto@departamentosdimo.com</a
+                        >
+                        <span class="tooltip-flecha"></span>
+                      </span> </span
+                    >.
+                  </li>
+                </ul>
               </ul>
             </div>
           </div>
@@ -1259,7 +1401,9 @@
 
       <section class="pantalla" id="pantalla-resultado" hidden>
         <div class="pantalla-icono" id="resultado-icono">
-          <span class="material-symbols-rounded" id="resultado-icono-glifo">check_circle</span>
+          <span class="material-symbols-rounded" id="resultado-icono-glifo"
+            >check_circle</span
+          >
         </div>
         <h2 class="pantalla-titulo" id="resultado-titulo"></h2>
         <p class="pantalla-detalle" id="resultado-detalle"></p>
@@ -1272,7 +1416,13 @@
               <span class="material-symbols-rounded">mail</span>
               <span></span>
             </a>
-            <a class="contacto-link contacto-link--wa" id="contacto-resultado-wa" href="#" target="_blank" rel="noopener">
+            <a
+              class="contacto-link contacto-link--wa"
+              id="contacto-resultado-wa"
+              href="#"
+              target="_blank"
+              rel="noopener"
+            >
               <span class="material-symbols-rounded">chat</span>
               <span>WhatsApp</span>
             </a>

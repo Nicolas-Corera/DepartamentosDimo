@@ -276,18 +276,24 @@
       }
 
       @keyframes sacudir {
-        0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-6px); }
-        75% { transform: translateX(6px); }
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-6px);
+        }
+        75% {
+          transform: translateX(6px);
+        }
       }
 
       .sacudir {
         animation: sacudir 0.3s ease;
       }
-</style>
+    </style>
   </head>
   <body>
-
     <div class="bg-shape-container">
       <svg
         class="bg-shape"
@@ -303,7 +309,6 @@
     </div>
 
     <main class="login-card" id="login-card">
-
       <div class="brand-header">
         <div class="brand-icon">
           <span class="material-symbols-outlined" style="font-size: 24px"
@@ -321,7 +326,6 @@
       </div>
 
       <form class="otp-form" id="otp-form">
-
         <div class="otp-container" id="otp-container">
           <input
             autofocus=""
@@ -369,14 +373,10 @@
         </div>
         <p class="error-login" id="error-login" role="alert" hidden></p>
 
-        <div class="actions-container">
-          <button class="btn-primary" id="submit-btn" type="button">
-            Verificar y Entrar
-            <span class="material-symbols-outlined btn-icon"
-              >arrow_forward</span
-            >
-          </button>
-        </div>
+        <button class="btn-primary" id="submit-btn" type="button">
+          <span class="btn-text">Verificar y Entrar</span>
+          <span class="material-symbols-outlined btn-icon">arrow_forward</span>
+        </button>
       </form>
     </main>
     <script src="botones.js"></script>

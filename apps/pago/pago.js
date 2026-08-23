@@ -7,8 +7,32 @@ const pesos = new Intl.NumberFormat("es-AR", {
 });
 
 const MESES = [
-  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+const MESES_LARGOS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -16,6 +40,16 @@ const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 function partes(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
   return m ? { y: +m[1], m: +m[2], d: +m[3] } : null;
+}
+
+function diaCorto(iso) {
+  const p = partes(iso);
+  return p ? p.d : String(iso);
+}
+
+function fechaCompletaCorta(iso) {
+  const p = partes(iso);
+  return p ? `${p.d} de ${MESES_LARGOS[p.m - 1]}` : String(iso);
 }
 
 function fechaCorta(iso) {
@@ -47,7 +81,12 @@ function anunciar(texto) {
 }
 
 function mostrarPantalla(cual) {
-  for (const id of ["pantalla-carga", "pantalla-error", "checkout", "pantalla-resultado"]) {
+  for (const id of [
+    "pantalla-carga",
+    "pantalla-error",
+    "checkout",
+    "pantalla-resultado",
+  ]) {
     $(id).hidden = id !== cual;
   }
 }
@@ -67,12 +106,15 @@ const estado = {
 };
 
 function medioActual() {
-  return (estado.datos?.medios || []).find((m) => m.clave === estado.metodo) || null;
+  return (
+    (estado.datos?.medios || []).find((m) => m.clave === estado.metodo) || null
+  );
 }
 
 function baseACobrar() {
   const cobro = estado.datos?.cobro;
-  if (cobro && Number.isFinite(Number(cobro.aCobrarBase))) return Number(cobro.aCobrarBase);
+  if (cobro && Number.isFinite(Number(cobro.aCobrarBase)))
+    return Number(cobro.aCobrarBase);
   return estado.datos?.precio?.total || 0;
 }
 
@@ -81,7 +123,13 @@ function cobroActual() {
   const base = baseACobrar();
 
   if (!medio) {
-    return { total: base, recargo: 0, recargoPorcentaje: 0, cuotas: 1, valorCuota: base };
+    return {
+      total: base,
+      recargo: 0,
+      recargoPorcentaje: 0,
+      cuotas: 1,
+      valorCuota: base,
+    };
   }
 
   const plan = (medio.planes || []).find((p) => p.cuotas === estado.cuotas);
@@ -209,7 +257,11 @@ async function cargarReserva() {
     mostrarErrorDeCarga(
       "No pudimos abrir tu reserva",
       cuerpo.error || "Volvé a intentar en unos minutos.",
-      { reintentar: cuerpo.codigo !== "reserva_inexistente" && cuerpo.codigo !== "ref_invalida" },
+      {
+        reintentar:
+          cuerpo.codigo !== "reserva_inexistente" &&
+          cuerpo.codigo !== "ref_invalida",
+      },
     );
     return;
   }
@@ -312,8 +364,7 @@ function fueDescartado(transferencia) {
 function marcarDescartado(transferencia) {
   try {
     localStorage.setItem(CLAVE_DESCARTE + transferencia.id, "1");
-  } catch {
-  }
+  } catch {}
 }
 
 function mostrarEstadoDeTransferencia(transferencia, cobro) {
@@ -325,7 +376,10 @@ function mostrarEstadoDeTransferencia(transferencia, cobro) {
     mostrarResultado(
       {
         grupo: "aprobado",
-        titulo: saldo > 0 ? "¡Listo! Recibimos tu seña" : "¡Listo! Tu pago fue aprobado",
+        titulo:
+          saldo > 0
+            ? "¡Listo! Recibimos tu seña"
+            : "¡Listo! Tu pago fue aprobado",
         detalle:
           `Verificamos la transferencia de ${monto}. ` +
           (saldo > 0
@@ -400,10 +454,10 @@ function pintarResumen({ reserva, precio }) {
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);
   $("resumen-checkout").textContent = fechaLarga(diaDeSalida(reserva.checkOut));
 
-  $("nota-salida").textContent =
-    `Se cobran las ${n} ${n === 1 ? "noche" : "noches"} que elegiste, ` +
-    `del ${fechaCorta(reserva.checkIn)} al ${fechaCorta(reserva.checkOut)}. ` +
-    `Salís a la mañana del ${fechaCorta(diaDeSalida(reserva.checkOut))}.`;
+  $("nota-salida").innerHTML =
+    `Se cobran las <strong>${n} ${n === 1 ? "noche" : "noches"}</strong> seleccionadas, ` +
+    `del <strong>${diaCorto(reserva.checkIn)} al ${fechaCompletaCorta(reserva.checkOut)}.</strong> ` +
+    `<strong>El check-out es el${fechaCompletaCorta(diaDeSalida(reserva.checkOut))} a las 9:00 a.m.</strong>`;
 
   actualizarTotales();
 }
@@ -447,8 +501,7 @@ function sincronizarModoConLaUrl(concepto) {
     const url = new URL(window.location.href);
     url.searchParams.set("modo", modo);
     window.history.replaceState(null, "", url);
-  } catch {
-  }
+  } catch {}
 }
 
 function pintarEncabezado() {
@@ -464,7 +517,8 @@ const AVISOS = {
   reserva: {
     icono: "bookmark",
     tono: "reserva",
-    titulo: (c) => `Estás pagando la seña (${formatearPorcentaje(c.porcentajeReserva)}%)`,
+    titulo: (c) =>
+      `Estás pagando la seña (${formatearPorcentaje(c.porcentajeReserva)}%)`,
     detalle: (c) =>
       `La seña son ${pesos.format(c.montoReserva)} de un total de ${pesos.format(c.montoTotal)}. ` +
       `Con esto tu reserva queda tomada y el resto lo pagás cuando quieras.`,
@@ -533,7 +587,8 @@ function actualizarTotales() {
   const filaRecargo = $("fila-recargo");
   if (cobro.recargo > 0) {
     const nombre = medio?.nombre || "";
-    const detalle = cobro.cuotas > 1 ? `${nombre}, ${cobro.cuotas} cuotas` : nombre;
+    const detalle =
+      cobro.cuotas > 1 ? `${nombre}, ${cobro.cuotas} cuotas` : nombre;
     $("resumen-recargo-label").textContent =
       `Recargo (${detalle} +${formatearPorcentaje(cobro.recargoPorcentaje)}%)`;
     $("resumen-recargo").textContent = pesos.format(cobro.recargo);
@@ -558,7 +613,9 @@ function actualizarTotales() {
       ? "Enviar comprobante"
       : `Pagar ${pesos.format(cobro.total)}`;
 
-  const transferencia = (estado.datos?.medios || []).find((m) => m.clave === "transferencia");
+  const transferencia = (estado.datos?.medios || []).find(
+    (m) => m.clave === "transferencia",
+  );
   $("transfer-monto").textContent = pesos.format(transferencia?.total ?? base);
 
   $("resumen-total-label").textContent =
@@ -574,9 +631,12 @@ function actualizarTotales() {
   }
 
   if (datosCobro && datosCobro.concepto === "reserva") {
-    const restante = datosCobro.montoTotal - datosCobro.pagado - datosCobro.aCobrarBase;
+    const restante =
+      datosCobro.montoTotal - datosCobro.pagado - datosCobro.aCobrarBase;
     if (restante > 0) {
-      avisos.push(`Después de esta seña te van a quedar ${pesos.format(restante)} por pagar.`);
+      avisos.push(
+        `Después de esta seña te van a quedar ${pesos.format(restante)} por pagar.`,
+      );
     }
   }
 
@@ -590,7 +650,9 @@ function actualizarTotales() {
 
 function formatearPorcentaje(n) {
   const num = Number(n) || 0;
-  return Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/0+$/, "").replace(".", ",");
+  return Number.isInteger(num)
+    ? String(num)
+    : num.toFixed(2).replace(/0+$/, "").replace(".", ",");
 }
 
 function pintarDetalleDeNoches(precio) {
@@ -774,7 +836,11 @@ async function montarBrick() {
   };
 
   try {
-    estado.brick = await bricks.create("cardPayment", "cardPaymentBrick_container", settings);
+    estado.brick = await bricks.create(
+      "cardPayment",
+      "cardPaymentBrick_container",
+      settings,
+    );
   } catch (error) {
     clearTimeout(vigia);
     fallaAlCargarElBrick(error);
@@ -803,10 +869,31 @@ async function desmontarBrick() {
   if (!estado.brick) return;
   try {
     await estado.brick.unmount();
-  } catch {
-  }
+  } catch {}
   estado.brick = null;
   $("cardPaymentBrick_container").innerHTML = "";
+}
+
+function activarBotonesDeCopiar() {
+  document.querySelectorAll(".btn-copiar").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const texto = boton.dataset.copiar;
+      try {
+        await navigator.clipboard.writeText(texto);
+      } catch {
+        return;
+      }
+
+      const icono = boton.querySelector(".material-symbols-rounded");
+      const original = icono.textContent;
+      icono.textContent = "check";
+
+      clearTimeout(boton._timeout);
+      boton._timeout = setTimeout(() => {
+        icono.textContent = original;
+      }, 2000);
+    });
+  });
 }
 
 function construirSelectorDeCuotas() {
@@ -896,12 +983,19 @@ const MAX_BYTES_COMPROBANTE = 5 * 1024 * 1024;
 const AYUDA_COMPROBANTE = "PNG, JPG, JPEG o PDF. Hasta 5 MB.";
 
 function tipoDelArchivo(archivo) {
-  const declarado = String(archivo.type || "").trim().toLowerCase();
+  const declarado = String(archivo.type || "")
+    .trim()
+    .toLowerCase();
   if (declarado === "image/jpg") return "image/jpeg";
   if (FORMATOS_COMPROBANTE[declarado]) return declarado;
 
   const extension = (archivo.name.split(".").pop() || "").toLowerCase();
-  const porExtension = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", pdf: "application/pdf" };
+  const porExtension = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    pdf: "application/pdf",
+  };
   return porExtension[extension] || "";
 }
 
@@ -913,7 +1007,8 @@ function decirDelComprobante(texto, esError) {
 
 function sincronizarBotonDePago() {
   if (estado.procesando) return;
-  $("btn-pagar").disabled = estado.metodo === "transferencia" && !estado.comprobante;
+  $("btn-pagar").disabled =
+    estado.metodo === "transferencia" && !estado.comprobante;
 }
 
 function alElegirComprobante(evento) {
@@ -930,7 +1025,10 @@ function alElegirComprobante(evento) {
   const mime = tipoDelArchivo(archivo);
   if (!FORMATOS_COMPROBANTE[mime]) {
     evento.target.value = "";
-    decirDelComprobante("Ese formato no sirve. Subí un PNG, JPG, JPEG o PDF.", true);
+    decirDelComprobante(
+      "Ese formato no sirve. Subí un PNG, JPG, JPEG o PDF.",
+      true,
+    );
     anunciar("El archivo no tiene un formato válido.");
     sincronizarBotonDePago();
     return;
@@ -989,7 +1087,10 @@ async function enviarComprobante() {
 
     mostrarVeloProcesando(false);
 
-    mostrarEstadoDeTransferencia({ estado: "pendiente", monto: registro.monto });
+    mostrarEstadoDeTransferencia({
+      estado: "pendiente",
+      monto: registro.monto,
+    });
   } catch (error) {
     mostrarVeloProcesando(false);
     console.error("[comprobante]", error);
@@ -1038,7 +1139,10 @@ async function pagar() {
   try {
     formData = await estado.brick.getFormData();
   } catch (error) {
-    console.warn("[pago] el formulario todavía no está completo:", error?.message || error);
+    console.warn(
+      "[pago] el formulario todavía no está completo:",
+      error?.message || error,
+    );
     anunciar("Revisá los datos de la tarjeta.");
     return;
   }
@@ -1072,7 +1176,8 @@ async function enviarPago(formData) {
         mostrarResultado({
           grupo: "aprobado",
           titulo: "Tu estadía ya está paga",
-          detalle: cuerpo.error || "Ya registramos el pago completo de esta reserva.",
+          detalle:
+            cuerpo.error || "Ya registramos el pago completo de esta reserva.",
           accion: "ninguna",
         });
         return;
@@ -1163,14 +1268,17 @@ function mostrarResultado(mensaje, pago) {
       ["Importe", pesos.format(pago.monto)],
     ];
     if (pago.cuotas > 1) filas.push(["Cuotas", String(pago.cuotas)]);
-    if (pago.ultimosCuatro) filas.push(["Tarjeta", `•••• ${pago.ultimosCuatro}`]);
+    if (pago.ultimosCuatro)
+      filas.push(["Tarjeta", `•••• ${pago.ultimosCuatro}`]);
     if (pago.etiqueta) filas.push(["Concepto", pago.etiqueta]);
 
     if (pago.cobro) {
       filas.push(["Total de la estadía", pesos.format(pago.cobro.montoTotal)]);
       filas.push([
         pago.cobro.completa ? "Saldo" : "Saldo pendiente",
-        pago.cobro.completa ? "Sin saldo pendiente" : pesos.format(pago.cobro.saldo),
+        pago.cobro.completa
+          ? "Sin saldo pendiente"
+          : pesos.format(pago.cobro.saldo),
       ]);
     }
 
@@ -1270,10 +1378,15 @@ function activarTabs() {
       ocultarAvisoDePago();
 
       const metodo = tab.dataset.metodo;
-      const destino = metodo === "transferencia" ? $("form-transfer") : $("form-card");
+      const destino =
+        metodo === "transferencia" ? $("form-transfer") : $("form-card");
 
       if (window.gsap) {
-        window.gsap.fromTo(destino, { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.25 });
+        window.gsap.fromTo(
+          destino,
+          { opacity: 0, y: -8 },
+          { opacity: 1, y: 0, duration: 0.25 },
+        );
       }
 
       await aplicarMetodo(metodo);
@@ -1302,7 +1415,9 @@ async function ciclarRefresco() {
   if (cambio === "detener") return;
 
   refresco.espera =
-    cambio === "error" ? Math.min(refresco.espera * 2, REFRESCO_MAX_MS) : REFRESCO_MS;
+    cambio === "error"
+      ? Math.min(refresco.espera * 2, REFRESCO_MAX_MS)
+      : REFRESCO_MS;
 
   refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
 }
@@ -1344,7 +1459,11 @@ async function refrescarEstado() {
     const estadoAntes = antes.transferencia?.estado || null;
     const estadoAhora = nuevo.transferencia?.estado || null;
 
-    if (estadoAntes !== estadoAhora && estadoAhora && estadoAhora !== "confirmado") {
+    if (
+      estadoAntes !== estadoAhora &&
+      estadoAhora &&
+      estadoAhora !== "confirmado"
+    ) {
       estado.datos = nuevo;
       if (!fueDescartado(nuevo.transferencia)) {
         detenerRefresco();
@@ -1381,8 +1500,19 @@ document.addEventListener("visibilitychange", () => {
   refrescarEstado();
 });
 
+document.getElementById("supportForm").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const tooltip = document.getElementById("supportTooltip");
+  tooltip.hidden = !tooltip.hidden;
+});
+
+document.addEventListener("click", () => {
+  document.getElementById("supportTooltip").hidden = true;
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   activarTabs();
+  activarBotonesDeCopiar();
   $("error-reintentar").addEventListener("click", () => cargarReserva());
   $("btn-pagar").addEventListener("click", pagar);
   $("selector-cuotas").addEventListener("change", alCambiarLasCuotas);

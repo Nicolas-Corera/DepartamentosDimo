@@ -373,11 +373,12 @@ h2 {
 .rate-summary-price {
   color: var(--blanco);
   font-family: "Outfit", sans-serif;
-  font-size: 28px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .rate-summary-note {
+  display: inline-block;
   font-size: 14px;
   font-weight: 400;
   opacity: 0.75;
@@ -543,6 +544,17 @@ select:focus {
 
 .btn-text:hover {
   opacity: 0.8;
+}
+
+.btn-icon.loading {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .carousel-container {
