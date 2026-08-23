@@ -158,8 +158,15 @@ porcentaje del **total**, la limpieza queda incluida en la seña. Los recargos
 por medio de pago y cuotas se aplican después, sobre lo que se cobra.
 
 En el checkout aparece como una línea propia debajo de *Alojamiento*, con el
-texto *Tarifa de limpieza* y el importe. En el mail de consulta a los dueños se
-agrega el desglose alojamiento + limpieza abajo del total.
+texto *Tarifa de limpieza* y el importe, y debajo va *Total de la estadía* con la
+suma de los dos — la misma cifra que sale en los mails. En el mail de consulta a
+los dueños se agrega el desglose alojamiento + limpieza abajo del total.
+
+El checkout la leía de una consulta que no traía la columna, así que hasta acá
+cobraba `alojamiento` a secas mientras el mail de consulta mostraba el total con
+limpieza. Si vuelven a diferir, lo primero que hay que mirar es el `select` de
+`leerConfigDeCobro()` en cada `apps/*/api/_lib/supabase.js`: los tres tienen que
+pedir `porcentaje_reserva` **y** `tarifa_limpieza`.
 
 ### Fechas absolutas y el aviso de huecos
 

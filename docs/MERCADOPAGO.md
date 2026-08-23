@@ -228,9 +228,10 @@ de pago.
 
 ### Etapa 1 — el precio base
 
-Se calcula **noche por noche**, no con una tarifa única por estadía. Una estadía
-del 10 al 14 son las noches del 10, 11, 12 y 13: la del 14 no se cobra porque esa
-mañana se van.
+Se calcula **día por día**, no con una tarifa única por estadía, y el rango es
+**cerrado en los dos extremos**: una estadía del 10 al 14 cobra el 10, 11, 12, 13
+y 14 — cinco días. El día de salida se cobra igual que los demás, porque es el
+mismo día que el calendario del sitio bloquea y nadie más puede usar.
 
 **a. La temporada.** Cada noche cae en el rango de `temporadas` que la contenga.
 Son rangos **absolutos, con año** (`2026-12-15` al `2027-01-31`), no día y mes:
@@ -473,11 +474,12 @@ pone un pago aprobado. Si preferís que las consultas sin pagar también bloquee
 es agregar el estado al `where` de la vista en
 [`sql/tarifas-y-ocupacion.sql`](../sql/tarifas-y-ocupacion.sql) y volver a correrlo.
 
-**El día de salida también se bloquea:** una reserva del 10 al 14 cobra las
-noches 10, 11, 12 y 13 —  el precio va por noche y el 14 esa mañana se van— pero
-en el calendario se tachan los cinco días. El 14 no puede ser el check-in de
-otra persona: queda como margen para limpiar y preparar, y evita el cruce de dos
-grupos el mismo día. Está marcado en `apps/sitio/script.js` dónde revertirlo.
+**El día de salida se bloquea y se cobra:** una reserva del 10 al 14 tacha los
+cinco días en el calendario y cobra los cinco. El 14 no puede ser el check-in de
+otra persona — queda como margen para limpiar y preparar, y evita el cruce de dos
+grupos el mismo día —, así que se le cobra a quien lo ocupa. El bloqueo está
+marcado en `apps/sitio/script.js` y el cobro sale de `calcularNoches()` en
+`apps/*/api/_lib/precios.js`: los dos tienen que moverse juntos.
 
 Además, el calendario no deja elegir un rango que *cruce* días ocupados: sin eso
 se puede pedir del 8 al 16 con el 12 ya reservado, que es una reserva imposible.

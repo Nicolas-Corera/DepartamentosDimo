@@ -22,9 +22,15 @@ romper nada.
 
 ## 1. La lógica de cobro
 
-El precio de la estadía se calcula noche por noche contra las tablas
-`temporadas` y `tarifas_especiales`. Eso no cambió. Lo que cambió es **cuánto
-de ese precio se cobra en cada pago**.
+El precio de la estadía se calcula día por día contra las tablas `temporadas` y
+`tarifas_especiales`, con el rango **cerrado en los dos extremos**: del 9/10 al
+13/10 se cobran el 9, 10, 11, 12 y 13. A eso se le suma la tarifa de limpieza,
+una vez por estadía. Lo que cambia entre un pago y otro es **cuánto de ese
+precio se cobra en cada uno**.
+
+El checkout y los mails salen los dos de `calcularPrecio()`, así que muestran la
+misma cifra. Si alguna vez difieren, es que una de las tres copias de
+`leerConfigDeCobro()` dejó de pedir `tarifa_limpieza` en su `select`.
 
 El link de pago acepta un parámetro `modo`:
 

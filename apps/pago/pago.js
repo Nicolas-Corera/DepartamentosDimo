@@ -386,6 +386,8 @@ function pintarResumen({ reserva, precio }) {
   $("resumen-limpieza-fila").hidden = limpieza <= 0;
   if (limpieza > 0) $("resumen-limpieza").textContent = pesos.format(limpieza);
 
+  $("resumen-estadia").textContent = pesos.format(precio.total);
+
   pintarDetalleDeNoches(precio);
 
   $("resumen-checkin").textContent = fechaLarga(reserva.checkIn);
