@@ -1,0 +1,51 @@
+{
+  "entornoPorDefecto": "local",
+
+  "entornos": {
+    "local": {
+      "sitio": "http://localhost:8000",
+      "pago": "http://localhost:3000",
+      "panel": "http://localhost:3100"
+    },
+    "produccion": {
+      "sitio": "https://departamentosdimo.com.ar",
+      "pago": "https://pago.departamentosdimo.com.ar",
+      "panel": "https://dash.departamentosdimo.com.ar"
+    }
+  },
+
+  "monitoreo": {
+    "umbralMs": 2500,
+    "timeoutMs": 15000,
+    "intervaloSegundos": 300
+  },
+
+  "carga": {
+    "usuarios": 10,
+    "rampUp": "15s",
+    "duracion": "45s",
+    "bajada": "10s",
+    "p95Ms": 1500,
+    "maxFallos": 0.02
+  },
+
+  "fuzzing": {
+    "timeoutMs": 15000,
+    "pausaMs": 60
+  },
+
+  "rateLimit": {
+    "rafaga": 12,
+    "pausaMs": 0,
+    "topesEsperados": {
+      "consulta": 5,
+      "resena": 3,
+      "login": 8
+    }
+  },
+
+  "vulnerabilidades": {
+    "imagenZap": "ghcr.io/zaproxy/zaproxy:stable",
+    "minutosMaximos": 10
+  }
+}
