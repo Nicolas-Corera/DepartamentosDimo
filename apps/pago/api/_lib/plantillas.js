@@ -55,8 +55,7 @@ export function noches(checkIn, checkOut) {
   const b = partes(checkOut);
   if (!a || !b) return 0;
   const ms = Date.UTC(b.anio, b.mes - 1, b.dia) - Date.UTC(a.anio, a.mes - 1, a.dia);
-  const dias = Math.round(ms / 86_400_000);
-  return dias < 0 ? 0 : dias + 1;
+  return Math.max(0, Math.round(ms / 86_400_000));
 }
 
 export function esc(valor) {

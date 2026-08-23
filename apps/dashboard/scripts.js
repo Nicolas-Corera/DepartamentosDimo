@@ -629,7 +629,7 @@ function recalcularCalculadora() {
   }
 
   const config = configEnPantalla();
-  const cantidad = Math.round((aUTC(checkOut) - aUTC(checkIn)) / UN_DIA) + 1;
+  const cantidad = Math.round((aUTC(checkOut) - aUTC(checkIn)) / UN_DIA);
 
   if (cantidad > 365) {
     salida.replaceChildren(
