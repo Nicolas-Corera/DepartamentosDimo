@@ -1,6 +1,7 @@
 import { config } from "../lib/config.mjs";
 import { esProduccion, exigirSoloLectura } from "../lib/guardia.mjs";
 import { crearRegistro } from "../lib/registro.mjs";
+import { servidoresListos } from "../lib/preflight.mjs";
 import { pedir, dormir } from "../lib/http.mjs";
 
 const BOT = "2-monitoreo";
@@ -9,6 +10,7 @@ const registro = crearRegistro(BOT);
 const urls = [config.urls.sitio, config.urls.pago, config.urls.panel];
 
 exigirSoloLectura(BOT, urls);
+if (!(await servidoresListos(BOT, ["sitio", "pago", "panel"]))) process.exit(1);
 
 const argumentos = process.argv.slice(2);
 const bucle = argumentos.includes("--bucle") || argumentos.includes("--loop");

@@ -8,6 +8,8 @@ export default defineConfig({
   testDir: "./bots",
   testMatch: /1-funcional\.spec\.mjs$/,
 
+  globalSetup: "./lib/preparar-funcional.mjs",
+
   timeout: 60_000,
   expect: { timeout: 10_000 },
 

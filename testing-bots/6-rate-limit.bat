@@ -18,11 +18,6 @@ if errorlevel 1 (
 
 echo  SOLO LOCALHOST. Si ENTORNO no es "local", el bot aborta.
 echo.
-echo  Los tres dev servers tienen que estar levantados:
-echo    npm run dev             (sitio,    http://localhost:8000^)
-echo    npm run dev:pago        (checkout, http://localhost:3000^)
-echo    npm run dev:dashboard   (panel,    http://localhost:3100^)
-echo.
 echo  Cada endpoint se prueba desde una IP simulada distinta, nueva en
 echo  cada corrida: el cupo arranca limpio y no te bloqueas tu propia IP.
 echo.

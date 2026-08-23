@@ -61,6 +61,17 @@ npx playwright install chromium
 El `.env` es opcional: sin él, los bots usan el entorno `local` de
 `config.json`. El `.env` está cubierto por el `.gitignore` de la raíz.
 
+### Si algo está mal, el bot te lo dice antes de arrancar
+
+Antes de mandar el primer pedido, cada bot revisa dos cosas y corta con un
+mensaje concreto en vez de tirar una lista de errores:
+
+- **URLs mal escritas.** Un `URL_PAGO=http://localhost::3000` (dos veces los dos
+  puntos) da: *"URL_PAGO no es una URL válida — está en la línea 23 de
+  `testing-bots/.env`"*, con el formato correcto al lado.
+- **Dev servers caídos.** Dice cuál no responde, con qué error y con qué
+  comando levantarlo. Nada más: si el panel está caído, te nombra el panel.
+
 Para casi todos los bots necesitás los tres dev servers levantados. Desde la
 raíz del repo, en tres ventanas:
 
@@ -420,8 +431,9 @@ testing-bots/
 ├── package.json
 ├── playwright.config.mjs
 ├── lib/
-│   ├── config.mjs           lee config.json + .env, resuelve el entorno
+│   ├── config.mjs           lee config.json + .env, valida las URLs
 │   ├── guardia.mjs          el candado contra producción
+│   ├── preflight.mjs        avisa qué dev server falta antes de arrancar
 │   ├── registro.mjs         log con timestamp a consola y archivo
 │   ├── http.mjs             fetch con timeout y medición
 │   └── datos.mjs            payloads válidos y los de modo seco

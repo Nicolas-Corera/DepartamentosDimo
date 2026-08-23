@@ -39,10 +39,6 @@ if errorlevel 1 (
 echo  SOLO LOCALHOST. Si ENTORNO no es "local", el bot aborta antes de
 echo  mandar el primer pedido.
 echo.
-echo  Los dev servers tienen que estar levantados. Desde la raiz del repo:
-echo    npm run dev        (sitio,    http://localhost:8000^)
-echo    npm run dev:pago   (checkout, http://localhost:3000^)
-echo.
 echo  Usuarios, duracion y ramp-up se configuran en config.json
 echo  o con CARGA_USUARIOS / CARGA_DURACION / CARGA_RAMP_UP en el .env
 echo.
