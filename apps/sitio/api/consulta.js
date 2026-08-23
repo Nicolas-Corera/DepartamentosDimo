@@ -8,6 +8,7 @@ import {
 import { calcularPrecio } from "./_lib/precios.js";
 import { montoDeLaSenia } from "./_lib/cobro.js";
 import { avisarConsultaNueva } from "./_lib/mails.js";
+import { enSegundoPlano } from "./_lib/segundo-plano.js";
 import { normalizarTelefono, telefonoParaWhatsapp } from "./_lib/telefono.js";
 import { exigirCupoDeIp, exigirCupoGlobal } from "./_lib/limite.js";
 
@@ -226,27 +227,33 @@ export default async function handler(req, res) {
       `[consulta] ${reserva.id} — ${fila.nombre} — ${fila.check_in} al ${fila.check_out}`,
     );
 
-    try {
-      const [tarifas, especiales, cobroConfig] = await Promise.all([
-        leerConfigTarifas(),
-        buscarTarifasEspeciales(fila.check_in, fila.check_out),
-        leerConfigDeCobro(),
-      ]);
+    await enSegundoPlano(
+      "consulta.mails",
+      async () => {
+        const [tarifas, especiales, cobroConfig] = await Promise.all([
+          leerConfigTarifas(),
+          buscarTarifasEspeciales(fila.check_in, fila.check_out),
+          leerConfigDeCobro(),
+        ]);
 
-      const precio = calcularPrecio(reserva, tarifas.temporadas, especiales || [], cobroConfig.tarifaLimpieza);
+        const precio = calcularPrecio(reserva, tarifas.temporadas, especiales || [], cobroConfig.tarifaLimpieza);
 
-      await avisarConsultaNueva({
-        reserva,
-        precio,
-        cobro: {
-          porcentajeReserva: cobroConfig.porcentajeReserva,
-          montoTotal: precio.total,
-          montoReserva: montoDeLaSenia(precio.total, cobroConfig.porcentajeReserva),
-        },
-      });
-    } catch (error) {
-      console.error("[consulta] la consulta quedó guardada pero los mails fallaron:", error.message);
-    }
+        await avisarConsultaNueva({
+          reserva,
+          precio,
+          cobro: {
+            porcentajeReserva: cobroConfig.porcentajeReserva,
+            montoTotal: precio.total,
+            montoReserva: montoDeLaSenia(precio.total, cobroConfig.porcentajeReserva),
+          },
+        });
+      },
+      (error) =>
+        console.error(
+          "[consulta] la consulta quedó guardada pero los mails fallaron:",
+          error.message,
+        ),
+    );
 
     return json(res, 201, { ok: true, id: reserva.id });
   } catch (error) {

@@ -118,20 +118,18 @@ export async function avisarTransferenciaConfirmada(comprobante) {
   const clave = `pago:transfer:${comprobante.id}`;
   const contexto = { reserva: datos, pago, cobro };
 
-  await Promise.all([
-    enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
-      from: config.mails.de.pagos,
-      replyTo: config.mails.duenos[0],
-      ...pagoInquilino({ ...contexto, contacto: config.mails.contacto }),
-    })),
+  await enviarUnaVez(`${clave}:inquilino`, "pago_inquilino", [datos.email], async () => ({
+    from: config.mails.de.pagos,
+    replyTo: config.mails.duenos[0],
+    ...pagoInquilino({ ...contexto, contacto: config.mails.contacto }),
+  }));
 
-    enviarUnaVez(`${clave}:duenos`, "pago_duenos", config.mails.duenos, async () => ({
-      from: config.mails.de.pagos,
-      replyTo: datos.email,
-      adjuntos: adjuntosDuenos,
-      ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > 0 }),
-    })),
-  ]);
+  await enviarUnaVez(`${clave}:duenos`, "pago_duenos", config.mails.duenos, async () => ({
+    from: config.mails.de.pagos,
+    replyTo: datos.email,
+    adjuntos: adjuntosDuenos,
+    ...pagoDuenos({ ...contexto, comprobanteAdjunto: adjuntosDuenos.length > 0 }),
+  }));
 
   return { cobro };
 }

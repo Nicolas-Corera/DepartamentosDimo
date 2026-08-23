@@ -1,6 +1,7 @@
 import { exigirMetodo, json, leerBody, manejarError, ErrorVisible } from "./_lib/http.js";
 import { insertarResena } from "./_lib/supabase.js";
 import { avisarResenaNueva } from "./_lib/mails.js";
+import { enSegundoPlano } from "./_lib/segundo-plano.js";
 import { exigirCupoDeIp, exigirCupoGlobal } from "./_lib/limite.js";
 
 const NOMBRE_MIN = 2;
@@ -82,19 +83,21 @@ export default async function handler(req, res) {
 
     console.log(`[resena] ${resena.id} — ${fila.name} — ${fila.rating}/5`);
 
-    try {
-      await avisarResenaNueva({
-        resena: {
-          id: resena.id,
-          name: resena.name,
-          rating: resena.rating,
-          text: resena.text,
-          createdAt: resena.created_at,
-        },
-      });
-    } catch (error) {
-      console.error("[resena] la reseña quedó guardada pero el mail falló:", error.message);
-    }
+    await enSegundoPlano(
+      "resena.mails",
+      () =>
+        avisarResenaNueva({
+          resena: {
+            id: resena.id,
+            name: resena.name,
+            rating: resena.rating,
+            text: resena.text,
+            createdAt: resena.created_at,
+          },
+        }),
+      (error) =>
+        console.error("[resena] la reseña quedó guardada pero el mail falló:", error.message),
+    );
 
     return json(res, 201, { ok: true, id: resena.id });
   } catch (error) {
