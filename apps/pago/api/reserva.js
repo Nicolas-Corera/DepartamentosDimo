@@ -6,6 +6,7 @@ import {
   leerConfigTarifas,
   leerConfigDeCobro,
   pagosAprobados,
+  pagosEnCurso,
   transferenciasConfirmadas,
   ultimoComprobante,
 } from "./_lib/supabase.js";
@@ -45,8 +46,9 @@ export default async function handler(req, res) {
 
     const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales, cobroConfig.tarifaLimpieza);
 
-    const [pagos, transferencias, comprobante] = await Promise.all([
+    const [pagos, enCurso, transferencias, comprobante] = await Promise.all([
       pagosAprobados(reserva.id),
+      pagosEnCurso(reserva.id),
       transferenciasConfirmadas(reserva.id),
       ultimoComprobante(reserva.id),
     ]);
@@ -155,7 +157,17 @@ export default async function handler(req, res) {
 
       pago: cobro.yaPagada
         ? { yaPagada: true, monto: cobro.pagado }
-        : { yaPagada: false },
+        : {
+            yaPagada: false,
+            enCurso: enCurso.length
+              ? {
+                  referencia: enCurso[0].mp_payment_id,
+                  concepto: enCurso[0].concepto,
+                  monto: Number(enCurso[0].monto),
+                  desde: enCurso[0].created_at,
+                }
+              : null,
+          },
 
       transferencia: comprobante,
     });

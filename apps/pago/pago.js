@@ -286,6 +286,12 @@ async function cargarReserva() {
     return;
   }
 
+  if (cuerpo.pago?.enCurso) {
+    mostrarResultado(mensajeDePagoEnCurso(cuerpo.pago.enCurso));
+    arrancarRefresco();
+    return;
+  }
+
   const enCurso = cuerpo.transferencia;
   if (enCurso && enCurso.estado !== "confirmado" && !fueDescartado(enCurso)) {
     mostrarEstadoDeTransferencia(enCurso, cuerpo.cobro);
@@ -1250,6 +1256,21 @@ function encabezadoDelResultado(pago) {
   }
 }
 
+function mensajeDePagoEnCurso(enCurso) {
+  const monto = Number(enCurso?.monto);
+  const importe = Number.isFinite(monto) && monto > 0 ? ` de ${pesos.format(monto)}` : "";
+
+  return {
+    grupo: "pendiente",
+    titulo: "Estamos confirmando tu pago",
+    detalle:
+      `Ya tenemos un pago${importe} en proceso para esta reserva. ` +
+      "MercadoPago lo está resolviendo y en cuanto se acredite te llega el mail " +
+      "con el comprobante. No hace falta que vuelvas a pagar.",
+    accion: "esperar",
+  };
+}
+
 function mostrarResultado(mensaje, pago) {
   setTimeout(desmontarBrick, 0);
   detenerRefresco();
@@ -1453,6 +1474,21 @@ async function refrescarEstado() {
         },
         pagoQueCerroLaReserva(nuevo),
       );
+      return "detener";
+    }
+
+    const enCursoAntes = antes.pago?.enCurso?.referencia || null;
+    const enCursoAhora = nuevo.pago?.enCurso?.referencia || null;
+
+    if (enCursoAntes !== enCursoAhora) {
+      estado.datos = nuevo;
+
+      if (enCursoAhora) {
+        mostrarResultado(mensajeDePagoEnCurso(nuevo.pago.enCurso));
+        return "cambio";
+      }
+
+      window.location.reload();
       return "detener";
     }
 

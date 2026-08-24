@@ -8,6 +8,7 @@ import {
   leerConfigTarifas,
   leerConfigDeCobro,
   pagosAprobados,
+  pagosEnCurso,
   transferenciasConfirmadas,
 } from "./_lib/supabase.js";
 import {
@@ -120,8 +121,9 @@ export default async function handler(req, res) {
     const datos = validarFormData(body.formData, maximoDeCuotas(tarifasConfig.planes));
     const precio = calcularPrecio(reserva, tarifasConfig.temporadas, especiales, cobroConfig.tarifaLimpieza);
 
-    const [pagosPrevios, transferencias] = await Promise.all([
+    const [pagosPrevios, enCurso, transferencias] = await Promise.all([
       pagosAprobados(reserva.id),
+      pagosEnCurso(reserva.id),
       transferenciasConfirmadas(reserva.id),
     ]);
 
@@ -137,6 +139,22 @@ export default async function handler(req, res) {
         409,
         "Esta reserva ya está paga por completo. Si creés que es un error, escribinos antes de volver a intentar.",
         "ya_pagada",
+      );
+    }
+
+    if (enCurso.length) {
+      log.warn("pago.bloqueado_por_pago_en_curso", {
+        ref: reserva.id,
+        en_curso: enCurso.map((p) => p.mp_payment_id),
+        status: enCurso.map((p) => p.status),
+      });
+
+      throw new ErrorVisible(
+        409,
+        "Ya tenés un pago en proceso para esta reserva. MercadoPago todavía lo está " +
+          "resolviendo: en cuanto se acredite te llega el mail con el comprobante. " +
+          "No vuelvas a pagar.",
+        "pago_en_curso",
       );
     }
 

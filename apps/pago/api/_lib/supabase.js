@@ -260,6 +260,23 @@ export async function pagosAprobados(bookingId) {
   return data || [];
 }
 
+export const ESTADOS_EN_CURSO = ["pending", "in_process", "authorized"];
+
+export async function pagosEnCurso(bookingId) {
+  const { data, error } = await db()
+    .from("payments")
+    .select("mp_payment_id, monto, monto_base, concepto, status, status_detail, created_at")
+    .eq("booking_id", bookingId)
+    .in("status", ESTADOS_EN_CURSO)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    log.error("supabase.pagosEnCurso", error, { ref: bookingId });
+    throw new Error(`No se pudieron leer los pagos en curso de la reserva: ${error.message}`);
+  }
+  return data || [];
+}
+
 export async function transferenciasConfirmadas(bookingId) {
   const { data, error } = await db()
     .from("transfer_receipts")
