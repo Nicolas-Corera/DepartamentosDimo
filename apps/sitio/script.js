@@ -510,9 +510,9 @@
       Math.round((keyADate(end) - keyADate(start)) / 86400000) + 1;
 
     nota.textContent =
-      `Se cobran ${cantidad} ${cantidad === 1 ? "noche" : "noches"}, ` +
-      `del ${fmtDisplay(start)} al ${fmtDisplay(end)}. ` +
-      `Salís a la mañana del ${fmtDisplay(diaDeSalida(end))}.`;
+      `La estadía es de ${cantidad} ${cantidad === 1 ? "noche" : "noches"}, ` +
+      `desde el ${fmtDisplay(start)} al ${fmtDisplay(end)} inclusive. ` +
+      `El check-out es a las 9:00 a.m. del ${fmtDisplay(diaDeSalida(end))}.`;
     nota.hidden = false;
   }
 
