@@ -50,6 +50,20 @@ export async function buscarReserva(id) {
   return data;
 }
 
+export async function existeReserva(id) {
+  const { data, error } = await db()
+    .from("booking_requests")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    log.error("supabase.existeReserva", error, { ref: id });
+    throw new Error(`No se pudo verificar la reserva: ${error.message}`);
+  }
+  return Boolean(data);
+}
+
 export async function buscarTarifasEspeciales(checkIn, checkOut) {
   const { data, error } = await db()
     .from("tarifas_especiales")
