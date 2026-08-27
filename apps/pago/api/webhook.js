@@ -11,6 +11,7 @@ import {
   guardarPago,
   confirmarReserva,
   esUuid,
+  existeReserva,
   buscarReserva,
   buscarPagoGuardado,
   completarDatosDePago,
@@ -178,15 +179,27 @@ export default async function handler(req, res) {
 
     const resumen = resumirPago(pago);
 
-    const bookingId = esUuid(resumen.external_reference) ? resumen.external_reference : null;
-    if (!bookingId && resumen.external_reference) {
+    const refDeReserva = esUuid(resumen.external_reference) ? resumen.external_reference : null;
+    if (!refDeReserva && resumen.external_reference) {
       log.warn("webhook.external_reference_desconocido", {
         payment_id: resumen.mp_payment_id,
         external_reference: resumen.external_reference,
       });
     }
 
-    const guardado = await buscarPagoGuardado(resumen.mp_payment_id);
+    const [guardado, reservaViva] = await Promise.all([
+      buscarPagoGuardado(resumen.mp_payment_id),
+      refDeReserva ? existeReserva(refDeReserva) : Promise.resolve(false),
+    ]);
+
+    const bookingId = reservaViva ? refDeReserva : null;
+
+    if (refDeReserva && !reservaViva) {
+      log.warn("webhook.reserva_borrada", {
+        payment_id: resumen.mp_payment_id,
+        external_reference: refDeReserva,
+      });
+    }
 
     await guardarPago({ ...resumen, booking_id: bookingId });
 
