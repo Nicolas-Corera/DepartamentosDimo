@@ -8,7 +8,7 @@ const ESTADOS_CON_PLATA = ["approved", "refunded", "charged_back"];
 
 const CONSULTA =
   "select=mp_payment_id,booking_id,status,monto,monto_base,concepto,moneda,metodo,tipo,cuotas," +
-  "ultimos_cuatro,payer_email,aprobado_en,created_at,devuelto,devuelto_en," +
+  "ultimos_cuatro,payer_email,aprobado_en,created_at,devuelto,devuelto_en,cancelado_en," +
   "booking_requests(id,nombre,email,dni,telefono,procedencia,check_in,check_out," +
   "personas,adultos,ninos,estado)" +
   `&status=in.(${ESTADOS_CON_PLATA.join(",")})` +
@@ -16,7 +16,7 @@ const CONSULTA =
 
 const CONSULTA_COMPROBANTES =
   "select=id,booking_id,mime,bytes,monto_declarado,monto_base,concepto,estado,created_at,revisado_en," +
-  "devuelto,devuelto_en," +
+  "devuelto,devuelto_en,cancelado_en," +
   "booking_requests(id,nombre,email,dni,telefono,procedencia,check_in,check_out," +
   "personas,adultos,ninos,estado)" +
   "&order=created_at.desc";
@@ -63,6 +63,7 @@ function comprobanteComoAlquiler(c, saldos) {
     devuelto,
     neto: Math.max(0, monto - devuelto),
     devueltoEn: c.devuelto_en || null,
+    canceladoEn: c.cancelado_en || null,
     moneda: "ARS",
     metodo: "transferencia",
     tipo: "bank_transfer",
@@ -170,6 +171,7 @@ export default async function handler(req, res) {
         devuelto,
         neto: Math.max(0, monto - devuelto),
         devueltoEn: f.devuelto_en,
+        canceladoEn: f.cancelado_en || null,
         moneda: f.moneda,
         metodo: f.metodo,
         tipo: f.tipo,

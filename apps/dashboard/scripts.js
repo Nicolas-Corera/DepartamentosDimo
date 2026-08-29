@@ -941,6 +941,10 @@ function armarReserva(clave, lista) {
     saldoReserva: base.saldoReserva,
     reservaCompleta: base.reservaCompleta,
 
+    cancelada:
+      base.estadoReserva === "cancelada" ||
+      (cobrados.length > 0 && cobrados.every((p) => p.canceladoEn)),
+
     fecha: ultimo.fecha,
     monto,
     devuelto,
@@ -961,7 +965,7 @@ function estadoDeReserva(r) {
     return { texto: "Comprobante rechazado", clase: "status-cancelado" };
   }
 
-  if (r.estadoReserva === "cancelada") {
+  if (r.cancelada) {
     return {
       texto: "Cancelada",
       clase: "status-cancelado",
@@ -1244,22 +1248,23 @@ function accionesDeReserva(r) {
     grupo.appendChild(ver);
   }
 
-  const cancelada = r.estadoReserva === "cancelada";
+  const cancelada = r.cancelada;
   const sinPlata = r.cobrados.length === 0;
-  const sueltoYDevuelto = !r.bookingId && r.neto <= 0;
 
   const cancelar = document.createElement("button");
   cancelar.className = "btn-cancelar-reserva";
   cancelar.type = "button";
   cancelar.textContent = "Cancelar";
-  cancelar.disabled = cancelada || sinPlata || sueltoYDevuelto;
+  cancelar.disabled = cancelada || sinPlata;
   cancelar.title = cancelada
-    ? "Esta reserva ya está cancelada."
+    ? r.bookingId
+      ? "Esta reserva ya está cancelada."
+      : "Este pago ya está cancelado."
     : sinPlata
       ? "Todavía no hay ningún pago aprobado para cancelar."
-      : sueltoYDevuelto
-        ? "Este pago ya se devolvió por completo."
-        : "Cancelar la reserva y, si hace falta, devolver la plata.";
+      : r.bookingId
+        ? "Cancelar la reserva y, si hace falta, devolver la plata."
+        : "Cerrar este pago y, si hace falta, devolver la plata.";
 
   if (!cancelar.disabled) {
     cancelar.addEventListener("click", () => abrirModalCancelar(r));
@@ -1414,9 +1419,20 @@ function abrirModalCancelar(reserva) {
       ? "Lo que se pagó con MercadoPago se devuelve solo; la transferencia queda anotada y la tenés que devolver vos a mano."
       : "Una devolución en MercadoPago no se puede revertir.";
 
+  const referencia = reserva.pagos[0]?.paymentId;
+
+  $("modal-titulo").textContent = reserva.bookingId
+    ? "Cancelar reserva"
+    : "Cancelar pago";
+  $("modal-nota-ninguna").textContent = reserva.bookingId
+    ? "Solo cancela la reserva y libera las fechas."
+    : "Solo marca el pago como cancelado.";
+
   $("modal-detalle").textContent =
-    `${reserva.huesped.nombre || "Sin nombre"} — ` +
-    `${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))}. ` +
+    (reserva.bookingId
+      ? `${reserva.huesped.nombre || "Sin nombre"} — ` +
+        `${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))}. `
+      : `Pago suelto, sin reserva asociada${referencia ? ` (Op. ${referencia})` : ""}. `) +
     `Se cobraron ${pesos.format(reserva.monto)}` +
     (reserva.cobrados.length > 1 ? ` en ${reserva.cobrados.length} pagos` : "") +
     (reserva.devuelto > 0
@@ -1519,24 +1535,29 @@ async function confirmarCancelacion() {
     cerrarModal();
 
     const devolucion = respuesta.devolucion;
+    const cierre = alquiler.bookingId ? "Reserva cancelada." : "Pago cancelado.";
 
     if (respuesta.aviso) {
       mostrarToast(respuesta.aviso, "error");
     } else if (devolucion?.montoManual && devolucion?.montoAutomatico) {
       mostrarToast(
         `Devueltos ${pesos.format(devolucion.montoAutomatico)} por MercadoPago y ` +
-          `anotados ${pesos.format(devolucion.montoManual)} a mano. Reserva cancelada.`,
+          `anotados ${pesos.format(devolucion.montoManual)} a mano. ${cierre}`,
       );
     } else if (devolucion?.manual) {
       mostrarToast(
-        `Anotados ${pesos.format(devolucion.monto)} devueltos. Reserva cancelada.`,
+        `Anotados ${pesos.format(devolucion.monto)} devueltos. ${cierre}`,
       );
     } else if (devolucion) {
       mostrarToast(
-        `Devueltos ${pesos.format(devolucion.monto)}. Reserva cancelada.`,
+        `Devueltos ${pesos.format(devolucion.monto)}. ${cierre}`,
       );
     } else {
-      mostrarToast("Reserva cancelada. Las fechas quedaron libres.");
+      mostrarToast(
+        alquiler.bookingId
+          ? "Reserva cancelada. Las fechas quedaron libres."
+          : "Pago cancelado.",
+      );
     }
 
     if (respuesta.avisoDevolucion) {
@@ -1544,7 +1565,11 @@ async function confirmarCancelacion() {
     }
 
     if (respuesta.cancelada) {
-      for (const p of alquiler.pagos) p.estadoReserva = "cancelada";
+      const ahora = new Date().toISOString();
+      for (const p of alquiler.pagos) {
+        p.canceladoEn = p.canceladoEn || ahora;
+        if (alquiler.bookingId) p.estadoReserva = "cancelada";
+      }
       pintarAlquileres();
     }
 

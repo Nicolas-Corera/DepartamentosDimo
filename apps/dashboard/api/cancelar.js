@@ -61,18 +61,22 @@ async function cancelarTransferencia(res, comprobanteId, conDevolucion, montoPed
     devolucion = { monto: montoCentavos / 100, manual: true };
   }
 
+  await actualizar("transfer_receipts", `id=eq.${comprobanteId}`, {
+    cancelado_en: new Date().toISOString(),
+  });
+
   if (comprobante.booking_id) {
     await actualizar("booking_requests", `id=eq.${comprobante.booking_id}`, {
       estado: "cancelada",
     });
   }
 
-  console.log(`[cancelar] reserva cancelada — comprobante ${comprobanteId}`);
+  console.log(`[cancelar] cancelado — comprobante ${comprobanteId}`);
 
   return json(res, 200, {
     ok: true,
     devolucion,
-    cancelada: Boolean(comprobante.booking_id),
+    cancelada: true,
 
     avisoDevolucion: devolucion
       ? "Quedó anotado, pero la plata no salió de ningún lado: la transferencia " +
@@ -210,7 +214,13 @@ async function cancelarReserva(res, bookingId, conDevolucion, montoPedido) {
     };
   }
 
+  const cancelado_en = new Date().toISOString();
+
   await actualizar("booking_requests", `id=eq.${bookingId}`, { estado: "cancelada" });
+  await Promise.all([
+    actualizar("payments", `booking_id=eq.${bookingId}`, { cancelado_en }),
+    actualizar("transfer_receipts", `booking_id=eq.${bookingId}`, { cancelado_en }),
+  ]);
 
   console.log(`[cancelar] reserva cancelada — booking ${bookingId}`);
 
@@ -324,17 +334,19 @@ export default async function handler(req, res) {
       };
     }
 
+    const ahora = new Date().toISOString();
+
     try {
+      const cambios = { cancelado_en: ahora, updated_at: ahora };
+
       if (devolucion) {
         const total = (yaDevuelto + aCentavos(devolucion.monto)) / 100;
-        await actualizar("payments", `mp_payment_id=eq.${encodeURIComponent(paymentId)}`, {
-          devuelto: total,
-          devuelto_en: new Date().toISOString(),
-
-          ...(aCentavos(total) >= cobrado ? { status: "refunded" } : {}),
-          updated_at: new Date().toISOString(),
-        });
+        cambios.devuelto = total;
+        cambios.devuelto_en = ahora;
+        if (aCentavos(total) >= cobrado) cambios.status = "refunded";
       }
+
+      await actualizar("payments", `mp_payment_id=eq.${encodeURIComponent(paymentId)}`, cambios);
 
       if (pago.booking_id) {
         await actualizar("booking_requests", `id=eq.${pago.booking_id}`, { estado: "cancelada" });
@@ -352,12 +364,12 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`[cancelar] reserva cancelada — pago ${paymentId}`);
+    console.log(`[cancelar] cancelado — pago ${paymentId}`);
 
     json(res, 200, {
       ok: true,
       devolucion,
-      cancelada: Boolean(pago.booking_id),
+      cancelada: true,
     });
   } catch (error) {
     if (error?.status >= 400 && error?.status < 500 && !(error instanceof ErrorVisible)) {
