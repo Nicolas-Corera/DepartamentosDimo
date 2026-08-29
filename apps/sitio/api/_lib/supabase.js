@@ -1,18 +1,32 @@
 import { leerConfig } from "./env.js";
 
+const TIEMPO_LIMITE_MS = 12_000;
+
 async function pedir(ruta, opciones = {}) {
   const { supabase } = leerConfig();
 
-  const respuesta = await fetch(`${supabase.url}/rest/v1/${ruta}`, {
-    ...opciones,
-    headers: {
-      apikey: supabase.serviceRoleKey,
-      Authorization: `Bearer ${supabase.serviceRoleKey}`,
-      "Content-Type": "application/json",
-      ...opciones.headers,
-    },
-    signal: AbortSignal.timeout(12_000),
-  });
+  const arranque = Date.now();
+
+  let respuesta;
+  try {
+    respuesta = await fetch(`${supabase.url}/rest/v1/${ruta}`, {
+      ...opciones,
+      headers: {
+        apikey: supabase.serviceRoleKey,
+        Authorization: `Bearer ${supabase.serviceRoleKey}`,
+        "Content-Type": "application/json",
+        ...opciones.headers,
+      },
+      signal: AbortSignal.timeout(TIEMPO_LIMITE_MS),
+    });
+  } catch (falla) {
+    const segundos = ((Date.now() - arranque) / 1000).toFixed(1);
+    const metodo = opciones.method || "GET";
+    throw new Error(
+      `No se pudo hablar con Supabase (${metodo} ${ruta.split("?")[0]}) ` +
+        `despues de ${segundos}s: ${falla.message}`,
+    );
+  }
 
   const texto = await respuesta.text();
 
