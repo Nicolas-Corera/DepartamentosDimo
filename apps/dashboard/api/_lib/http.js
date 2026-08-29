@@ -53,6 +53,8 @@ export function manejarError(res, evento, error) {
   console.error(`[${evento}] error:`, error);
   return json(res, 500, {
     error: "Algo falló del lado del servidor. Volvé a intentar en unos minutos.",
+
+    detalle: String(error?.message || error).slice(0, 400),
     codigo: "interno",
   });
 }

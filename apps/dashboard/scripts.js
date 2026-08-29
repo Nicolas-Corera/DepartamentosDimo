@@ -97,7 +97,8 @@ async function api(ruta, opciones = {}) {
 
   const cuerpo = await respuesta.json().catch(() => ({}));
   if (!respuesta.ok) {
-    throw new Error(cuerpo.error || `Error ${respuesta.status}`);
+    const base = cuerpo.error || `Error ${respuesta.status}`;
+    throw new Error(cuerpo.detalle ? `${base} — ${cuerpo.detalle}` : base);
   }
   return cuerpo;
 }
@@ -965,10 +966,13 @@ function estadoDeReserva(r) {
   if (r.cobrados.some((p) => p.estadoPago === "charged_back")) {
     return { texto: "Contracargo", clase: "status-devuelto" };
   }
+  if (r.cobrados.every((p) => p.estadoPago === "refunded")) {
+    return { texto: "Devuelto", clase: "status-devuelto" };
+  }
   if (r.monto > 0 && r.devuelto >= r.monto) {
     return { texto: "Devuelto", clase: "status-devuelto" };
   }
-  if (r.devuelto > 0) {
+  if (r.devuelto > 0 || r.cobrados.some((p) => p.estadoPago === "refunded")) {
     return { texto: "Devuelto en parte", clase: "status-parcial" };
   }
 
@@ -1531,6 +1535,11 @@ async function confirmarCancelacion() {
 
     if (respuesta.avisoDevolucion) {
       setTimeout(() => mostrarToast(respuesta.avisoDevolucion, "error"), 400);
+    }
+
+    if (respuesta.cancelada) {
+      for (const p of alquiler.pagos) p.estadoReserva = "cancelada";
+      pintarAlquileres();
     }
 
     await cargarAlquileres();
