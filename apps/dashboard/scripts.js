@@ -114,17 +114,20 @@ const estado = {
   tarifasEditadas: false,
 };
 
-async function cargarTarifas() {
+async function cargarTarifas({ avisar = true } = {}) {
   try {
     estado.tarifas = await api("/tarifas");
     pintarTarifas();
     estado.tarifasEditadas = false;
     $("tarifas-cargando").hidden = true;
     $("tarifas-form").hidden = false;
+    return true;
   } catch (error) {
+    if (!avisar) return false;
     $("tarifas-cargando").textContent =
       `No se pudo cargar la configuración: ${error.message}`;
     mostrarToast(error.message, "error");
+    return false;
   }
 }
 
@@ -830,16 +833,19 @@ const NOMBRE_MEDIO = {
   ticket: "Efectivo",
 };
 
-async function cargarAlquileres() {
+async function cargarAlquileres({ avisar = true } = {}) {
   try {
     const datos = await api("/alquileres");
     estado.alquileres = datos.alquileres;
     estado.totales = datos.totales;
     pintarAlquileres();
+    return true;
   } catch (error) {
+    if (!avisar) return false;
     $("alquileres-cargando").textContent =
       `No se pudo cargar el registro: ${error.message}`;
     mostrarToast(error.message, "error");
+    return false;
   }
 }
 
@@ -1674,15 +1680,18 @@ function descargarReporte() {
   mostrarToast("Reporte descargado.");
 }
 
-async function cargarResenas() {
+async function cargarResenas({ avisar = true } = {}) {
   try {
     const datos = await api("/resenas");
     estado.resenas = datos.resenas;
     pintarResenas(datos.pendientes);
+    return true;
   } catch (error) {
+    if (!avisar) return false;
     $("resenas-cargando").textContent =
       `No se pudieron cargar las reseñas: ${error.message}`;
     mostrarToast(error.message, "error");
+    return false;
   }
 }
 
@@ -1990,18 +1999,15 @@ async function refrescarPestanaActiva() {
 
     if (pestana === "tarifas") {
       if (estado.tarifasEditadas) return true;
-      await cargarTarifas();
-      return true;
+      return await cargarTarifas({ avisar: false });
     }
 
     if (pestana === "alquileres") {
-      await cargarAlquileres();
-      return true;
+      return await cargarAlquileres({ avisar: false });
     }
 
     if (pestana === "resenas") {
-      await cargarResenas();
-      return true;
+      return await cargarResenas({ avisar: false });
     }
 
     return true;
