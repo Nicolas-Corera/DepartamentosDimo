@@ -84,6 +84,10 @@ function mostrarToast(mensaje, tipo = "exito") {
   pila.appendChild(toast);
 }
 
+function enSegundoPlano(fondo) {
+  return fondo ? { enSegundoPlano: true } : {};
+}
+
 async function api(ruta, opciones = {}) {
   const respuesta = await fetch(`/api${ruta}`, {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -97,6 +101,13 @@ async function api(ruta, opciones = {}) {
 
   const cuerpo = await respuesta.json().catch(() => ({}));
   if (!respuesta.ok) {
+    console.error(
+      `[api] ${ruta} respondió ${respuesta.status}`,
+      cuerpo,
+      `x-vercel-id: ${respuesta.headers.get("x-vercel-id") || "—"}`,
+      `x-vercel-error: ${respuesta.headers.get("x-vercel-error") || "—"}`,
+    );
+
     const base = cuerpo.error || `Error ${respuesta.status}`;
     throw new Error(cuerpo.detalle ? `${base} — ${cuerpo.detalle}` : base);
   }
@@ -114,16 +125,16 @@ const estado = {
   tarifasEditadas: false,
 };
 
-async function cargarTarifas({ avisar = true } = {}) {
+async function cargarTarifas({ fondo = false } = {}) {
   try {
-    estado.tarifas = await api("/tarifas");
+    estado.tarifas = await api("/tarifas", enSegundoPlano(fondo));
     pintarTarifas();
     estado.tarifasEditadas = false;
     $("tarifas-cargando").hidden = true;
     $("tarifas-form").hidden = false;
     return true;
   } catch (error) {
-    if (!avisar) return false;
+    if (fondo) return false;
     $("tarifas-cargando").textContent =
       `No se pudo cargar la configuración: ${error.message}`;
     mostrarToast(error.message, "error");
@@ -833,15 +844,15 @@ const NOMBRE_MEDIO = {
   ticket: "Efectivo",
 };
 
-async function cargarAlquileres({ avisar = true } = {}) {
+async function cargarAlquileres({ fondo = false } = {}) {
   try {
-    const datos = await api("/alquileres");
+    const datos = await api("/alquileres", enSegundoPlano(fondo));
     estado.alquileres = datos.alquileres;
     estado.totales = datos.totales;
     pintarAlquileres();
     return true;
   } catch (error) {
-    if (!avisar) return false;
+    if (fondo) return false;
     $("alquileres-cargando").textContent =
       `No se pudo cargar el registro: ${error.message}`;
     mostrarToast(error.message, "error");
@@ -1705,14 +1716,14 @@ function descargarReporte() {
   mostrarToast("Reporte descargado.");
 }
 
-async function cargarResenas({ avisar = true } = {}) {
+async function cargarResenas({ fondo = false } = {}) {
   try {
-    const datos = await api("/resenas");
+    const datos = await api("/resenas", enSegundoPlano(fondo));
     estado.resenas = datos.resenas;
     pintarResenas(datos.pendientes);
     return true;
   } catch (error) {
-    if (!avisar) return false;
+    if (fondo) return false;
     $("resenas-cargando").textContent =
       `No se pudieron cargar las reseñas: ${error.message}`;
     mostrarToast(error.message, "error");
@@ -2024,15 +2035,15 @@ async function refrescarPestanaActiva() {
 
     if (pestana === "tarifas") {
       if (estado.tarifasEditadas) return true;
-      return await cargarTarifas({ avisar: false });
+      return await cargarTarifas({ fondo: true });
     }
 
     if (pestana === "alquileres") {
-      return await cargarAlquileres({ avisar: false });
+      return await cargarAlquileres({ fondo: true });
     }
 
     if (pestana === "resenas") {
-      return await cargarResenas({ avisar: false });
+      return await cargarResenas({ fondo: true });
     }
 
     return true;

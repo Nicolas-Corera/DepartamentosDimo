@@ -9,8 +9,8 @@
   var LIMITE_MS = 20000;
 
   var enVuelo = 0;
-  var iniciados = 0;
   var bloqueados = new Set();
+  var pendientes = new Map();
 
   var ultimoVigilado = null;
   var ultimoClick = 0;
@@ -42,30 +42,53 @@
     Array.prototype.forEach.call(Array.from(bloqueados), liberar);
   }
 
-  function alEmpezarPedido() {
-    iniciados += 1;
-    enVuelo += 1;
-    if (ultimoVigilado && Date.now() - ultimoClick < VENTANA_MS) bloquear(ultimoVigilado);
+  function duenoDelPedido() {
+    if (!ultimoVigilado) return null;
+    if (Date.now() - ultimoClick >= VENTANA_MS) return null;
+    return ultimoVigilado;
   }
 
-  function alTerminarPedido() {
-    enVuelo -= 1;
-    if (enVuelo <= 0) {
-      enVuelo = 0;
-      liberarTodos();
+  function alEmpezarPedido() {
+    enVuelo += 1;
+
+    var dueno = duenoDelPedido();
+    if (dueno) {
+      bloquear(dueno);
+      pendientes.set(dueno, (pendientes.get(dueno) || 0) + 1);
     }
+    return dueno;
+  }
+
+  function alTerminarPedido(dueno) {
+    enVuelo = enVuelo > 0 ? enVuelo - 1 : 0;
+
+    if (dueno) {
+      var quedan = (pendientes.get(dueno) || 1) - 1;
+      if (quedan > 0) {
+        pendientes.set(dueno, quedan);
+      } else {
+        pendientes.delete(dueno);
+        liberar(dueno);
+      }
+    }
+
+    if (enVuelo === 0) liberarTodos();
   }
 
   var fetchOriginal = window.fetch;
   if (typeof fetchOriginal === "function") {
-    window.fetch = function () {
+    window.fetch = function (recurso, opciones) {
+      if (opciones && opciones.enSegundoPlano) {
+        return fetchOriginal.apply(this, arguments);
+      }
+
       var terminado = false;
+      var dueno = alEmpezarPedido();
       function cerrar() {
         if (terminado) return;
         terminado = true;
-        alTerminarPedido();
+        alTerminarPedido(dueno);
       }
-      alEmpezarPedido();
       try {
         return fetchOriginal.apply(this, arguments).then(
           function (respuesta) {
@@ -88,12 +111,12 @@
   if (typeof enviarOriginal === "function") {
     window.XMLHttpRequest.prototype.send = function () {
       var terminado = false;
+      var dueno = alEmpezarPedido();
       function cerrar() {
         if (terminado) return;
         terminado = true;
-        alTerminarPedido();
+        alTerminarPedido(dueno);
       }
-      alEmpezarPedido();
       this.addEventListener("loadend", cerrar);
       try {
         return enviarOriginal.apply(this, arguments);
@@ -107,7 +130,6 @@
   function vigilar(elemento) {
     if (!elemento || elemento.hasAttribute(EXCEPTO)) return;
 
-    var marca = iniciados;
     ultimoVigilado = elemento;
     ultimoClick = Date.now();
     bloquear(elemento);
@@ -118,10 +140,11 @@
     }, 0);
 
     setTimeout(function () {
-      if (iniciados === marca && enVuelo === 0) liberar(elemento);
+      if (!pendientes.has(elemento)) liberar(elemento);
     }, RETENCION_MS);
 
     setTimeout(function () {
+      pendientes.delete(elemento);
       liberar(elemento);
     }, LIMITE_MS);
   }
