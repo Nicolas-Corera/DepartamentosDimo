@@ -81,6 +81,155 @@ async function cancelarTransferencia(res, comprobanteId, conDevolucion, montoPed
   });
 }
 
+async function cancelarReserva(res, bookingId, conDevolucion, montoPedido) {
+  const [pagos, comprobantes, reservas] = await Promise.all([
+    seleccionar(
+      "payments",
+      `select=mp_payment_id,monto,devuelto,created_at&booking_id=eq.${bookingId}` +
+        "&status=eq.approved&order=created_at.asc",
+    ),
+    seleccionar(
+      "transfer_receipts",
+      `select=id,monto_declarado,devuelto,created_at&booking_id=eq.${bookingId}` +
+        "&estado=eq.confirmado&order=created_at.asc",
+    ),
+    seleccionar("booking_requests", `select=id,estado&id=eq.${bookingId}`),
+  ]);
+
+  if (!reservas?.[0]) {
+    throw new ErrorVisible(404, "No encontramos esa reserva.", "reserva_inexistente");
+  }
+
+  const objetivos = [
+    ...(pagos || []).map((p) => ({
+      tipo: "pago",
+      id: p.mp_payment_id,
+      cobrado: aCentavos(p.monto),
+      yaDevuelto: aCentavos(p.devuelto || 0),
+    })),
+    ...(comprobantes || []).map((c) => ({
+      tipo: "transferencia",
+      id: c.id,
+      cobrado: aCentavos(c.monto_declarado),
+      yaDevuelto: aCentavos(c.devuelto || 0),
+    })),
+  ].map((o) => ({ ...o, disponible: Math.max(0, o.cobrado - o.yaDevuelto) }));
+
+  if (!objetivos.length) {
+    throw new ErrorVisible(
+      409,
+      "Esta reserva no tiene ningún pago aprobado: no hay nada que cancelar.",
+      "sin_pagos",
+    );
+  }
+
+  const disponible = objetivos.reduce((suma, o) => suma + o.disponible, 0);
+
+  let devolucion = null;
+  const fallas = [];
+
+  if (conDevolucion) {
+    if (disponible <= 0) {
+      throw new ErrorVisible(
+        409,
+        "Esta reserva ya figura devuelta por completo.",
+        "ya_devuelto",
+      );
+    }
+
+    let restante = disponible;
+    if (montoPedido != null && montoPedido !== "") {
+      restante = aCentavos(montoPedido);
+      if (!Number.isInteger(restante) || restante <= 0) {
+        throw new ErrorVisible(400, "El monto a devolver tiene que ser mayor a 0.", "monto_invalido");
+      }
+      if (restante > disponible) {
+        throw new ErrorVisible(
+          400,
+          `No se puede devolver más de lo que queda ($${(disponible / 100).toLocaleString("es-AR")}).`,
+          "monto_excedido",
+        );
+      }
+    }
+
+    let automatico = 0;
+    let manual = 0;
+
+    for (const o of objetivos) {
+      if (restante <= 0) break;
+      if (o.disponible <= 0) continue;
+
+      const parte = Math.min(o.disponible, restante);
+
+      try {
+        if (o.tipo === "pago") {
+          const esTotal = parte === o.disponible && o.yaDevuelto === 0;
+          const respuesta = await devolver(o.id, esTotal ? null : parte / 100);
+          const hecho = aCentavos(respuesta?.amount ?? parte / 100);
+          const total = (o.yaDevuelto + hecho) / 100;
+
+          await actualizar("payments", `mp_payment_id=eq.${encodeURIComponent(o.id)}`, {
+            devuelto: total,
+            devuelto_en: new Date().toISOString(),
+
+            ...(aCentavos(total) >= o.cobrado ? { status: "refunded" } : {}),
+            updated_at: new Date().toISOString(),
+          });
+
+          automatico += hecho;
+          restante -= hecho;
+        } else {
+          await actualizar("transfer_receipts", `id=eq.${o.id}`, {
+            devuelto: (o.yaDevuelto + parte) / 100,
+            devuelto_en: new Date().toISOString(),
+          });
+
+          manual += parte;
+          restante -= parte;
+        }
+      } catch (error) {
+        fallas.push(
+          `${o.tipo === "pago" ? `el pago ${o.id}` : "la transferencia"}: ${error.message}`,
+        );
+      }
+    }
+
+    if (!automatico && !manual) {
+      throw new ErrorVisible(
+        409,
+        `No se pudo devolver nada — ${fallas.join(" · ")}`,
+        "devolucion_fallida",
+      );
+    }
+
+    devolucion = {
+      monto: (automatico + manual) / 100,
+      montoAutomatico: automatico / 100,
+      montoManual: manual / 100,
+      manual: manual > 0,
+    };
+  }
+
+  await actualizar("booking_requests", `id=eq.${bookingId}`, { estado: "cancelada" });
+
+  console.log(`[cancelar] reserva cancelada — booking ${bookingId}`);
+
+  return json(res, 200, {
+    ok: true,
+    devolucion,
+    cancelada: true,
+
+    aviso: fallas.length
+      ? `La reserva quedó cancelada, pero no se pudo devolver todo — ${fallas.join(" · ")}`
+      : null,
+
+    avisoDevolucion: devolucion?.manual
+      ? "Lo que entró por transferencia solo quedó anotado: esa plata la tenés " +
+        "que devolver vos a mano desde MercadoPago."
+      : null,
+  });
+}
+
 export default async function handler(req, res) {
   if (!exigirMetodo(req, res, "POST")) return;
 
@@ -92,7 +241,15 @@ export default async function handler(req, res) {
     const cuerpo = leerBody(req);
     paymentId = String(cuerpo.paymentId || "").trim();
     const comprobanteId = String(cuerpo.comprobanteId || "").trim();
+    const bookingId = String(cuerpo.bookingId || "").trim();
     const conDevolucion = cuerpo.devolver !== false;
+
+    if (bookingId) {
+      if (!UUID_RE.test(bookingId)) {
+        throw new ErrorVisible(400, "El id de la reserva no es válido.", "id_invalido");
+      }
+      return await cancelarReserva(res, bookingId, conDevolucion, cuerpo.monto);
+    }
 
     if (comprobanteId) {
       if (!UUID_RE.test(comprobanteId)) {
