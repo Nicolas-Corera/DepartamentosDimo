@@ -143,8 +143,15 @@ async function cargarTarifas({ fondo = false } = {}) {
 }
 
 function pintarTarifas() {
-  const { temporadas, medios, maxCuotas, planes, especiales, porcentajeReserva, tarifaLimpieza } =
-    estado.tarifas;
+  const {
+    temporadas,
+    medios,
+    maxCuotas,
+    planes,
+    especiales,
+    porcentajeReserva,
+    tarifaLimpieza,
+  } = estado.tarifas;
 
   for (const t of temporadas) {
     $(`${t.clave}-desde`).value = t.desde;
@@ -927,7 +934,9 @@ function agruparPorReserva(alquileres) {
 }
 
 function armarReserva(clave, lista) {
-  const pagos = [...lista].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const pagos = [...lista].sort(
+    (a, b) => new Date(a.fecha) - new Date(b.fecha),
+  );
   const cobrados = pagos.filter(cuentaComoPlata);
   const ultimo = pagos[pagos.length - 1];
   const base = cobrados[cobrados.length - 1] || ultimo;
@@ -1014,10 +1023,42 @@ function estadoDeReserva(r) {
 }
 
 const AREAS_DE_TRES = new Set([
-  "220", "221", "223", "230", "236", "237", "249", "260", "261", "263", "264",
-  "266", "280", "291", "297", "299", "336", "341", "342", "343", "345", "348",
-  "351", "353", "358", "362", "364", "370", "376", "379", "380", "381", "383",
-  "385", "387", "388",
+  "220",
+  "221",
+  "223",
+  "230",
+  "236",
+  "237",
+  "249",
+  "260",
+  "261",
+  "263",
+  "264",
+  "266",
+  "280",
+  "291",
+  "297",
+  "299",
+  "336",
+  "341",
+  "342",
+  "343",
+  "345",
+  "348",
+  "351",
+  "353",
+  "358",
+  "362",
+  "364",
+  "370",
+  "376",
+  "379",
+  "380",
+  "381",
+  "383",
+  "385",
+  "387",
+  "388",
 ]);
 
 function soloDigitos(valor) {
@@ -1148,41 +1189,51 @@ function celdaDePagos(r) {
 }
 
 function celdaDeMedios(r) {
-  const medios = [
-    ...new Set(r.pagos.map((p) => NOMBRE_MEDIO[p.tipo] || p.tipo || "—")),
-  ];
+  const td = document.createElement("td");
 
-  const detalles = [];
   for (const p of r.pagos) {
+    const nombreMedio = NOMBRE_MEDIO[p.tipo] || p.tipo || "—";
+
+    const detalles = [];
     if (p.cuotas > 1) detalles.push(`${p.cuotas} cuotas`);
     if (p.ultimosCuatro) detalles.push(`•••• ${p.ultimosCuatro}`);
+
+    if (p.origen === "transferencia") {
+      detalles.push(
+        p.estadoComprobante === "pendiente"
+          ? "(pendiente)"
+          : p.estadoComprobante === "rechazado"
+            ? "(rechazado)"
+            : "(aprobada)",
+      );
+    }
+
+    const linea = document.createElement("div");
+    linea.className = "celda-principal";
+    linea.textContent = [`${nombreMedio}:`, detalles.join(" ")]
+      .filter(Boolean)
+      .join(" ");
+    td.appendChild(linea);
   }
 
-  return celda(medios.join(" · "), [...new Set(detalles)].join(" · "));
+  return td;
 }
 
 function celdaDelMonto(r) {
   if (!r.cobrados.length) {
-    const declarado = r.pagos.reduce((suma, p) => suma + p.monto, 0);
+    const declarado = r.pagos.reduce((s, p) => s + p.monto, 0);
     const pendiente = r.pagos.some((p) => p.estadoComprobante === "pendiente");
-
     return celda(
       pesos.format(declarado),
       pendiente ? "declarado · sin aprobar" : "declarado · rechazado",
     );
   }
-
-  const devuelto =
-    r.devuelto > 0 ? `− ${pesos.format(r.devuelto)} devuelto` : "";
-
-  const desglose =
-    r.cobrados.length > 1
-      ? r.cobrados
-          .map((p) => `${etiquetaDeConcepto(p.concepto)} ${pesos.format(p.monto)}`)
-          .join(" + ")
-      : "";
-
-  return celda(pesos.format(r.monto), devuelto, desglose);
+  return celda(
+    pesos.format(r.monto),
+    ...r.cobrados.map(
+      (p) => `${etiquetaDeConcepto(p.concepto)} ${pesos.format(p.monto)}`,
+    ),
+  );
 }
 
 function celdaDelEstado(r) {
@@ -1204,24 +1255,45 @@ function celdaDelEstado(r) {
   return td;
 }
 
+function celdaDeFechas(r) {
+  const td = document.createElement("td");
+
+  if (!r.checkIn) {
+    const linea = document.createElement("div");
+    linea.className = "celda-principal";
+    linea.textContent = "—";
+    td.appendChild(linea);
+    return td;
+  }
+
+  const desde = document.createElement("div");
+  desde.className = "celda-principal";
+  desde.textContent = `Desde: ${fechaCorta(r.checkIn)}`;
+
+  const hasta = document.createElement("div");
+  hasta.className = "celda-principal";
+  hasta.textContent = `Hasta: ${fechaCorta(diaDeSalida(r.checkOut))}`;
+
+  td.append(desde, hasta);
+  return td;
+}
+
 function filaDeReserva(r) {
   const tr = document.createElement("tr");
   if (r.bookingId) tr.dataset.bookingId = r.bookingId;
 
   tr.appendChild(celdaDePagos(r));
   tr.appendChild(celdaDelHuesped(r.huesped));
+  tr.appendChild(celdaDeFechas(r));
   tr.appendChild(
     celda(
-      r.checkIn
-        ? `Desde: ${fechaCorta(r.checkIn)} Hasta: ${fechaCorta(diaDeSalida(r.checkOut))}`
-        : "—",
-      r.huesped.procedencia || "",
-    ),
-  );
-  tr.appendChild(
-    celda(
-      r.personas == null ? "—" : String(r.personas),
-      r.ninos > 0 ? `${r.adultos} ad. · ${r.ninos} niños` : "",
+      r.personas == null
+        ? "—"
+        : `${String(r.personas)} ${String(r.personas) === 1 ? "persona" : "personas"}`,
+      r.adultos != null
+        ? `${r.adultos} ${r.adultos === 1 ? "adulto" : "adultos"}`
+        : "",
+      r.ninos > 0 ? `${r.ninos} ${r.ninos === 1 ? "niño" : "niños"}` : "",
     ),
   );
   tr.appendChild(celdaDeMedios(r));
@@ -1410,7 +1482,8 @@ function abrirModalCancelar(reserva) {
     (p) => p.origen === "transferencia",
   );
   const soloTransferencia =
-    conTransferencia && reserva.cobrados.every((p) => p.origen === "transferencia");
+    conTransferencia &&
+    reserva.cobrados.every((p) => p.origen === "transferencia");
 
   $("modal-label-total").textContent = soloTransferencia
     ? "Ya devolví todo"
@@ -1428,7 +1501,7 @@ function abrirModalCancelar(reserva) {
     ? "Acá solo queda anotado. La transferencia la tenés que devolver vos, a mano, desde MercadoPago."
     : conTransferencia
       ? "Lo que se pagó con MercadoPago se devuelve solo; la transferencia queda anotada y la tenés que devolver vos a mano."
-      : "Una devolución en MercadoPago no se puede revertir.";
+      : "Las devoluciones no se pueden cancelar.";
 
   const referencia = reserva.pagos[0]?.paymentId;
 
@@ -1445,7 +1518,9 @@ function abrirModalCancelar(reserva) {
         `${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))}. `
       : `Pago suelto, sin reserva asociada${referencia ? ` (Op. ${referencia})` : ""}. `) +
     `Se cobraron ${pesos.format(reserva.monto)}` +
-    (reserva.cobrados.length > 1 ? ` en ${reserva.cobrados.length} pagos` : "") +
+    (reserva.cobrados.length > 1
+      ? ` en ${reserva.cobrados.length} pagos`
+      : "") +
     (reserva.devuelto > 0
       ? `, de los que ya se devolvieron ${pesos.format(reserva.devuelto)}.`
       : ".");
@@ -1546,7 +1621,9 @@ async function confirmarCancelacion() {
     cerrarModal();
 
     const devolucion = respuesta.devolucion;
-    const cierre = alquiler.bookingId ? "Reserva cancelada." : "Pago cancelado.";
+    const cierre = alquiler.bookingId
+      ? "Reserva cancelada."
+      : "Pago cancelado.";
 
     if (respuesta.aviso) {
       mostrarToast(respuesta.aviso, "error");
@@ -1560,9 +1637,7 @@ async function confirmarCancelacion() {
         `Anotados ${pesos.format(devolucion.monto)} devueltos. ${cierre}`,
       );
     } else if (devolucion) {
-      mostrarToast(
-        `Devueltos ${pesos.format(devolucion.monto)}. ${cierre}`,
-      );
+      mostrarToast(`Devueltos ${pesos.format(devolucion.monto)}. ${cierre}`);
     } else {
       mostrarToast(
         alquiler.bookingId
@@ -2019,7 +2094,9 @@ const REFRESCO_MAX_MS = 2 * 60_000;
 const refresco = { timer: null, espera: REFRESCO_MS, corriendo: false };
 
 function hayModalAbierto() {
-  return ["modal-cancelar", "modal-comprobante"].some((id) => $(id) && !$(id).hidden);
+  return ["modal-cancelar", "modal-comprobante"].some(
+    (id) => $(id) && !$(id).hidden,
+  );
 }
 
 function pestanaActiva() {
@@ -2057,7 +2134,9 @@ async function refrescarPestanaActiva() {
 
 async function ciclarRefresco() {
   const ok = await refrescarPestanaActiva();
-  refresco.espera = ok ? REFRESCO_MS : Math.min(refresco.espera * 2, REFRESCO_MAX_MS);
+  refresco.espera = ok
+    ? REFRESCO_MS
+    : Math.min(refresco.espera * 2, REFRESCO_MAX_MS);
   refresco.timer = setTimeout(ciclarRefresco, refresco.espera);
 }
 
