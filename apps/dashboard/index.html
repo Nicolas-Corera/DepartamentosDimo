@@ -17,14 +17,19 @@
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"
+      defer
+    ></script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
       <defs>
-
         <symbol id="ic-umbrella" viewBox="0 -960 960 960" fill="currentColor">
           <path
             d="M786-120 532-374l56-56 254 254-56 56Zm-546-28q-100-98-117.5-230T168-625q3 34 17 76.5t38.5 89.5q24.5 47 58.5 96.5t75 97.5L240-148Zm172-172q-48-48-84-104.5T271.5-534q-20.5-53-23-96.5T267-695q21-22 64.5-20t97 22.5q53.5 20.5 110 57T643-551L412-320Zm286-286q-47-41-96.5-74t-96-58q-46.5-25-89-39.5T340-795q115-60 246.5-41.5T814-722L698-606Z"
@@ -162,11 +167,7 @@
 
     <aside class="sidebar">
       <div class="sidebar-logo">
-        <span
-          class="material-symbols-outlined"
-          style="font-variation-settings: &quot;FILL&quot; 1"
-          >waves</span
-        >
+        <span class="material-symbols-outlined"> dashboard </span>
         Dimo
       </div>
       <nav class="sidebar-nav">
@@ -186,14 +187,14 @@
     </aside>
     <div class="main-wrapper">
       <main class="container">
-
         <div class="tab-content active" id="tarifas">
           <div class="header-section">
             <div>
               <h1 class="headline-lg">Configuración de Tarifas</h1>
               <p class="body-lg">
                 Los precios por noche, los recargos por medio de pago y las
-                fechas especiales. Lo que guardes acá se cobra en el próximo pago.
+                fechas especiales. Lo que guardes acá se cobra en el próximo
+                pago.
               </p>
             </div>
             <div class="rate-summary">
@@ -213,22 +214,29 @@
           <div class="aviso-huecos" id="aviso-huecos" hidden>
             <span class="material-symbols-outlined">warning</span>
             <div>
-              <p class="aviso-huecos-titulo">Hay fechas sin temporada asignada</p>
+              <p class="aviso-huecos-titulo">
+                Hay fechas sin temporada asignada
+              </p>
               <p class="aviso-huecos-detalle" id="aviso-huecos-detalle"></p>
             </div>
           </div>
 
           <div class="cargando-bloque" id="tarifas-cargando">
-            <span class="material-symbols-outlined spin">progress_activity</span>
+            <span class="material-symbols-outlined spin"
+              >progress_activity</span
+            >
             Cargando la configuración…
           </div>
 
           <form class="form-grid" id="tarifas-form" hidden>
-
             <div class="card" data-temporada="alta">
               <div class="card-header">
                 <div class="card-icon icon-alta">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">wb_sunny</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >wb_sunny</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Temporada Alta</h2>
               </div>
@@ -236,16 +244,34 @@
                 <div class="input-row">
                   <div>
                     <label class="label-md" for="alta-desde">Desde</label>
-                    <input class="date-desde" id="alta-desde" required type="date" />
+                    <input
+                      class="date-desde"
+                      id="alta-desde"
+                      required
+                      type="date"
+                    />
                   </div>
                   <div>
                     <label class="label-md" for="alta-hasta">Hasta</label>
-                    <input class="date-hasta" id="alta-hasta" required type="date" />
+                    <input
+                      class="date-hasta"
+                      id="alta-hasta"
+                      required
+                      type="date"
+                    />
                   </div>
                 </div>
                 <div class="input-group">
-                  <label class="label-md" for="alta-precio">Precio por noche ($)</label>
-                  <input class="precio-temporada" id="alta-precio" min="1" required type="number" />
+                  <label class="label-md" for="alta-precio"
+                    >Precio por noche ($)</label
+                  >
+                  <input
+                    class="precio-temporada"
+                    id="alta-precio"
+                    min="1"
+                    required
+                    type="number"
+                  />
                 </div>
               </div>
             </div>
@@ -253,7 +279,11 @@
             <div class="card" data-temporada="media">
               <div class="card-header">
                 <div class="card-icon icon-media">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">eco</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >eco</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Temporada Media</h2>
               </div>
@@ -261,16 +291,34 @@
                 <div class="input-row">
                   <div>
                     <label class="label-md" for="media-desde">Desde</label>
-                    <input class="date-desde" id="media-desde" required type="date" />
+                    <input
+                      class="date-desde"
+                      id="media-desde"
+                      required
+                      type="date"
+                    />
                   </div>
                   <div>
                     <label class="label-md" for="media-hasta">Hasta</label>
-                    <input class="date-hasta" id="media-hasta" required type="date" />
+                    <input
+                      class="date-hasta"
+                      id="media-hasta"
+                      required
+                      type="date"
+                    />
                   </div>
                 </div>
                 <div class="input-group">
-                  <label class="label-md" for="media-precio">Precio por noche ($)</label>
-                  <input class="precio-temporada" id="media-precio" min="1" required type="number" />
+                  <label class="label-md" for="media-precio"
+                    >Precio por noche ($)</label
+                  >
+                  <input
+                    class="precio-temporada"
+                    id="media-precio"
+                    min="1"
+                    required
+                    type="number"
+                  />
                 </div>
               </div>
             </div>
@@ -278,7 +326,11 @@
             <div class="card" data-temporada="baja">
               <div class="card-header">
                 <div class="card-icon icon-baja">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">ac_unit</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >ac_unit</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Temporada Baja</h2>
               </div>
@@ -286,16 +338,34 @@
                 <div class="input-row">
                   <div>
                     <label class="label-md" for="baja-desde">Desde</label>
-                    <input class="date-desde" id="baja-desde" required type="date" />
+                    <input
+                      class="date-desde"
+                      id="baja-desde"
+                      required
+                      type="date"
+                    />
                   </div>
                   <div>
                     <label class="label-md" for="baja-hasta">Hasta</label>
-                    <input class="date-hasta" id="baja-hasta" required type="date" />
+                    <input
+                      class="date-hasta"
+                      id="baja-hasta"
+                      required
+                      type="date"
+                    />
                   </div>
                 </div>
                 <div class="input-group">
-                  <label class="label-md" for="baja-precio">Precio por noche ($)</label>
-                  <input class="precio-temporada" id="baja-precio" min="1" required type="number" />
+                  <label class="label-md" for="baja-precio"
+                    >Precio por noche ($)</label
+                  >
+                  <input
+                    class="precio-temporada"
+                    id="baja-precio"
+                    min="1"
+                    required
+                    type="number"
+                  />
                 </div>
                 <p class="nota-card">
                   Es también el precio de respaldo: las noches que no caigan en
@@ -308,18 +378,27 @@
               <div class="special-dates-header">
                 <div class="card-header" style="margin-bottom: 0">
                   <div class="card-icon icon-especial">
-                    <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">celebration</span>
+                    <span
+                      class="material-symbols-outlined"
+                      style="font-variation-settings: &quot;FILL&quot; 1"
+                      >celebration</span
+                    >
                   </div>
                   <h2 class="headline-md card-title">Fechas Especiales</h2>
                 </div>
                 <button class="btn-text add-special-date-btn" type="button">
-                  <span class="material-symbols-outlined" style="font-size: 20px">add_circle</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-size: 20px"
+                    >add_circle</span
+                  >
                   Añadir otra
                 </button>
               </div>
               <div>
                 <p class="nota-card">
-                  Pisan al precio de la temporada. Fines de semana largo, feriados, eventos.
+                  Pisan al precio de la temporada. Fines de semana largo,
+                  feriados, eventos.
                 </p>
                 <div class="carousel-container special-dates-carousel"></div>
                 <div class="carousel-dots"></div>
@@ -332,29 +411,39 @@
             <div class="card card-ancho">
               <div class="card-header">
                 <div class="card-icon icon-medios">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">credit_card</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >credit_card</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Medios de pago y cuotas</h2>
               </div>
 
               <p class="nota-card">
                 El precio por noche de las temporadas es el de
-                <strong>transferencia</strong>: el de contado. Sobre ese total se
-                suma el recargo del medio de pago y, en crédito, el del plan de
-                cuotas. Los dos porcentajes se suman entre sí.
+                <strong>transferencia</strong>: el de contado. Sobre ese total
+                se suma el recargo del medio de pago y, en crédito, el del plan
+                de cuotas. Los dos porcentajes se suman entre sí.
               </p>
 
-              <div class="medios-grid" id="medios-grid">
-
-              </div>
+              <div class="medios-grid" id="medios-grid"></div>
 
               <div class="separador"></div>
 
               <div class="cuotas-header">
                 <h3 class="headline-md card-subtitle">Cuotas</h3>
                 <div class="input-group" style="margin-bottom: 0">
-                  <label class="label-md" for="max-cuotas">Máximo de cuotas</label>
-                  <input id="max-cuotas" max="24" min="1" required type="number" />
+                  <label class="label-md" for="max-cuotas"
+                    >Máximo de cuotas</label
+                  >
+                  <input
+                    id="max-cuotas"
+                    max="24"
+                    min="1"
+                    required
+                    type="number"
+                  />
                 </div>
               </div>
 
@@ -362,29 +451,35 @@
                 Es el recargo que se le hace al pago en cuotas.
               </p>
 
-              <div class="cuotas-grid" id="cuotas-grid">
-
-              </div>
+              <div class="cuotas-grid" id="cuotas-grid"></div>
             </div>
 
             <div class="card card-ancho">
               <div class="card-header">
                 <div class="card-icon icon-senia">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">bookmark</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >bookmark</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Seña</h2>
               </div>
 
               <p class="nota-card">
-                Qué porcentaje del total cobra el link de <strong>seña</strong> que
-                te llega en el mail de cada consulta. El link de <strong>total</strong>
-                no se toca: si el huésped ya señó, cobra solo el saldo que falta.
+                Qué porcentaje del total cobra el link de
+                <strong>seña</strong> que te llega en el mail de cada consulta.
+                El link de <strong>total</strong>
+                no se toca: si el huésped ya señó, cobra solo el saldo que
+                falta.
               </p>
 
               <div class="senia-fila">
                 <div class="senia-controles">
                   <div class="input-group" style="margin-bottom: 0">
-                    <label class="label-md" for="porcentaje-reserva">Porcentaje de seña</label>
+                    <label class="label-md" for="porcentaje-reserva"
+                      >Porcentaje de seña</label
+                    >
                     <input
                       id="porcentaje-reserva"
                       max="100"
@@ -402,22 +497,28 @@
             <div class="card card-ancho">
               <div class="card-header">
                 <div class="card-icon icon-senia">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">cleaning_services</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >cleaning_services</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Tarifa de limpieza</h2>
               </div>
 
               <p class="nota-card">
-                Un importe fijo que se suma <strong>una sola vez</strong> al total de
-                la estadía. Aparece como una línea aparte en el resumen
-                del pago y en los mails. Poné <strong>0</strong> para no cobrarla: así
-                no se muestra en ningún lado.
+                Un importe fijo que se suma <strong>una sola vez</strong> al
+                total de la estadía. Aparece como una línea aparte en el resumen
+                del pago y en los mails. Poné <strong>0</strong> para no
+                cobrarla: así no se muestra en ningún lado.
               </p>
 
               <div class="senia-fila">
                 <div class="senia-controles">
                   <div class="input-group" style="margin-bottom: 0">
-                    <label class="label-md" for="tarifa-limpieza">Importe</label>
+                    <label class="label-md" for="tarifa-limpieza"
+                      >Importe</label
+                    >
                     <input
                       id="tarifa-limpieza"
                       min="0"
@@ -435,24 +536,33 @@
             <div class="card card-ancho">
               <div class="card-header">
                 <div class="card-icon icon-calc">
-                  <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1">calculate</span>
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >calculate</span
+                  >
                 </div>
                 <h2 class="headline-md card-title">Calculadora</h2>
               </div>
 
               <p class="nota-card">
-                Usa los valores que tenés en pantalla, guardados o no. Sirve para
-                ver cuánto queda un cambio antes de aplicarlo. Poné la primera y
-                la última noche: <strong>se cobran todas, las dos incluidas</strong>.
+                Usa los valores que tenés en pantalla, guardados o no. Sirve
+                para ver cuánto queda un cambio antes de aplicarlo. Poné la
+                primera y la última noche:
+                <strong>se cobran todas, las dos incluidas</strong>.
               </p>
 
               <div class="calc-entradas">
                 <div class="input-group">
-                  <label class="label-md" for="calc-checkin">Primera noche</label>
+                  <label class="label-md" for="calc-checkin"
+                    >Primera noche</label
+                  >
                   <input id="calc-checkin" type="date" />
                 </div>
                 <div class="input-group">
-                  <label class="label-md" for="calc-checkout">Última noche</label>
+                  <label class="label-md" for="calc-checkout"
+                    >Última noche</label
+                  >
                   <input id="calc-checkout" type="date" />
                 </div>
                 <div class="input-group">
@@ -466,7 +576,9 @@
               </div>
 
               <div class="calc-resultado" id="calc-resultado">
-                <p class="vacio-inline">Elegí las fechas para ver el cálculo.</p>
+                <p class="vacio-inline">
+                  Elegí las fechas para ver el cálculo.
+                </p>
               </div>
             </div>
 
@@ -488,7 +600,9 @@
               </p>
             </div>
             <button class="btn-primary" id="btn-reporte" type="button">
-              <span class="material-symbols-outlined icon-download">download</span>
+              <span class="material-symbols-outlined icon-download"
+                >download</span
+              >
               <span class="btn-text-content">Descargar registro</span>
             </button>
           </div>
@@ -511,14 +625,20 @@
               <strong id="total-neto">—</strong>
             </div>
 
-            <div class="total-chip total-chip--espera" id="total-chip-pendiente" hidden>
+            <div
+              class="total-chip total-chip--espera"
+              id="total-chip-pendiente"
+              hidden
+            >
               <span class="eyebrow">Por aprobar</span>
               <strong id="total-pendiente">—</strong>
             </div>
           </div>
 
           <div class="cargando-bloque" id="alquileres-cargando">
-            <span class="material-symbols-outlined spin">progress_activity</span>
+            <span class="material-symbols-outlined spin"
+              >progress_activity</span
+            >
             Cargando el registro…
           </div>
 
@@ -585,7 +705,9 @@
           </div>
 
           <div class="cargando-bloque" id="resenas-cargando">
-            <span class="material-symbols-outlined spin">progress_activity</span>
+            <span class="material-symbols-outlined spin"
+              >progress_activity</span
+            >
             Cargando las reseñas…
           </div>
 
@@ -598,9 +720,7 @@
       </main>
 
       <footer class="footer">
-        <p>
-          © 2026 DepartamentosDimo San Bernardo.
-        </p>
+        <p>© 2026 DepartamentosDimo San Bernardo.</p>
       </footer>
     </div>
 
@@ -624,7 +744,12 @@
     </nav>
 
     <div class="modal-fondo" id="modal-cancelar" hidden>
-      <div aria-labelledby="modal-titulo" aria-modal="true" class="modal" role="dialog">
+      <div
+        aria-labelledby="modal-titulo"
+        aria-modal="true"
+        class="modal"
+        role="dialog"
+      >
         <h2 class="headline-md" id="modal-titulo">Cancelar reserva</h2>
         <p class="modal-detalle" id="modal-detalle"></p>
 
@@ -645,15 +770,17 @@
           </label>
           <div class="input-group modal-parcial" id="modal-parcial" hidden>
             <label class="label-md" for="modal-monto" id="modal-label-monto"
-            >Monto a devolver ($)</label
-          >
+              >Monto a devolver ($)</label
+            >
             <input id="modal-monto" min="1" step="1" type="number" />
           </div>
           <label class="radio-linea">
             <input name="modo-cancelacion" type="radio" value="ninguna" />
             <span>
               <strong id="modal-label-ninguna">No devolver nada</strong>
-              <em id="modal-nota-ninguna">Solo cancela la reserva y libera las fechas.</em>
+              <em id="modal-nota-ninguna"
+                >Solo cancela la reserva y libera las fechas.</em
+              >
             </span>
           </label>
         </div>
@@ -667,8 +794,14 @@
         </p>
 
         <div class="modal-acciones">
-          <button class="btn-text" id="modal-volver" type="button">Volver</button>
-          <button class="btn-primary btn-peligro" id="modal-confirmar" type="button">
+          <button class="btn-text" id="modal-volver" type="button">
+            Volver
+          </button>
+          <button
+            class="btn-primary btn-peligro"
+            id="modal-confirmar"
+            type="button"
+          >
             <span class="material-symbols-outlined icon-confirmar">check</span>
             <span class="btn-text-content">Confirmar</span>
           </button>
@@ -683,12 +816,16 @@
         class="modal modal--ancho"
         role="dialog"
       >
-        <h2 class="headline-md" id="comprobante-titulo">Comprobante de transferencia</h2>
+        <h2 class="headline-md" id="comprobante-titulo">
+          Comprobante de transferencia
+        </h2>
         <p class="modal-detalle" id="comprobante-detalle"></p>
 
         <div class="comprobante-visor" id="comprobante-visor">
           <div class="cargando-bloque" id="comprobante-cargando">
-            <span class="material-symbols-outlined spin">progress_activity</span>
+            <span class="material-symbols-outlined spin"
+              >progress_activity</span
+            >
             Abriendo el comprobante…
           </div>
         </div>
@@ -696,9 +833,9 @@
         <p class="modal-aviso" id="comprobante-aviso">
           <span class="material-symbols-outlined">warning</span>
           <span id="comprobante-aviso-texto">
-            Aprobar confirma la reserva y bloquea las fechas. Rechazar las libera.
-            La plata de una transferencia no la puede mover el panel: si hay que
-            devolverla, hacelo a mano desde MercadoPago.
+            Aprobar confirma la reserva y bloquea las fechas. Rechazar las
+            libera. La plata de una transferencia no la puede mover el panel: si
+            hay que devolverla, hacelo a mano desde MercadoPago.
           </span>
         </p>
 
@@ -713,12 +850,22 @@
             <span class="material-symbols-outlined">download</span>
             Descargar
           </a>
-          <button class="btn-text" id="comprobante-volver" type="button">Volver</button>
-          <button class="btn-primary btn-peligro" id="comprobante-rechazar" type="button">
+          <button class="btn-text" id="comprobante-volver" type="button">
+            Volver
+          </button>
+          <button
+            class="btn-primary btn-peligro"
+            id="comprobante-rechazar"
+            type="button"
+          >
             <span class="material-symbols-outlined">close</span>
             <span class="btn-text-content">Rechazar</span>
           </button>
-          <button class="btn-primary btn-aprobar" id="comprobante-aprobar" type="button">
+          <button
+            class="btn-primary btn-aprobar"
+            id="comprobante-aprobar"
+            type="button"
+          >
             <span class="material-symbols-outlined">check</span>
             <span class="btn-text-content">Aprobar</span>
           </button>

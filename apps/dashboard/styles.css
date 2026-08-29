@@ -55,12 +55,12 @@
 
   --stack-md: 20px;
   --container-max: 1180px;
-  --container-more: 1500px;
+  --container-more: 1600px;
   --stack-lg: 40px;
   --stack-sm: 8px;
   --section-v-padding: 84px;
   --gutter: 20px;
-  --sidebar-width: 250px;
+  --sidebar-width: 200px;
 
   --soft-tint:
     0 10px 25px -5px rgba(22, 50, 56, 0.15),
@@ -727,7 +727,7 @@ table {
 
 th,
 td {
-  padding: 16px 24px;
+  padding: 16px 16px;
   text-align: left;
   border-bottom: 1px solid var(--surface-container-high);
 }
@@ -1497,6 +1497,7 @@ td {
 
 .celda-principal {
   font-weight: 600;
+  font-size: 14px;
   color: var(--tinta);
 }
 
