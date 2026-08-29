@@ -105,6 +105,7 @@ async function api(ruta, opciones = {}) {
 const estado = {
   tarifas: null,
   alquileres: [],
+  reservas: [],
   totales: null,
   resenas: [],
   cancelando: null,
@@ -844,7 +845,9 @@ async function cargarAlquileres() {
 function pintarAlquileres() {
   $("alquileres-cargando").hidden = true;
 
-  const hay = estado.alquileres.length > 0;
+  estado.reservas = agruparPorReserva(estado.alquileres);
+
+  const hay = estado.reservas.length > 0;
   $("alquileres-tabla").hidden = !hay;
   $("alquileres-vacio").hidden = hay;
   $("alquileres-totales").hidden = !hay;
@@ -852,7 +855,9 @@ function pintarAlquileres() {
 
   if (!hay) return;
 
-  $("total-cantidad").textContent = estado.totales.cantidad;
+  $("total-cantidad").textContent = String(
+    estado.reservas.filter((r) => r.cobrados.length).length,
+  );
   $("total-cobrado").textContent = pesos.format(estado.totales.cobrado);
   $("total-devuelto").textContent = pesos.format(estado.totales.devuelto);
   $("total-neto").textContent = pesos.format(estado.totales.neto);
@@ -864,38 +869,123 @@ function pintarAlquileres() {
       `${pesos.format(estado.totales.montoPendiente || 0)} · ${pendientes}`;
   }
 
-  $("alquileres-cuerpo").replaceChildren(
-    ...estado.alquileres.map(filaDeAlquiler),
+  $("alquileres-cuerpo").replaceChildren(...estado.reservas.map(filaDeReserva));
+}
+
+const ETIQUETA_CONCEPTO = {
+  reserva: "Seña",
+  saldo: "Saldo",
+  total: "Pago total",
+};
+
+function etiquetaDeConcepto(concepto) {
+  return ETIQUETA_CONCEPTO[concepto] || "Pago";
+}
+
+function cuentaComoPlata(p) {
+  return (
+    p.estadoComprobante !== "pendiente" && p.estadoComprobante !== "rechazado"
   );
 }
 
-function estadoDeAlquiler(a) {
-  if (a.estadoComprobante === "pendiente") {
-    return { texto: "Esperando aprobación", clase: "status-espera" };
+function claveDeReserva(p) {
+  if (p.bookingId) return `reserva:${p.bookingId}`;
+  return p.paymentId ? `pago:${p.paymentId}` : `comprobante:${p.comprobanteId}`;
+}
+
+function agruparPorReserva(alquileres) {
+  const grupos = new Map();
+
+  for (const p of alquileres) {
+    const clave = claveDeReserva(p);
+    const pagos = grupos.get(clave);
+    if (pagos) pagos.push(p);
+    else grupos.set(clave, [p]);
   }
-  if (a.estadoComprobante === "rechazado") {
+
+  return [...grupos.entries()]
+    .map(([clave, pagos]) => armarReserva(clave, pagos))
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+}
+
+function armarReserva(clave, lista) {
+  const pagos = [...lista].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const cobrados = pagos.filter(cuentaComoPlata);
+  const ultimo = pagos[pagos.length - 1];
+  const base = cobrados[cobrados.length - 1] || ultimo;
+
+  const monto = cobrados.reduce((suma, p) => suma + p.monto, 0);
+  const devuelto = cobrados.reduce((suma, p) => suma + p.devuelto, 0);
+
+  return {
+    clave,
+    pagos,
+    cobrados,
+    comprobantes: pagos.filter((p) => p.comprobanteId),
+
+    bookingId: base.bookingId,
+    huesped: base.huesped,
+    checkIn: base.checkIn,
+    checkOut: base.checkOut,
+    personas: base.personas,
+    adultos: base.adultos,
+    ninos: base.ninos,
+    estadoReserva: base.estadoReserva,
+    saldoReserva: base.saldoReserva,
+    reservaCompleta: base.reservaCompleta,
+
+    fecha: ultimo.fecha,
+    monto,
+    devuelto,
+    neto: Math.max(0, monto - devuelto),
+  };
+}
+
+function estadoDeReserva(r) {
+  if (!r.cobrados.length) {
+    const pendiente = r.pagos.find((p) => p.estadoComprobante === "pendiente");
+    if (pendiente) {
+      return {
+        texto: "Esperando aprobación",
+        clase: "status-espera",
+        detalle: `${etiquetaDeConcepto(pendiente.concepto)} declarada por transferencia`,
+      };
+    }
     return { texto: "Comprobante rechazado", clase: "status-cancelado" };
   }
 
-  if (a.estadoPago === "charged_back")
-    return { texto: "Contracargo", clase: "status-devuelto" };
-  if (a.estadoPago === "refunded")
-    return { texto: "Devuelto", clase: "status-devuelto" };
-  if (a.devuelto > 0)
-    return { texto: "Devuelto en parte", clase: "status-parcial" };
-  if (a.estadoReserva === "cancelada")
-    return { texto: "Cancelada", clase: "status-cancelado" };
-  if (a.estadoReserva === "confirmada") {
-    if (a.reservaCompleta === false) {
-      return {
-        texto: "Señada",
-        clase: "status-senado",
-        detalle: a.saldoReserva ? `Falta ${pesos.format(a.saldoReserva)}` : null,
-      };
-    }
-    return { texto: "Confirmada", clase: "status-confirmado" };
+  if (r.estadoReserva === "cancelada") {
+    return {
+      texto: "Cancelada",
+      clase: "status-cancelado",
+      detalle: r.devuelto > 0 ? `Devueltos ${pesos.format(r.devuelto)}` : null,
+    };
   }
-  return { texto: "Pagada", clase: "status-pendiente" };
+
+  if (r.cobrados.some((p) => p.estadoPago === "charged_back")) {
+    return { texto: "Contracargo", clase: "status-devuelto" };
+  }
+  if (r.monto > 0 && r.devuelto >= r.monto) {
+    return { texto: "Devuelto", clase: "status-devuelto" };
+  }
+  if (r.devuelto > 0) {
+    return { texto: "Devuelto en parte", clase: "status-parcial" };
+  }
+
+  if (r.reservaCompleta === true) {
+    return { texto: "Alquilado", clase: "status-confirmado" };
+  }
+  if (r.reservaCompleta === false) {
+    return {
+      texto: "Señado",
+      clase: "status-senado",
+      detalle: r.saldoReserva ? `Falta ${pesos.format(r.saldoReserva)}` : null,
+    };
+  }
+
+  return r.estadoReserva === "confirmada"
+    ? { texto: "Alquilado", clase: "status-confirmado" }
+    : { texto: "Pagada", clase: "status-pendiente" };
 }
 
 const AREAS_DE_TRES = new Set([
@@ -1004,135 +1094,170 @@ function celdaDelHuesped(huesped) {
   return td;
 }
 
-function celda(contenido, secundario) {
+function celda(contenido, ...secundarios) {
   const td = document.createElement("td");
   const principal = document.createElement("span");
   principal.className = "celda-principal";
   principal.textContent = contenido ?? "—";
   td.appendChild(principal);
-  if (secundario) {
+  for (const texto of secundarios) {
+    if (!texto) continue;
     const extra = document.createElement("span");
     extra.className = "celda-secundaria";
-    extra.textContent = secundario;
+    extra.textContent = texto;
     td.appendChild(extra);
   }
   return td;
 }
 
-function filaDeAlquiler(a) {
-  const tr = document.createElement("tr");
-  const esTransferencia = a.origen === "transferencia";
-  if (a.paymentId) tr.dataset.paymentId = a.paymentId;
-  if (a.comprobanteId) tr.dataset.comprobanteId = a.comprobanteId;
-  if (esTransferencia) tr.dataset.origen = "transferencia";
+function celdaDePagos(r) {
+  const varios = r.pagos.length > 1;
+  const lineas = r.pagos.map((p) => {
+    const referencia = p.paymentId ? `Op. ${p.paymentId}` : "Transferencia";
+    return varios
+      ? `${etiquetaDeConcepto(p.concepto)}: ${referencia}`
+      : referencia;
+  });
 
-  tr.appendChild(
-    celda(
-      fechaHora(a.fecha),
-      esTransferencia ? "Transferencia" : `Op. ${a.paymentId}`,
-    ),
-  );
-  tr.appendChild(celdaDelHuesped(a.huesped));
-  tr.appendChild(
-    celda(
-      a.checkIn
-        ? `Desde: ${fechaCorta(a.checkIn)} Hasta: ${fechaCorta(diaDeSalida(a.checkOut))}`
-        : "—",
-      a.huesped.procedencia || "",
-    ),
-  );
-  tr.appendChild(
-    celda(
-      a.personas == null ? "—" : String(a.personas),
-      a.ninos > 0 ? `${a.adultos} ad. · ${a.ninos} niños` : "",
-    ),
-  );
+  return celda(fechaHora(r.fecha), ...lineas);
+}
 
-  const medio = NOMBRE_MEDIO[a.tipo] || a.tipo || "—";
-  tr.appendChild(
-    celda(
-      a.cuotas > 1 ? `${medio} · ${a.cuotas} cuotas` : medio,
-      a.ultimosCuatro ? `•••• ${a.ultimosCuatro}` : "",
-    ),
-  );
+function celdaDeMedios(r) {
+  const medios = [
+    ...new Set(r.pagos.map((p) => NOMBRE_MEDIO[p.tipo] || p.tipo || "—")),
+  ];
 
-  tr.appendChild(
-    celda(
-      pesos.format(a.monto),
-      a.devuelto > 0 ? `− ${pesos.format(a.devuelto)} devuelto` : "",
-    ),
-  );
+  const detalles = [];
+  for (const p of r.pagos) {
+    if (p.cuotas > 1) detalles.push(`${p.cuotas} cuotas`);
+    if (p.ultimosCuatro) detalles.push(`•••• ${p.ultimosCuatro}`);
+  }
 
-  const tdEstado = document.createElement("td");
-  const { texto, clase, detalle } = estadoDeAlquiler(a);
+  return celda(medios.join(" · "), [...new Set(detalles)].join(" · "));
+}
+
+function celdaDelMonto(r) {
+  if (!r.cobrados.length) {
+    const declarado = r.pagos.reduce((suma, p) => suma + p.monto, 0);
+    const pendiente = r.pagos.some((p) => p.estadoComprobante === "pendiente");
+
+    return celda(
+      pesos.format(declarado),
+      pendiente ? "declarado · sin aprobar" : "declarado · rechazado",
+    );
+  }
+
+  const devuelto =
+    r.devuelto > 0 ? `− ${pesos.format(r.devuelto)} devuelto` : "";
+
+  const desglose =
+    r.cobrados.length > 1
+      ? r.cobrados
+          .map((p) => `${etiquetaDeConcepto(p.concepto)} ${pesos.format(p.monto)}`)
+          .join(" + ")
+      : "";
+
+  return celda(pesos.format(r.monto), devuelto, desglose);
+}
+
+function celdaDelEstado(r) {
+  const td = document.createElement("td");
+  const { texto, clase, detalle } = estadoDeReserva(r);
+
   const badge = document.createElement("span");
   badge.className = `status-badge ${clase}`;
   badge.textContent = texto;
-  tdEstado.appendChild(badge);
+  td.appendChild(badge);
 
   if (detalle) {
     const nota = document.createElement("span");
     nota.className = "status-detalle";
     nota.textContent = detalle;
-    tdEstado.appendChild(nota);
+    td.appendChild(nota);
   }
 
-  tr.appendChild(tdEstado);
+  return td;
+}
 
-  tr.appendChild(accionesDeAlquiler(a, esTransferencia));
+function filaDeReserva(r) {
+  const tr = document.createElement("tr");
+  if (r.bookingId) tr.dataset.bookingId = r.bookingId;
+
+  tr.appendChild(celdaDePagos(r));
+  tr.appendChild(celdaDelHuesped(r.huesped));
+  tr.appendChild(
+    celda(
+      r.checkIn
+        ? `Desde: ${fechaCorta(r.checkIn)} Hasta: ${fechaCorta(diaDeSalida(r.checkOut))}`
+        : "—",
+      r.huesped.procedencia || "",
+    ),
+  );
+  tr.appendChild(
+    celda(
+      r.personas == null ? "—" : String(r.personas),
+      r.ninos > 0 ? `${r.adultos} ad. · ${r.ninos} niños` : "",
+    ),
+  );
+  tr.appendChild(celdaDeMedios(r));
+  tr.appendChild(celdaDelMonto(r));
+  tr.appendChild(celdaDelEstado(r));
+  tr.appendChild(accionesDeReserva(r));
+
   return tr;
 }
 
-function accionesDeAlquiler(a, esTransferencia) {
+function accionesDeReserva(r) {
   const td = document.createElement("td");
+  const grupo = document.createElement("div");
+  grupo.className = "celda-acciones";
 
-  if (esTransferencia) {
-    const grupo = document.createElement("div");
-    grupo.className = "celda-acciones";
+  for (const p of r.comprobantes) {
+    const cual =
+      r.comprobantes.length > 1
+        ? ` (${etiquetaDeConcepto(p.concepto).toLowerCase()})`
+        : "";
 
     const ver = document.createElement("button");
     ver.className = "btn-action btn-action-ver";
     ver.type = "button";
     ver.title =
-      a.estadoComprobante === "pendiente"
-        ? "Ver el comprobante y decidir"
-        : "Ver el comprobante";
+      p.estadoComprobante === "pendiente"
+        ? `Ver el comprobante${cual} y decidir`
+        : `Ver el comprobante${cual}`;
     ver.setAttribute(
       "aria-label",
-      `Ver el comprobante de ${a.huesped.nombre || "esta reserva"}`,
+      `Ver el comprobante${cual} de ${r.huesped.nombre || "esta reserva"}`,
     );
     ver.innerHTML = '<span class="material-symbols-outlined">visibility</span>';
-    ver.addEventListener("click", () => abrirModalComprobante(a));
+    ver.addEventListener("click", () => abrirModalComprobante(p));
     grupo.appendChild(ver);
-
-    if (a.estadoComprobante === "confirmado") {
-      const cancelar = document.createElement("button");
-      cancelar.className = "btn-cancelar-reserva";
-      cancelar.type = "button";
-
-      const sinPendiente = a.neto <= 0 && a.estadoReserva === "cancelada";
-      cancelar.textContent = sinPendiente ? "—" : "Cancelar";
-      cancelar.disabled = sinPendiente;
-      if (!sinPendiente)
-        cancelar.addEventListener("click", () => abrirModalCancelar(a));
-      grupo.appendChild(cancelar);
-    }
-
-    td.appendChild(grupo);
-    return td;
   }
 
-  const boton = document.createElement("button");
-  boton.className = "btn-cancelar-reserva";
-  boton.type = "button";
+  const cancelada = r.estadoReserva === "cancelada";
+  const sinPlata = r.cobrados.length === 0;
+  const sueltoYDevuelto = !r.bookingId && r.neto <= 0;
 
-  const sinPendiente = a.neto <= 0 && a.estadoReserva === "cancelada";
-  boton.textContent = sinPendiente ? "—" : "Cancelar";
-  boton.disabled = sinPendiente;
-  if (!sinPendiente)
-    boton.addEventListener("click", () => abrirModalCancelar(a));
+  const cancelar = document.createElement("button");
+  cancelar.className = "btn-cancelar-reserva";
+  cancelar.type = "button";
+  cancelar.textContent = "Cancelar";
+  cancelar.disabled = cancelada || sinPlata || sueltoYDevuelto;
+  cancelar.title = cancelada
+    ? "Esta reserva ya está cancelada."
+    : sinPlata
+      ? "Todavía no hay ningún pago aprobado para cancelar."
+      : sueltoYDevuelto
+        ? "Este pago ya se devolvió por completo."
+        : "Cancelar la reserva y, si hace falta, devolver la plata.";
 
-  td.appendChild(boton);
+  if (!cancelar.disabled) {
+    cancelar.addEventListener("click", () => abrirModalCancelar(r));
+  }
+
+  grupo.appendChild(cancelar);
+  td.appendChild(grupo);
+
   return td;
 }
 
@@ -1252,42 +1377,49 @@ async function resolverComprobante(accion) {
   }
 }
 
-function abrirModalCancelar(alquiler) {
-  estado.cancelando = alquiler;
+function abrirModalCancelar(reserva) {
+  estado.cancelando = reserva;
 
-  const esTransferencia = alquiler.origen === "transferencia";
+  const conTransferencia = reserva.cobrados.some(
+    (p) => p.origen === "transferencia",
+  );
+  const soloTransferencia =
+    conTransferencia && reserva.cobrados.every((p) => p.origen === "transferencia");
 
-  $("modal-label-total").textContent = esTransferencia
+  $("modal-label-total").textContent = soloTransferencia
     ? "Ya devolví todo"
     : "Devolver todo";
-  $("modal-label-parcial").textContent = esTransferencia
+  $("modal-label-parcial").textContent = soloTransferencia
     ? "Devolví una parte"
     : "Devolver una parte";
-  $("modal-label-ninguna").textContent = esTransferencia
+  $("modal-label-ninguna").textContent = soloTransferencia
     ? "No devolví nada"
     : "No devolver nada";
-  $("modal-label-monto").textContent = esTransferencia
+  $("modal-label-monto").textContent = soloTransferencia
     ? "Monto que devolviste ($)"
     : "Monto a devolver ($)";
-  $("modal-aviso-texto").textContent = esTransferencia
+  $("modal-aviso-texto").textContent = soloTransferencia
     ? "Acá solo queda anotado. La transferencia la tenés que devolver vos, a mano, desde MercadoPago."
-    : "Una devolución en MercadoPago no se puede revertir.";
+    : conTransferencia
+      ? "Lo que se pagó con MercadoPago se devuelve solo; la transferencia queda anotada y la tenés que devolver vos a mano."
+      : "Una devolución en MercadoPago no se puede revertir.";
 
   $("modal-detalle").textContent =
-    `${alquiler.huesped.nombre || "Sin nombre"} — ` +
-    `${fechaCorta(alquiler.checkIn)} al ${fechaCorta(diaDeSalida(alquiler.checkOut))}. ` +
-    `Se cobraron ${pesos.format(alquiler.monto)}` +
-    (alquiler.devuelto > 0
-      ? `, de los que ya se devolvieron ${pesos.format(alquiler.devuelto)}.`
+    `${reserva.huesped.nombre || "Sin nombre"} — ` +
+    `${fechaCorta(reserva.checkIn)} al ${fechaCorta(diaDeSalida(reserva.checkOut))}. ` +
+    `Se cobraron ${pesos.format(reserva.monto)}` +
+    (reserva.cobrados.length > 1 ? ` en ${reserva.cobrados.length} pagos` : "") +
+    (reserva.devuelto > 0
+      ? `, de los que ya se devolvieron ${pesos.format(reserva.devuelto)}.`
       : ".");
 
   $("modal-monto-total").textContent =
-    `${pesos.format(alquiler.neto)} — todo lo que queda por devolver.`;
+    `${pesos.format(reserva.neto)} — todo lo que queda por devolver.`;
 
   const monto = $("modal-monto");
-  monto.max = String(alquiler.neto);
+  monto.max = String(reserva.neto);
   monto.value = "";
-  monto.placeholder = `Hasta ${alquiler.neto}`;
+  monto.placeholder = `Hasta ${reserva.neto}`;
 
   document.querySelector(
     'input[name="modo-cancelacion"][value="total"]',
@@ -1295,7 +1427,9 @@ function abrirModalCancelar(alquiler) {
   $("modal-parcial").hidden = true;
 
   const hayQueDevolver =
-    alquiler.neto > 0 && alquiler.estadoPago === "approved";
+    reserva.neto > 0 &&
+    reserva.cobrados.some((p) => p.estadoPago === "approved");
+
   for (const radio of document.querySelectorAll(
     'input[name="modo-cancelacion"]',
   )) {
@@ -1356,13 +1490,17 @@ async function confirmarCancelacion() {
   gsap.to(icono, { rotation: 360, duration: 1, repeat: -1, ease: "linear" });
   texto.textContent = "Procesando…";
 
+  const primero = alquiler.cobrados[0];
+
   try {
     const respuesta = await api("/cancelar", {
       method: "POST",
       body: JSON.stringify({
-        ...(alquiler.origen === "transferencia"
-          ? { comprobanteId: alquiler.comprobanteId }
-          : { paymentId: alquiler.paymentId }),
+        ...(alquiler.bookingId
+          ? { bookingId: alquiler.bookingId }
+          : primero?.origen === "transferencia"
+            ? { comprobanteId: primero.comprobanteId }
+            : { paymentId: primero?.paymentId }),
         devolver: modo !== "ninguna",
         monto,
       }),
@@ -1370,15 +1508,22 @@ async function confirmarCancelacion() {
 
     cerrarModal();
 
+    const devolucion = respuesta.devolucion;
+
     if (respuesta.aviso) {
       mostrarToast(respuesta.aviso, "error");
-    } else if (respuesta.devolucion?.manual) {
+    } else if (devolucion?.montoManual && devolucion?.montoAutomatico) {
       mostrarToast(
-        `Anotados ${pesos.format(respuesta.devolucion.monto)} devueltos. Reserva cancelada.`,
+        `Devueltos ${pesos.format(devolucion.montoAutomatico)} por MercadoPago y ` +
+          `anotados ${pesos.format(devolucion.montoManual)} a mano. Reserva cancelada.`,
       );
-    } else if (respuesta.devolucion) {
+    } else if (devolucion?.manual) {
       mostrarToast(
-        `Devueltos ${pesos.format(respuesta.devolucion.monto)}. Reserva cancelada.`,
+        `Anotados ${pesos.format(devolucion.monto)} devueltos. Reserva cancelada.`,
+      );
+    } else if (devolucion) {
+      mostrarToast(
+        `Devueltos ${pesos.format(devolucion.monto)}. Reserva cancelada.`,
       );
     } else {
       mostrarToast("Reserva cancelada. Las fechas quedaron libres.");
@@ -1401,7 +1546,7 @@ async function confirmarCancelacion() {
 }
 
 function descargarReporte() {
-  if (!estado.alquileres.length) {
+  if (!estado.reservas.length) {
     mostrarToast("No hay alquileres para exportar.", "error");
     return;
   }
@@ -1431,8 +1576,9 @@ function descargarReporte() {
   doc.text(`DepartamentosDimo · generado el ${generado}`, 40, 62);
 
   const pendientes = estado.totales.comprobantesPendientes || 0;
+  const cantidad = estado.reservas.filter((r) => r.cobrados.length).length;
   doc.text(
-    `${estado.totales.cantidad} reservas · cobrado ${pesos.format(estado.totales.cobrado)} · ` +
+    `${cantidad} reservas · cobrado ${pesos.format(estado.totales.cobrado)} · ` +
       `devuelto ${pesos.format(estado.totales.devuelto)} · neto ${pesos.format(estado.totales.neto)}` +
       (pendientes
         ? ` · ${pendientes} transferencia${pendientes > 1 ? "s" : ""} por aprobar ` +
@@ -1447,7 +1593,7 @@ function descargarReporte() {
     head: [
       [
         "Pago",
-        "Inqulino",
+        "Inquilino",
         "Contacto",
         "Fechas",
         "Pers.",
@@ -1456,22 +1602,38 @@ function descargarReporte() {
         "Estado",
       ],
     ],
-    body: estado.alquileres.map((a) => [
-      `${fechaHora(a.fecha)}\n${a.paymentId ? `Op. ${a.paymentId}` : "Transferencia"}`,
-      [a.huesped.nombre, a.huesped.dni].join("\n") || "—",
-      ["Email: " + a.huesped.email, "Tel.: " + a.huesped.telefono]
+    body: estado.reservas.map((r) => [
+      [
+        fechaHora(r.fecha),
+        ...r.pagos.map((p) =>
+          r.pagos.length > 1
+            ? `${etiquetaDeConcepto(p.concepto)}: ${p.paymentId ? `Op. ${p.paymentId}` : "Transferencia"}`
+            : p.paymentId
+              ? `Op. ${p.paymentId}`
+              : "Transferencia",
+        ),
+      ].join("\n"),
+      [r.huesped.nombre, r.huesped.dni].filter(Boolean).join("\n") || "—",
+      [
+        r.huesped.email ? `Email: ${r.huesped.email}` : "",
+        r.huesped.telefono ? `Tel.: ${r.huesped.telefono}` : "",
+      ]
         .filter(Boolean)
         .join("\n") || "—",
-      a.checkIn
-        ? `Desde: ${fechaCorta(a.checkIn)}\nHasta: ${fechaCorta(diaDeSalida(a.checkOut))}`
+      r.checkIn
+        ? `Desde: ${fechaCorta(r.checkIn)}\nHasta: ${fechaCorta(diaDeSalida(r.checkOut))}`
         : "—",
-      a.personas == null ? "—" : String(a.personas),
-      (NOMBRE_MEDIO[a.tipo] || a.tipo || "—") +
-        (a.cuotas > 1 ? `\n${a.cuotas} cuotas` : ""),
-      a.devuelto > 0
-        ? `${pesos.format(a.monto)}\n− ${pesos.format(a.devuelto)}`
-        : pesos.format(a.monto),
-      estadoDeAlquiler(a).texto,
+      r.personas == null ? "—" : String(r.personas),
+      [
+        ...new Set(r.pagos.map((p) => NOMBRE_MEDIO[p.tipo] || p.tipo || "—")),
+        ...new Set(
+          r.pagos.filter((p) => p.cuotas > 1).map((p) => `${p.cuotas} cuotas`),
+        ),
+      ].join("\n"),
+      r.devuelto > 0
+        ? `${pesos.format(r.monto)}\n− ${pesos.format(r.devuelto)}`
+        : pesos.format(r.monto),
+      estadoDeReserva(r).texto,
     ]),
     styles: { fontSize: 8, cellPadding: 5, valign: "middle" },
     headStyles: { fillColor: [22, 50, 56], textColor: 255, fontStyle: "bold" },

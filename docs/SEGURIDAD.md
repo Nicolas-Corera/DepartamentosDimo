@@ -986,6 +986,7 @@ mal en tres cosas** que solo aparecieron probándola en el navegador:
 | `fonts.googleapis.com` en `pago` | El `<link>` tiene el `href` en otra línea y el `grep` no lo vio. La consola sí: *"Loading the stylesheet … has been blocked"* |
 | `api.mercadolibre.com` en `connect-src` | El SDK manda telemetría ahí. No rompía el brick, pero llenaba la consola de errores |
 | `*.mercadolivre.com` en `img-src` | Con **v**, el dominio brasileño. MercadoPago carga desde ahí una imagen de *fingerprint* antifraude. Esto no está en ninguna documentación que hayamos visto: apareció solo al montar el formulario de tarjeta |
+| Los CDN de `script-src` también en `connect-src` | Cuando abrís las DevTools, el navegador va a buscar el *source map* (`jspdf.umd.min.js.map`, `leaflet.js.map`, …) y esa carga **no** cuenta como `script-src` sino como `connect-src`. Sin eso, la consola se llenaba de *"Connecting to 'https://cdnjs.cloudflare.com/…/jspdf.umd.min.js.map' violates … connect-src"* |
 
 Ese último es el mejor argumento para no publicar una CSP sin probarla: bloquear
 el fingerprint antifraude no rompe nada visible, pero puede hacer que
