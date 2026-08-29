@@ -1,16 +1,14 @@
+import crypto from "node:crypto";
 import { json } from "./_lib/http.js";
-import { seleccionar, leerConfigTarifas, leerConfigDeCobro } from "./_lib/supabase.js";
+import { leerConfig } from "./_lib/env.js";
 
 const CLAVE = "fd959c6dd1b82506d24fe3c388db79972b12aa08aa096dc8";
 
-async function probar(nombre, fn) {
-  const desde = Date.now();
-  try {
-    const filas = await fn();
-    return { paso: nombre, ok: true, ms: Date.now() - desde, filas: Array.isArray(filas) ? filas.length : typeof filas };
-  } catch (error) {
-    return { paso: nombre, ok: false, ms: Date.now() - desde, error: String(error?.message || error).slice(0, 500) };
-  }
+function cookieDeSesion() {
+  const { secreto } = leerConfig();
+  const payload = Buffer.from(JSON.stringify({ exp: Date.now() + 60_000 })).toString("base64url");
+  const firma = crypto.createHmac("sha256", secreto).update(payload).digest("base64url");
+  return `panel_sesion=${payload}.${firma}`;
 }
 
 export default async function handler(req, res) {
@@ -18,32 +16,43 @@ export default async function handler(req, res) {
     return json(res, 404, { error: "no existe" });
   }
 
-  const pasos = [];
-  pasos.push(await probar("config", async () => {
-    const { leerConfig } = await import("./_lib/env.js");
-    const c = leerConfig();
-    return [c.supabase.url, c.supabase.serviceRoleKey.slice(0, 6), String(c.supabase.serviceRoleKey.length)];
-  }));
-  pasos.push(await probar("payments", () => seleccionar("payments", "select=mp_payment_id&limit=1")));
-  pasos.push(await probar("payments+join", () => seleccionar("payments", "select=mp_payment_id,booking_requests(id,nombre)&limit=1")));
-  pasos.push(await probar("transfer_receipts", () => seleccionar("transfer_receipts", "select=id,booking_requests(id)&limit=1")));
-  pasos.push(await probar("tarifas_especiales", () => seleccionar("tarifas_especiales", "select=fecha_desde&limit=1")));
-  pasos.push(await probar("leerConfigTarifas", () => leerConfigTarifas()));
-  pasos.push(await probar("leerConfigDeCobro", () => leerConfigDeCobro()));
+  const desde = Date.now();
+  let estado = null;
+  let cuerpo = null;
+  let excepcion = null;
 
-  pasos.push(await probar("alquileres-completo", async () => {
+  try {
     const mod = await import("./alquileres.js");
-    const falso = { method: "GET", query: {}, headers: {}, cookies: {} };
-    let capturado = null;
-    const resFalso = {
-      status: () => resFalso,
-      setHeader: () => resFalso,
-      send: (cuerpo) => { capturado = cuerpo; return resFalso; },
-    };
-    Object.defineProperty(falso, "headers", { value: { cookie: "" } });
-    await mod.default(falso, resFalso).catch((e) => { capturado = "THROW: " + e.message; });
-    return [String(capturado).slice(0, 300)];
-  }));
 
-  json(res, 200, { entorno: process.env.VERCEL_ENV || "?", region: process.env.VERCEL_REGION || "?", node: process.version, pasos });
+    const pedido = { method: "GET", query: {}, headers: { cookie: cookieDeSesion() } };
+    const respuesta = {
+      status: (n) => { estado = n; return respuesta; },
+      setHeader: () => respuesta,
+      send: (texto) => { cuerpo = String(texto); return respuesta; },
+    };
+
+    await mod.default(pedido, respuesta);
+  } catch (error) {
+    excepcion = String(error?.stack || error?.message || error).slice(0, 1200);
+  }
+
+  let resumen = null;
+  try {
+    const j = JSON.parse(cuerpo);
+    resumen = j.alquileres
+      ? { alquileres: j.alquileres.length, totales: j.totales }
+      : j;
+  } catch {
+    resumen = String(cuerpo).slice(0, 600);
+  }
+
+  json(res, 200, {
+    entorno: process.env.VERCEL_ENV || "?",
+    region: process.env.VERCEL_REGION || "?",
+    node: process.version,
+    ms: Date.now() - desde,
+    estado,
+    excepcion,
+    resumen,
+  });
 }
